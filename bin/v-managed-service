@@ -1,0 +1,120 @@
+#!/bin/bash
+# info: invoke an optional root-owned managed-service adapter
+# options: ACTOR
+
+# The panel only calls this command after it has verified the native session.
+# This command still validates the supplied native account so it never turns an
+# arbitrary command argument into a privileged adapter actor.
+actor=${1-}
+user=$actor
+readonly config=/usr/local/hestia/conf/managed-service.json
+readonly max_request_bytes=32768
+
+if [ "$EUID" -ne 0 ]; then
+	echo '{"error":"managed-service command requires root"}' >&2
+	exit 1
+fi
+
+# shellcheck source=/etc/hestiacp/hestia.conf
+source /etc/hestiacp/hestia.conf
+# shellcheck source=/usr/local/hestia/func/main.sh
+source "$HESTIA/func/main.sh"
+source_conf "$HESTIA/conf/hestia.conf"
+
+check_args '1' "$#" 'ACTOR'
+is_format_valid 'user'
+is_object_valid 'user' 'USER' "$user"
+source_conf "$HESTIA/data/users/$user/user.conf"
+if [ "${MANAGED_SERVICES:-no}" != 'yes' ] || [ "$ROLE" != 'admin' ]; then
+	echo '{"error":"managed-service access requires an enabled administrator"}' >&2
+	exit 1
+fi
+
+# The adapter is privileged. Refuse every symlink in either path and require
+# each parent directory to be root-owned and not writable by group or other.
+adapter=$("$HESTIA/php/bin/php" -r '
+function trusted_path($path, $regular = false, $mode = null, $executable = false) {
+    if (!is_string($path) || $path === "" || $path[0] !== "/") throw new Exception();
+    for ($current = $path; ; $current = dirname($current)) {
+        $info = @lstat($current);
+        if ($info === false || ($info["mode"] & 0170000) === 0120000 || $info["uid"] !== 0 || ($info["mode"] & 0022) !== 0) throw new Exception();
+        if ($current !== $path && ($info["mode"] & 0170000) !== 0040000) throw new Exception();
+        if ($current === "/") break;
+    }
+    $info = lstat($path);
+    if ($regular && ($info["mode"] & 0170000) !== 0100000) throw new Exception();
+    if ($mode !== null && ($info["mode"] & 0777) !== $mode) throw new Exception();
+    if ($executable && ($info["mode"] & 0111) === 0) throw new Exception();
+}
+try {
+    $config = $argv[1];
+    trusted_path($config, true, 0600);
+    $data = json_decode(file_get_contents($config), true, 512, JSON_THROW_ON_ERROR);
+    if (!is_array($data) || !isset($data["adapter"]) || !is_string($data["adapter"])) throw new Exception();
+    trusted_path($data["adapter"], true, null, true);
+    echo $data["adapter"];
+} catch (Throwable) {
+    exit(1);
+}
+' "$config") || { echo '{"error":"managed-service adapter is unavailable"}' >&2; exit 1; }
+
+# Fully parse and canonicalize stdin before starting the adapter. In
+# particular, a rejected JSON request must never execute an adapter process.
+request=$("$HESTIA/php/bin/php" -r '
+function request_uuid($value) {
+    if (!is_string($value) || !preg_match("/^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$/", $value)) throw new Exception();
+    return strtolower($value);
+}
+function has_exact_keys($value, $keys) {
+    if (!is_array($value)) return false;
+    $actual = array_keys($value);
+    sort($actual);
+    sort($keys);
+    return $actual === $keys;
+}
+try {
+    $actor = $argv[1];
+    $maxBytes = (int) $argv[2];
+    $raw = stream_get_contents(STDIN, $maxBytes + 1);
+    if ($raw === false || strlen($raw) > $maxBytes) throw new Exception();
+    $data = json_decode($raw, true, 512, JSON_THROW_ON_ERROR);
+    if (!is_array($data)) throw new Exception();
+    $sections = ["overview", "customers", "services", "domains", "nodes", "reservations", "jobs", "support", "audit", "billing", "trials"];
+    $statuses = ["open", "waiting_on_customer", "waiting_on_staff", "resolved", "closed"];
+    $operation = $data["operation"] ?? null;
+    $section = $data["section"] ?? "overview";
+    if (!in_array($operation, ["read", "set_trial_capacity", "support_reply", "support_status"], true) || !in_array($section, $sections, true)) throw new Exception();
+    $canonical = ["actor" => $actor, "operation" => $operation, "section" => $section];
+    if ($operation === "read") {
+        if (array_key_exists("record_id", $data) && $data["record_id"] !== null) $canonical["record_id"] = request_uuid($data["record_id"]);
+    } else {
+        $payload = $data["payload"] ?? null;
+        if (!is_array($payload)) throw new Exception();
+        $canonical["idempotency_key"] = request_uuid($data["idempotency_key"] ?? null);
+        if ($operation === "set_trial_capacity") {
+            if ($section !== "trials" || !has_exact_keys($payload, ["concurrent_limit"]) || !is_int($payload["concurrent_limit"]) || $payload["concurrent_limit"] < 0 || $payload["concurrent_limit"] > 2147483647) throw new Exception();
+            $canonical["payload"] = ["concurrent_limit" => $payload["concurrent_limit"]];
+        } else {
+            if ($section !== "support") throw new Exception();
+            $canonical["record_id"] = request_uuid($data["record_id"] ?? null);
+            if ($operation === "support_reply") {
+                if (!has_exact_keys($payload, ["message"]) || !is_string($payload["message"])) throw new Exception();
+                $message = trim($payload["message"]);
+                $characters = preg_match_all("/./us", $message);
+                if ($characters === false || $characters < 1 || $characters > 10000) throw new Exception();
+                $canonical["payload"] = ["message" => $message];
+            } else {
+                if (!has_exact_keys($payload, ["status"]) || !is_string($payload["status"]) || !in_array($payload["status"], $statuses, true)) throw new Exception();
+                $canonical["payload"] = ["status" => $payload["status"]];
+            }
+        }
+    }
+    echo json_encode($canonical, JSON_THROW_ON_ERROR | JSON_UNESCAPED_SLASHES);
+} catch (Throwable) {
+    exit(1);
+}
+' "$actor" "$max_request_bytes") || { echo '{"error":"invalid managed-service request"}' >&2; exit 1; }
+
+set -o pipefail
+printf '%s' "$request" | "$adapter"
+exit "$?"

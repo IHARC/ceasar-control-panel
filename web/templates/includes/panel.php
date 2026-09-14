@@ -318,6 +318,13 @@
 						</a>
 					</li>
 				<?php } ?>
+				<?php if ($_SESSION["userContext"] === "admin" && $_SESSION["look"] === "" && ($_SESSION["MANAGED_SERVICES"] ?? "no") === "yes") { ?>
+					<li class="main-menu-item">
+						<a class="main-menu-item-link <?php if ($TAB === "MANAGED") echo "active"; ?>" href="/list/managed/">
+							<p class="main-menu-item-label"><?= _("Managed") ?><i class="fas fa-server"></i></p>
+						</a>
+					</li>
+				<?php } ?>
 
 				<!-- Web tab -->
 				<?php if (isset($_SESSION["WEB_SYSTEM"]) && !empty($_SESSION["WEB_SYSTEM"])) { ?>
