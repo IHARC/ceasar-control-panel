@@ -20,9 +20,7 @@ export default defineConfig({
 
 		nav: nav(),
 
-		socialLinks: [
-			{ icon: 'github', link: 'https://github.com/iharc-jordan/ceasar-control-panel' },
-		],
+		socialLinks: [{ icon: 'github', link: 'https://github.com/iharc-jordan/ceasar-control-panel' }],
 
 		sidebar: { '/docs/': sidebarDocs() },
 

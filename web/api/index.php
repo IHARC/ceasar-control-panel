@@ -359,11 +359,7 @@ if (isset($_POST["access_key"]) || isset($_POST["user"]) || isset($_POST["hash"]
 } elseif (($json_data = json_decode(file_get_contents("php://input"), true)) != null) {
 	$request_data = $json_data;
 } else {
-	api_error(
-		405,
-		"Error: data received is null or invalid.",
-		"",
-	);
+	api_error(405, "Error: data received is null or invalid.", "");
 }
 
 // Try to get access key in the hash
@@ -386,9 +382,5 @@ if (isset($request_data["access_key"]) && isset($request_data["secret_key"])) {
 } elseif (isset($request_data["user"]) || isset($request_data["hash"])) {
 	api_legacy($request_data);
 } else {
-	api_error(
-		405,
-		"Error: data received is null or invalid.",
-		"",
-	);
+	api_error(405, "Error: data received is null or invalid.", "");
 }

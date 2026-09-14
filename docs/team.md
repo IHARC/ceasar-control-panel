@@ -4,7 +4,7 @@ layout: page
 title: The Team
 ---
 
-# Maintainers
+## Maintainers
 
 Ceasar Control Panel is an IHARC Labs maintained white-label source checkout.
 Repository maintenance is owned by `iharc-jordan`; the separate IHARC Labs
