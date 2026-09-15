@@ -1,0 +1,5 @@
+#!/usr/bin/env bash
+set -Eeuo pipefail
+set +x
+HESTIA=${HESTIA:-/usr/local/hestia}
+exec /usr/bin/python3 -I "$HESTIA/libexec/iharc/iharc_haproxy_cert_sync.py" --sync "$@"

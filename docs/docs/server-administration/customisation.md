@@ -6,13 +6,15 @@ We currently only support changing the layout via CSS. You can customise HTML fi
 
 ## Managed-service integrations
 
-This fork includes optional managed-service lifecycle calls for canonical hosting
-accounts. The hosting deployment supplies the root-owned executables
-`iharc-customer-isolation`, `v-iharc-transfer-policy`,
-`iharc-transfer-uid-floor`, and `iharc-haproxy-cert-sync` under the Hestia
-`bin` directory. They and their node-specific configuration are intentionally
-not distributed in this repository. Operations that require a missing managed
-integration fail closed.
+This fork provides the canonical-account lifecycle commands
+`iharc-customer-isolation`, `v-iharc-resource-isolation`,
+`iharc-transfer-uid-floor`, `v-iharc-transfer-policy`, and
+`iharc-haproxy-cert-sync`, with their nonsecret Python support files under
+Hestia `libexec/iharc`. A managed hosting deployment must supply its
+root-owned account profile, transfer-policy data, service units, and HAProxy
+configuration. Those deployment bindings are intentionally outside this
+repository. Missing or unsafe deployment configuration makes the affected
+canonical-account operation fail; these commands have no fallback path.
 
 ## Adding a new theme
 

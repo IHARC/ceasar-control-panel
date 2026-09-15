@@ -1,0 +1,24 @@
+#!/usr/bin/env bash
+# Fixed Hestia command API bridge for native customer isolation.
+set -euo pipefail
+set +x
+
+user=${1:-}
+action=${2:-}
+[[ $# -eq 2 && "$user" =~ ^ih[0-9a-f]{14}$ ]] || { echo 'Error: invalid account'; exit 1; }
+[[ "$action" == reconcile || "$action" == status ]] || { echo 'Error: invalid action'; exit 1; }
+
+# Hestia's config ends with an optional local.conf test, which returns 1 when
+# no override exists. Validate the loaded installation path separately.
+[[ -r /etc/hestiacp/hestia.conf ]] || { echo 'Error: Hestia configuration is unavailable'; exit 1; }
+unset HESTIA
+source /etc/hestiacp/hestia.conf || [[ -n ${HESTIA:-} ]]
+[[ ${HESTIA:-} == /* && -d "$HESTIA" ]] || { echo 'Error: Hestia configuration is unavailable'; exit 1; }
+helper="$HESTIA/bin/iharc-customer-isolation"
+[[ -x "$helper" && ! -L "$helper" ]] || { echo 'Error: resource isolation helper is unavailable'; exit 1; }
+
+if [[ "$action" == status ]]; then
+  exec "$helper" status "$user" "$HESTIA"
+fi
+"$helper" reconcile "$user" "$HESTIA" >/dev/null
+printf '0\n'
