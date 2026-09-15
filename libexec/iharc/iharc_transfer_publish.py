@@ -171,8 +171,11 @@ class Publisher:
             raise PolicyError("HAProxy authority synchronization is unavailable")
 
     def native_controller_status(self) -> list[dict]:
+        daemon = pathlib.Path(__file__).resolve().with_name("iharc-transferd.py")
+        if not daemon.is_absolute() or daemon.name != "iharc-transferd.py":
+            raise PolicyError("public transfer daemon path is invalid")
         result = subprocess.run(
-            ["/usr/bin/python3", "/usr/local/libexec/iharc-transferd.py", "--status"],
+            ["/usr/bin/python3", str(daemon), "--status"],
             check=False, capture_output=True, text=True, timeout=5,
             env={"PATH": "/usr/sbin:/usr/bin:/sbin:/bin", "LANG": "C"},
         )
