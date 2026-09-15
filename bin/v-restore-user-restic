@@ -13,13 +13,13 @@
 # Argument definition
 user=$1
 snapshot=$2
-web=$3
-dns=$4
-mail=$5
-db=$6
-cron=$7
-udir=${8-yes}
-notify=${9-no}
+web=${3:-*}
+dns=${4:-*}
+mail=${5:-*}
+db=${6:-*}
+cron=${7:-yes}
+udir=${8:-yes}
+notify=${9:-no}
 
 # Includes
 # shellcheck source=/etc/hestiacp/hestia.conf
@@ -41,8 +41,8 @@ source_conf "$HESTIA/conf/hestia.conf"
 #                    Verifications                         #
 #----------------------------------------------------------#
 
-args_usage='USER SNAPSHOT KEY [NOTIFY]'
-check_args '3' "$#" "$args_usage"
+args_usage='USER SNAPSHOT [WEB] [DNS] [MAIL] [DB] [CRON] [UDIR] [NOTIFY]'
+check_args '2' "$#" "$args_usage"
 is_format_valid 'user'
 is_object_valid 'user' 'USER' "$user"
 
@@ -68,16 +68,21 @@ fi
 
 # Restore web domains
 echo "[ * ] Restore Web domains"
-$BIN/v-restore-web-domain-restic "$user" "$snapshot" "$web" 'no'
+$BIN/v-restore-web-domain-restic "$user" "$snapshot" "$web" 'no' 'no' 'yes' \
+	|| check_result "$E_NOTEXIST" "Unable to restore web domains"
 echo "[ * ] Restore DNS domains"
-$BIN/v-restore-dns-domain-restic "$user" "$snapshot" "$dns"
+$BIN/v-restore-dns-domain-restic "$user" "$snapshot" "$dns" \
+	|| check_result "$E_NOTEXIST" "Unable to restore DNS domains"
 echo "[ * ] Restore Mail domains"
-$BIN/v-restore-mail-domain-restic "$user" "$snapshot" "$mail"
+$BIN/v-restore-mail-domain-restic "$user" "$snapshot" "$mail" \
+	|| check_result "$E_NOTEXIST" "Unable to restore Mail domains"
 echo "[ * ] Restore Databases"
-$BIN/v-restore-database-restic "$user" "$snapshot" "$db"
+$BIN/v-restore-database-restic "$user" "$snapshot" "$db" \
+	|| check_result "$E_NOTEXIST" "Unable to restore databases"
 if [ -n "$cron" ]; then
 	echo "[ * ] Restore Cronjobs"
-	$BIN/v-restore-cron-job-restic "$user" "$snapshot"
+	$BIN/v-restore-cron-job-restic "$user" "$snapshot" \
+		|| check_result "$E_NOTEXIST" "Unable to restore Cronjobs"
 fi
 if [ "$udir" = "yes" ]; then
 	echo "[ * ] Restore user files"
@@ -88,7 +93,18 @@ if [ "$udir" = "yes" ]; then
 fi
 
 # Rebuilding user
-rebuild_user_conf
+rebuild_user_conf || check_result "$E_RESTART" "Unable to rebuild user configuration"
+
+# The full restore defers the web-child edge transaction until every selected
+# native object is restored and Hestia has rebuilt the user source.
+if [[ "$user" =~ ^ih[0-9a-f]{14}$ ]]; then
+	"$HESTIA/bin/iharc-customer-isolation" reconcile "$user" "$HESTIA" > /dev/null \
+		|| check_result "$E_INVALID" "customer resource isolation could not be reconciled after Restic restore"
+fi
+if [[ ( "$user" =~ ^ih[0-9a-f]{14}$ || "$user" == "$ROOT_USER" ) && -x "$BIN/iharc-haproxy-cert-sync" ]]; then
+	"$BIN/iharc-haproxy-cert-sync" \
+		|| check_result "$E_RESTART" "HAProxy authority synchronization could not complete"
+fi
 
 #----------------------------------------------------------#
 #                       Hestia                             #

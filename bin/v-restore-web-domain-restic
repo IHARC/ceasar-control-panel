@@ -1,6 +1,6 @@
 #!/bin/bash
 # info: restore WEB domain
-# options: USER SNAPSHOT DOMAIN
+# options: USER SNAPSHOT DOMAIN [NOTIFY] [NEW_USER] [DEFER_EDGE]
 #
 # example: v-restore-web-domain-restic user snapshot domain.com
 # example: v-restore-web-domain-restic user snapshot 'domain.com,domain2.com'
@@ -18,6 +18,7 @@ snapshot=$2
 web=$3
 notify=${4-no}
 new_user=${5-no}
+defer_edge=${6-no}
 
 # Includes
 # shellcheck source=/etc/hestiacp/hestia.conf
@@ -199,7 +200,7 @@ for domain in "${domains[@]}"; do
 		done
 
 		# Rebuilding vhost to prevent user overwrite default config changes not ideal
-		rebuild_web_domain_conf
+		rebuild_web_domain_conf || check_result "$E_RESTART" "Unable to rebuild web configuration"
 
 		if [ -d "$HOMEDIR/$user/web/$domain/public_html" ]; then
 			rm -rf $HOMEDIR/$user/web/$domain/public_html/*
@@ -227,7 +228,7 @@ for domain in "${domains[@]}"; do
 			chown root:$user /var/log/$WEB_SYSTEM/domains/$domain.*
 		fi
 		# Rebuilding web config for the second time to make sure ftp users keep working
-		rebuild_web_domain_conf
+		rebuild_web_domain_conf || check_result "$E_RESTART" "Unable to rebuild web configuration"
 
 	fi
 done
@@ -235,7 +236,23 @@ done
 #                       Hestia                             #
 #----------------------------------------------------------#
 if [ "$new_user" = "yes" ]; then
-	rebuild_user_conf
+	rebuild_user_conf || check_result "$E_RESTART" "Unable to rebuild user configuration"
+fi
+
+# A newly restored canonical account leaves this native parent owned by the
+# account. Restore only its protected parent metadata before edge publication.
+if [[ "$new_user" == yes && "$user" =~ ^ih[0-9a-f]{14}$ ]]; then
+	web_directory="$HOMEDIR/$user/web"
+	if [[ ! -d "$web_directory" || -L "$web_directory" || "$(readlink -e -- "$web_directory")" != "$web_directory" || "$(stat -c '%U:%G:%a' -- "$web_directory")" != "$user:$user:751" ]]; then
+		check_result "$E_INVALID" "restored customer web parent is unsafe"
+	fi
+	chown --no-dereference root:"$user" "$web_directory" \
+		|| check_result "$E_RESTART" "could not normalize restored customer web parent ownership"
+	chmod 0751 "$web_directory" \
+		|| check_result "$E_RESTART" "could not normalize restored customer web parent mode"
+	if [[ ! -d "$web_directory" || -L "$web_directory" || "$(readlink -e -- "$web_directory")" != "$web_directory" || "$(stat -c '%U:%G:%a' -- "$web_directory")" != "root:$user:751" ]]; then
+		check_result "$E_RESTART" "restored customer web parent normalization did not hold"
+	fi
 fi
 rm -fr $tmpdir
 
@@ -243,6 +260,18 @@ rm -fr $tmpdir
 $BIN/v-update-user-counters $user
 $BIN/v-update-user-counters "$ROOT_USER"
 $BIN/v-update-sys-ip-counters
+
+# A direct web restore bypasses ordinary domain hooks. Reconcile the canonical
+# private edge before publishing restored authority; either failure leaves the
+# queued restore in place for retry.
+if [[ "$defer_edge" != yes && "$user" =~ ^ih[0-9a-f]{14}$ ]]; then
+	"$HESTIA/bin/iharc-customer-isolation" reconcile "$user" "$HESTIA" > /dev/null \
+		|| check_result "$E_INVALID" "customer resource isolation could not be reconciled after Restic restore"
+fi
+if [[ "$defer_edge" != yes && ( "$user" =~ ^ih[0-9a-f]{14}$ || "$user" == "$ROOT_USER" ) && -x "$BIN/iharc-haproxy-cert-sync" ]]; then
+	"$BIN/iharc-haproxy-cert-sync" \
+		|| check_result "$E_RESTART" "HAProxy authority synchronization could not complete"
+fi
 
 sed -i "/v-restore-web-domain-restic '$user' '$snapshot' '$web' /d" $HESTIA/data/queue/backup.pipe
 

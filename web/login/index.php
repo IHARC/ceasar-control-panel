@@ -49,9 +49,15 @@ if (isset($_SESSION["user"])) {
 				unset($_SESSION["_sf2_meta"]);
 				if (!empty($_GET["edit_link"])) {
 					$edit_link = urldecode($_GET["edit_link"]);
-					$url = $edit_link . "&token=" . $_SESSION["token"];
-					header("Location: " . $url);
-					die();
+					// A relative target must have exactly one leading slash and contain
+					// no backslashes or control characters. This rejects scheme-relative
+					// URLs before the session token can be appended to a redirect.
+					if (preg_match('~^/(?!/)[^\x00-\x1F\x7F\\\\]*$~D', $edit_link)) {
+						$separator = str_contains($edit_link, "?") ? "&" : "?";
+						$url = $edit_link . $separator . "token=" . rawurlencode($_SESSION["token"]);
+						header("Location: " . $url);
+						die();
+					}
 				}
 				header("Location: /login/");
 			} else {
