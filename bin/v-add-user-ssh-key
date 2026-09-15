@@ -42,12 +42,21 @@ check_hestia_demo_mode
 # Reading user values
 source $USER_DATA/user.conf
 
+# Serialize native key adds and exact-key revokes on a dedicated root-owned
+# lock. authorized_keys itself may be atomically replaced by revoke.
+SSH_KEY_LOCK_DIRECTORY="/run/hestia/ssh-key-locks"
+install -d -o root -g root -m 0700 "$SSH_KEY_LOCK_DIRECTORY" || check_result $? "Unable to prepare SSH key lock" "$E_SYSTEM"
+SSH_KEY_LOCK_FILE="$SSH_KEY_LOCK_DIRECTORY/$user.lock"
+(umask 077; : >> "$SSH_KEY_LOCK_FILE") || check_result $? "Unable to prepare SSH key lock" "$E_SYSTEM"
+exec 9>>"$SSH_KEY_LOCK_FILE" || check_result $? "Unable to open SSH key lock" "$E_SYSTEM"
+flock -x 9 || check_result $? "Unable to acquire SSH key lock" "$E_SYSTEM"
+
 AUTHKEY_FILE="$HOMEDIR/$user/.ssh/authorized_keys"
 [ -z "$(readlink -f "$AUTHKEY_FILE" | egrep "^$HOMEDIR/$user/.ssh/")" ] && check_result "$E_FORBIDEN" "Invalid authorized keys path"
 
 # Check if file exits
 if [ ! -f "$AUTHKEY_FILE" ]; then
-	v-add-fs-file "$user" "${AUTHKEY_FILE}"
+	$BIN/v-add-fs-file "$user" "${AUTHKEY_FILE}" || check_result $? "Unable to create SSH key file" "$E_SYSTEM"
 fi
 
 [ -z "$key" ] && check_result "$E_NOTEXIST" "Empty ssh public key"
@@ -57,10 +66,12 @@ if ! echo "$key" | ssh-keygen -l -f - > /dev/null 2>&1; then
 fi
 
 # Make sure authorized_keys ends with EOL
-[ -f "${AUTHKEY_FILE}" ] && sed -i '$a\' "${AUTHKEY_FILE}"
+if [ -f "${AUTHKEY_FILE}" ]; then
+	sed -i '$a\' "${AUTHKEY_FILE}" || check_result $? "Unable to update SSH key file" "$E_SYSTEM"
+fi
 
 # Append key data to file
-echo "$key" >> "$AUTHKEY_FILE"
+printf '%s\n' "$key" >> "$AUTHKEY_FILE" || check_result $? "Unable to add SSH key" "$E_SYSTEM"
 
 #----------------------------------------------------------#
 #                       Hestia                             #

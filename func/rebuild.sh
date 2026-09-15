@@ -77,14 +77,23 @@ rebuild_user_conf() {
 		groupadd --system "hestia-users"
 	fi
 
-	# Add membership to hestia-users group to non-admin users
+	# Keep the shared group and deny ACL for service identities; customer accounts
+	# remain primary-group-only so a group quota cannot be escaped via chgrp.
 	if [ "$user" = "$ROOT_USER" ]; then
 		setfacl -m "g:$ROOT_USER:r-x" "$HOMEDIR/$user"
 	else
-		usermod -a -G "hestia-users" "$user"
+		# Remove legacy customer and same-UID FTP identities from the shared
+		# group when an existing account is rebuilt under primary-only policy.
+		while read -r legacy_identity; do
+			gpasswd -d "$legacy_identity" hestia-users > /dev/null 2>&1 || true
+		done < <(getent passwd | awk -F: -v uid="$(id -u "$user")" '$3 == uid {print $1}')
 		setfacl -m "u:$user:r-x" "$HOMEDIR/$user"
 	fi
 	setfacl -m "g:hestia-users:---" "$HOMEDIR/$user"
+	chmod o-rwx "$HOMEDIR/$user"
+	if id www-data > /dev/null 2>&1; then
+		setfacl -m "u:www-data:--x" "$HOMEDIR/$user"
+	fi
 
 	# Update user shell
 	/usr/bin/chsh -s "$shell" "$user" &> /dev/null
@@ -110,7 +119,7 @@ rebuild_user_conf() {
 		$HOMEDIR/$user/.ssh \
 		$HOMEDIR/$user/.npm \
 		$HOMEDIR/$user/.wp-cli
-	chmod a+x $HOMEDIR/$user
+	chmod u+x,g+x $HOMEDIR/$user
 	chmod a+x $HOMEDIR/$user/conf
 	chown --no-dereference $user:$user \
 		$HOMEDIR/$user \
@@ -798,7 +807,17 @@ rebuild_mail_domain_conf() {
 # Rebuild MySQL
 rebuild_mysql_database() {
 	mysql_connect $HOST
+	database_created=0
 	mysql_query "CREATE DATABASE \`$DB\` CHARACTER SET $CHARSET" > /dev/null
+	if [ "$?" -eq 0 ]; then
+		database_created=1
+	fi
+	if ! prepare_mysql_group_quota_dir "$user" "$DB"; then
+		if [ "$database_created" -eq 1 ]; then
+			mysql_query "DROP DATABASE \`$DB\`" > /dev/null 2>&1
+		fi
+		check_result "$E_DISK" "Unable to prepare pooled quota directory for $DB"
+	fi
 	if [ "$mysql_fork" = "mysql" ]; then
 		# mysql
 		mysql_ver_sub=$(echo $mysql_ver | cut -d '.' -f1)

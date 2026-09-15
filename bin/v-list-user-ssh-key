@@ -21,6 +21,12 @@ source $HESTIA/func/main.sh
 # load config file
 source_conf "$HESTIA/conf/hestia.conf"
 
+csv_escape() {
+	local value=$1
+	value=${value//\"/\"\"}
+	printf '%s' "$value"
+}
+
 # JSON list function
 json_list() {
 	IFS=$'\n'
@@ -28,12 +34,11 @@ json_list() {
 	objects=$(echo "$keys" | wc -l)
 	echo "{"
 	for str in $keys; do
-		KEY=$(echo $str | awk '{print $(NF-2)}')
-		ID=$(echo $str | awk '{print $(NF-1)}')
-		echo -n '    "'$ID'": {
-        "ID": "'$ID'",
-        "KEY": "'$KEY'"
-        }'
+		KEY=${str##*$'\t'}
+		ID=${str%$'\t'*}
+		json_id=$(printf '%s' "$ID" | jq -Rsa .) || check_result $? "Unable to encode SSH key inventory" "$E_SYSTEM"
+		json_key=$(printf '%s' "$KEY" | jq -Rsa .) || check_result $? "Unable to encode SSH key inventory" "$E_SYSTEM"
+		printf '    %s: {\n        "ID": %s,\n        "KEY": %s\n        }' "$json_id" "$json_id" "$json_key"
 		if [ "$i" -lt "$objects" ]; then
 			echo ','
 		fi
@@ -47,8 +52,8 @@ shell_list() {
 	echo "ID~KEY"
 	echo "----~----~---"
 	for str in $keys; do
-		KEY=$(echo $str | awk '{print $(NF-2)}')
-		ID=$(echo $str | awk '{print $(NF-1)}')
+		KEY=${str##*$'\t'}
+		ID=${str%$'\t'*}
 		echo "$ID~$KEY"
 	done
 }
@@ -57,9 +62,9 @@ shell_list() {
 plain_list() {
 	IFS=$'\n'
 	for str in $keys; do
-		KEY=$(echo $str | awk '{print $(NF-2)}')
-		ID=$(echo $str | awk '{print $(NF-1)}')
-		echo -e "$ID\t$KEY"
+		KEY=${str##*$'\t'}
+		ID=${str%$'\t'*}
+		printf '%s\t%s\n' "$ID" "$KEY"
 	done
 }
 
@@ -68,9 +73,11 @@ csv_list() {
 	IFS=$'\n'
 	echo "ID,KEY"
 	for str in $keys; do
-		KEY=$(echo $str | awk '{print $(NF-2)}')
-		ID=$(echo $str | awk '{print $(NF-1)}')
-		echo "\"$ID\",\"$KEY\""
+		KEY=${str##*$'\t'}
+		ID=${str%$'\t'*}
+		escaped_id=$(csv_escape "$ID")
+		escaped_key=$(csv_escape "$KEY")
+		printf '"%s","%s"\n' "$escaped_id" "$escaped_key"
 	done
 }
 
@@ -81,7 +88,6 @@ csv_list() {
 check_args '1' "$#" 'USER'
 is_format_valid 'user'
 is_object_valid 'user' 'USER' "$user"
-is_object_unsuspended 'user' 'USER' "$user"
 
 #----------------------------------------------------------#
 #                       Action                             #
@@ -95,13 +101,29 @@ if [ ! -f "$AUTHKEY_FILE" ]; then
 	exit
 fi
 
+# Share the dedicated root-owned lock with add/delete. This inventory remains
+# available for a suspended account and cannot observe a torn rewrite.
+SSH_KEY_LOCK_DIRECTORY="/run/hestia/ssh-key-locks"
+install -d -o root -g root -m 0700 "$SSH_KEY_LOCK_DIRECTORY" || check_result $? "Unable to prepare SSH key lock" "$E_SYSTEM"
+SSH_KEY_LOCK_FILE="$SSH_KEY_LOCK_DIRECTORY/$user.lock"
+(umask 077; : >> "$SSH_KEY_LOCK_FILE") || check_result $? "Unable to prepare SSH key lock" "$E_SYSTEM"
+exec 9>>"$SSH_KEY_LOCK_FILE" || check_result $? "Unable to open SSH key lock" "$E_SYSTEM"
+flock -s 9 || check_result $? "Unable to acquire SSH key lock" "$E_SYSTEM"
+
 first_loop=1
-while read l; do
-	sshkey=$([[ -n $l && ${l###} = $l ]] && ssh-keygen -l -f <(echo $l))
-	if [ -n "$sshkey" ]; then
-		(($first_loop)) && keys="$sshkey" || keys="$keys"$'\n'"$sshkey"
-		unset first_loop
-	fi
+while IFS= read -r l || [ -n "$l" ]; do
+	sshkey=$(printf '%s\n' "$l" | LC_ALL=C ssh-keygen -l -E sha256 -f - 2>/dev/null) || continue
+	sshkey=${sshkey#* }
+	key_fingerprint=${sshkey%% *}
+	sshkey=${sshkey#* }
+	case "$sshkey" in
+		*" ("*) key_id=${sshkey% \(*} ;;
+		*) continue ;;
+	esac
+	[ -n "$key_id" ] || continue
+	key="$key_id"$'\t'"$key_fingerprint"
+	(($first_loop)) && keys="$key" || keys="$keys"$'\n'"$key"
+	unset first_loop
 done < "$AUTHKEY_FILE"
 
 # Listing data

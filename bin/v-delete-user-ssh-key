@@ -1,6 +1,6 @@
 #!/bin/bash
 # info: add ssh key
-# options: USER KEY
+# options: USER KEYID [FINGERPRINT]
 #
 # example: v-delete-user-ssh-key user unique_id
 #
@@ -13,6 +13,7 @@
 # Argument definition
 user=$1
 keyid=$2
+fingerprint=$3
 
 # Includes
 # shellcheck source=/etc/hestiacp/hestia.conf
@@ -23,16 +24,41 @@ source $HESTIA/func/main.sh
 source_conf "$HESTIA/conf/hestia.conf"
 # Additional argument formatting
 
+parse_ssh_key_line() {
+	local line=$1
+	local sshkey
+
+	sshkey=$(printf '%s\n' "$line" | LC_ALL=C ssh-keygen -l -E sha256 -f - 2>/dev/null) || return 1
+	sshkey=${sshkey#* }
+	key_fingerprint=${sshkey%% *}
+	sshkey=${sshkey#* }
+	case "$sshkey" in
+		*" ("*) key_id=${sshkey% \(*} ;;
+		*) return 1 ;;
+	esac
+	[ -n "$key_id" ]
+}
+
 #----------------------------------------------------------#
 #                    Verifications                         #
 #----------------------------------------------------------#
 
 check_args '2' "$#" 'USER KEYID'
 is_format_valid 'user'
-is_no_new_line_format "$key_id"
+is_no_new_line_format "$keyid"
+[ -n "$fingerprint" ] && is_no_new_line_format "$fingerprint"
 is_object_valid 'user' 'USER' "$user"
 
 source "$USER_DATA/user.conf"
+
+# Use the same dedicated root-owned lock as native key adds. Do not lock
+# authorized_keys itself: the successful rewrite below replaces that inode.
+SSH_KEY_LOCK_DIRECTORY="/run/hestia/ssh-key-locks"
+install -d -o root -g root -m 0700 "$SSH_KEY_LOCK_DIRECTORY" || check_result $? "Unable to prepare SSH key lock" "$E_SYSTEM"
+SSH_KEY_LOCK_FILE="$SSH_KEY_LOCK_DIRECTORY/$user.lock"
+(umask 077; : >> "$SSH_KEY_LOCK_FILE") || check_result $? "Unable to prepare SSH key lock" "$E_SYSTEM"
+exec 9>>"$SSH_KEY_LOCK_FILE" || check_result $? "Unable to open SSH key lock" "$E_SYSTEM"
+flock -x 9 || check_result $? "Unable to acquire SSH key lock" "$E_SYSTEM"
 
 AUTHKEY_FILE="$HOMEDIR/$user/.ssh/authorized_keys"
 [ -z "$(readlink -f "$AUTHKEY_FILE" | egrep "^$HOMEDIR/$user/.ssh/")" ] && check_result "$E_FORBIDEN" "Invalid authorized keys path"
@@ -48,7 +74,53 @@ check_hestia_demo_mode
 #                       Action                             #
 #----------------------------------------------------------#
 
-sed -i "/${keyid}/d" "$AUTHKEY_FILE"
+hex_dump=$(LC_ALL=C od -An -v -t x1 "$AUTHKEY_FILE") || check_result $? "Unable to inspect SSH key file" "$E_SYSTEM"
+printf '%s\n' "$hex_dump" | grep -Eq '(^|[[:space:]])00([[:space:]]|$)'
+nul_status=$?
+[ "$nul_status" -eq 0 ] && check_result "$E_FORBIDEN" "Binary SSH key files cannot be modified"
+[ "$nul_status" -eq 1 ] || check_result $? "Unable to inspect SSH key file" "$E_SYSTEM"
+
+matches=0
+matched_fingerprint=''
+while :; do
+	IFS= read -r line
+	read_status=$?
+	[ "$read_status" -ne 0 ] && [ -z "$line" ] && break
+
+	if parse_ssh_key_line "$line" && [ "$key_id" = "$keyid" ]; then
+		matches=$((matches + 1))
+		matched_fingerprint=$key_fingerprint
+	fi
+
+	[ "$read_status" -ne 0 ] && break
+done < "$AUTHKEY_FILE"
+
+[ "$matches" -eq 1 ] || check_result "$E_NOTEXIST" "SSH key ID does not identify exactly one key"
+[ -z "$fingerprint" ] || [ "$matched_fingerprint" = "$fingerprint" ] || check_result "$E_FORBIDEN" "SSH key fingerprint does not match"
+
+AUTHKEY_DIRECTORY=${AUTHKEY_FILE%/*}
+AUTHKEY_TEMP=$(mktemp "$AUTHKEY_DIRECTORY/.authorized_keys.XXXXXX") || check_result $? "Unable to prepare SSH key update" "$E_SYSTEM"
+trap 'rm -f "$AUTHKEY_TEMP"' EXIT
+
+while :; do
+	IFS= read -r line
+	read_status=$?
+	[ "$read_status" -ne 0 ] && [ -z "$line" ] && break
+
+	if ! parse_ssh_key_line "$line" || [ "$key_id" != "$keyid" ] || [ "$key_fingerprint" != "$matched_fingerprint" ]; then
+		printf '%s' "$line" >> "$AUTHKEY_TEMP" || check_result $? "Unable to update SSH key file" "$E_SYSTEM"
+		if [ "$read_status" -eq 0 ]; then
+			printf '\n' >> "$AUTHKEY_TEMP" || check_result $? "Unable to update SSH key file" "$E_SYSTEM"
+		fi
+	fi
+
+	[ "$read_status" -ne 0 ] && break
+done < "$AUTHKEY_FILE"
+
+chown --reference="$AUTHKEY_FILE" "$AUTHKEY_TEMP" || check_result $? "Unable to update SSH key file" "$E_SYSTEM"
+chmod --reference="$AUTHKEY_FILE" "$AUTHKEY_TEMP" || check_result $? "Unable to update SSH key file" "$E_SYSTEM"
+mv -f "$AUTHKEY_TEMP" "$AUTHKEY_FILE" || check_result $? "Unable to update SSH key file" "$E_SYSTEM"
+trap - EXIT
 
 #----------------------------------------------------------#
 #                       Hestia                             #

@@ -204,6 +204,9 @@ if [ "$?" -ne 0 ]; then
 fi
 
 # Backup sys configs
+# Protect the log before tee writes; failed backups do not reach final chmod.
+install -o root -g root -m 0660 /dev/null "$BACKUP/$user.log"
+check_result $? "can't prepare private backup log"
 echo "-- SYSTEM --" | tee $BACKUP/$user.log
 mkdir $tmpdir/hestia
 

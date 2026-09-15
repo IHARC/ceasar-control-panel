@@ -264,8 +264,14 @@ class HestiaApp
 
             $userInfo = $result->getOutputJson()[$this->user()];
 
-            return $userInfo['DATABASES'] === 'unlimited' ||
-                $userInfo['DATABASES'] - $userInfo['U_DATABASES'] < 1;
+            if ($userInfo['DATABASES'] === 'unlimited') {
+                return true;
+            }
+
+            $limit = (int) $userInfo['DATABASES'];
+            $used = (int) $userInfo['U_DATABASES'];
+
+            return ($limit - $used) > 0;
         } catch (ProcessFailedException) {
             throw new RuntimeException('Unable to check database limit');
         }

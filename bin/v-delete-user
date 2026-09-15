@@ -90,6 +90,9 @@ sed -i "/ $user$/d" "$HESTIA/data/queue/traffic.pipe"
 $BIN/v-delete-user-sftp-jail "$user"
 
 # Deleting system user
+if [ "$DISK_QUOTA" = 'yes' ]; then
+	update_user_group_quota "$user" 'unlimited' || check_result "$E_DISK" "group quota cleanup failed"
+fi
 /usr/sbin/userdel -f "$user" >> /dev/null 2>&1
 if [ $? -ne 0 ]; then
 	sed -i "/^$user:/d" /etc/passwd

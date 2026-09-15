@@ -105,6 +105,63 @@ HESTIA_THEMES_CUSTOM="$HESTIA/web/css/themes/custom"
 SCRIPT="$(basename $0)"
 CHECK_RESULT_CALLBACK=""
 
+# Apply the package's pooled block quota to the customer's primary group on
+# every filesystem that carries customer payload. Database files are created by
+# the shared mysql service but inherit the customer group from their setgid
+# schema directory; group quota therefore accounts for web and database bytes
+# without granting the customer filesystem access to MariaDB's datadir.
+update_user_group_quota() {
+	local quota_user=$1
+	local quota_value=$2
+	local quota_gid
+	local quota_mount
+	local quota_soft
+	local quota_hard
+	local quota_path
+	local quota_device
+	local quota_device_now
+	local seen_mounts=' '
+	local -a quota_mounts=()
+	local quota_mount_count=0
+
+	quota_gid=$(id -g "$quota_user") || return 1
+	if [ "$quota_value" = 'unlimited' ]; then
+		quota_soft=0
+		quota_hard=0
+	else
+		quota_soft=$(echo "$quota_value * 1024" | bc | cut -f 1 -d .)
+		quota_hard="$quota_soft"
+	fi
+
+	# Preflight every payload path before changing either filesystem. A full
+	# allowance on two different devices would double the customer's pooled cap,
+	# so a split backing filesystem is rejected before any quota mutation.
+	quota_device=''
+	for quota_path in /home /var/lib/mysql; do
+		quota_mount=$(df -P "$quota_path" 2> /dev/null | awk 'END {print $6}')
+		[ -n "$quota_mount" ] || return 1
+		quota_device_now=$(df -P "$quota_path" 2> /dev/null | awk 'END {print $1}')
+		[ -n "$quota_device_now" ] || return 1
+		if [ -z "$quota_device" ]; then
+			quota_device="$quota_device_now"
+		elif [ "$quota_device" != "$quota_device_now" ]; then
+			return 1
+		fi
+		quota_mounts[$quota_mount_count]="$quota_mount"
+		quota_mount_count=$((quota_mount_count + 1))
+	done
+
+	for quota_mount in "${quota_mounts[@]}"; do
+		case "$seen_mounts" in
+			*" $quota_mount "*) continue ;;
+		esac
+		seen_mounts="$seen_mounts$quota_mount "
+		if ! setquota -g "$quota_gid" "$quota_soft" "$quota_hard" 0 0 "$quota_mount" 2> /dev/null; then
+			return 1
+		fi
+	done
+}
+
 # Return codes
 OK=0
 E_ARGS=1

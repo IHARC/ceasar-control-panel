@@ -85,8 +85,39 @@ fi
 shell=$(grep -w "$shell_conf" /etc/shells | head -n1)
 
 # Adding user
-/usr/sbin/useradd "$user" -s "$shell" -c "$email" -m -d "$HOMEDIR/$user" -U
+uid_floor_options=()
+if [[ "$user" =~ ^ih[0-9a-f]{14}$ ]]; then
+	uid_floor=$("$BIN/iharc-transfer-uid-floor") || check_result $? "unable to establish retained transfer UID floor" "$E_INVALID"
+	if ! [[ "$uid_floor" =~ ^[1-9][0-9]*$ ]]; then
+		# An initialized ledger without a retained account has no historical
+		# UID to reserve. Keep native useradd's configured regular-user floor.
+		if [ -n "$uid_floor" ]; then
+			check_result "$E_INVALID" "retained transfer UID floor is malformed"
+		fi
+	else
+		uid_floor_options=(-K "UID_MIN=$uid_floor")
+	fi
+fi
+
+quota_useradd_options=()
+if [ "$disk_quota_enabled" = 'yes' ]; then
+	quota_useradd_options=(-e 1)
+fi
+/usr/sbin/useradd "$user" -s "$shell" -c "$email" -m -d "$HOMEDIR/$user" -U "${uid_floor_options[@]}" "${quota_useradd_options[@]}"
 check_result $? "user creation failed" "$E_INVALID"
+
+# Establish the pooled primary-group quota before setting a password. A split
+# /home and MariaDB filesystem or any quota failure must not admit a usable
+# account; the account is retained only in a locked, fail-closed state.
+if [ "$disk_quota_enabled" = 'yes' ]; then
+	if ! update_user_group_quota "$user" "$disk_quota_status"; then
+		# Do not recursively remove the home: useradd -m accepts an existing
+		# directory, and that directory may contain retained customer data.
+		# Keep the account present but locked so the failure is fail-closed.
+		/usr/bin/passwd -l "$user" > /dev/null 2>&1 || true
+		check_result "$E_DISK" "pooled group quota preflight failed"
+	fi
+fi
 
 # Adding password
 echo "$user:$password" | /usr/sbin/chpasswd
@@ -103,14 +134,21 @@ if [ -z "$(grep ^hestia-users: /etc/group)" ]; then
 	groupadd --system "hestia-users"
 fi
 
-# Add membership to hestia-users group to non-admin users
+# Keep the shared group and deny ACL for service identities; customer accounts
+# remain primary-group-only so a group quota cannot be escaped via chgrp.
 if [ "$user" = "$ROOT_USER" ]; then
 	setfacl -m "g:$ROOT_USER:r-x" "$HOMEDIR/$user"
 else
-	usermod -a -G "hestia-users" "$user"
 	setfacl -m "u:$user:r-x" "$HOMEDIR/$user"
 fi
 setfacl -m "g:hestia-users:---" "$HOMEDIR/$user"
+# The bootstrap enables only the web stack, whose Nginx/Apache and PHP-FPM
+# service identity is www-data. Keep traversal without exposing directory
+# listing or granting other customer UIDs access to the home.
+chmod o-rwx "$HOMEDIR/$user"
+if id www-data > /dev/null 2>&1; then
+	setfacl -m "u:www-data:--x" "$HOMEDIR/$user"
+fi
 
 # Building directory tree
 mkdir $HOMEDIR/$user/conf
@@ -161,7 +199,7 @@ chown $user:$user \
 	$HOMEDIR/$user/.wp-cli
 
 # Set permissions
-chmod a+x $HOMEDIR/$user
+chmod u+x,g+x $HOMEDIR/$user
 chattr +i $HOMEDIR/$user/conf > /dev/null 2>&1
 
 # Adding user dir
@@ -272,7 +310,11 @@ chmod 660 $USER_DATA/user.conf
 
 # Updating quota
 if [ "$disk_quota_enabled" = 'yes' ]; then
-	$BIN/v-update-user-quota "$user"
+	if ! $BIN/v-update-user-quota "$user"; then
+		/usr/bin/passwd -l "$user" > /dev/null 2>&1 || true
+		check_result "$E_DISK" "quota update failed"
+	fi
+	/usr/sbin/usermod -e '' "$user" || check_result "$E_DISK" "quota account activation failed"
 fi
 
 # Update resource limitation (cgroup)

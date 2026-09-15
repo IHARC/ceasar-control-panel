@@ -47,6 +47,35 @@ source $HESTIA/func/syshealth.sh
 # load config file
 source_conf "$HESTIA/conf/hestia.conf"
 
+# A database restore can fail after web files or a schema have already been
+# changed. Preserve that partial state for operator recovery, but fail closed
+# for non-root customers before reporting the restore as complete.
+restore_database_failure() {
+	local restore_error_code=$1
+	local restore_error=$2
+	local restore_suspended=0
+
+	rm -rf "$tmpdir"
+	if [ -f "$HESTIA/data/queue/backup.pipe" ]; then
+		sed -i "/ $user /d" "$HESTIA/data/queue/backup.pipe"
+	fi
+	if [ "$user" != "$ROOT_USER" ]; then
+		if [ -x "$BIN/v-suspend-user" ]; then
+			"$BIN/v-suspend-user" "$user" no > /dev/null 2>&1 || true
+		fi
+		if grep -q "^SUSPENDED='yes'" "$HESTIA/data/users/$user/user.conf" \
+			&& [ "$(passwd -S "$user" 2> /dev/null | awk '{print $2}')" = 'L' ]; then
+			restore_suspended=1
+		fi
+		if [ "$restore_suspended" -ne 1 ]; then
+			/usr/sbin/usermod --lock "$user" > /dev/null 2>&1 || true
+			echo 'Warning: native account suspension incomplete; password lock fallback applied' >&2
+		fi
+	fi
+
+	check_result "$restore_error_code" "$restore_error"
+}
+
 #----------------------------------------------------------#
 #                    Verifications                         #
 #----------------------------------------------------------#
@@ -787,25 +816,42 @@ if [ "$db" != 'no' ] && [ -n "$DB_SYSTEM" ]; then
 			parse_object_kv_list $(grep "DB='$database'" $USER_DATA/db.conf)
 		fi
 
-		# Unzipping database dump
-		if [ $backup_mode = 'zstd' ]; then
-			pzstd -d $tmpdir/db/$database/$database.*.sql.zst
+		# Unzipping database dump must succeed before the existing target is
+		# deleted. A missing or corrupt dump otherwise creates an empty partial
+		# restore while the command still reports success.
+		if [ "$backup_mode" = 'zstd' ]; then
+			if ! pzstd -d "$tmpdir/db/$database/$database."*.sql.zst; then
+				restore_database_failure "$E_PARSING" "Can't unzip $database database dump"
+			fi
 		else
-			gzip -d $tmpdir/db/$database/$database.*.sql.gz
+			if ! gzip -d "$tmpdir/db/$database/$database."*.sql.gz; then
+				restore_database_failure "$E_PARSING" "Can't unzip $database database dump"
+			fi
 		fi
 
 		# Importing database dump
 		database_dump="$tmpdir/db/$database/$database.$TYPE.sql"
+		if [ ! -f "$database_dump" ]; then
+			restore_database_failure "$E_PARSING" "Database dump $database_dump is missing"
+		fi
 		case $TYPE in
 			mysql)
 				delete_mysql_database
-				rebuild_mysql_database
-				import_mysql_database $database_dump
+				if ! (rebuild_mysql_database); then
+					restore_database_failure "$E_DB" "Unable to rebuild database $DB"
+				fi
+				if ! import_mysql_database "$database_dump"; then
+					restore_database_failure "$E_DB" "Unable to import database $DB"
+				fi
 				;;
 			pgsql)
 				delete_pgsql_database
-				rebuild_pgsql_database
-				import_pgsql_database $database_dump
+				if ! (rebuild_pgsql_database); then
+					restore_database_failure "$E_DB" "Unable to rebuild database $DB"
+				fi
+				if ! import_pgsql_database "$database_dump"; then
+					restore_database_failure "$E_DB" "Unable to import database $DB"
+				fi
 				;;
 		esac
 	done

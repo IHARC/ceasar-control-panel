@@ -53,29 +53,32 @@ source_conf $HESTIA/conf/restic.conf
 
 if [ ! -f "$USER_DATA/restic.conf" ]; then
 	password=$(generate_password '' '32')
-	echo "$password" > $USER_DATA/restic.conf
+	temporary=$(mktemp "$USER_DATA/.restic.conf.XXXXXX") || check_result $E_SYSTEM "Unable to stage restic key"
+	(umask 077; printf '%s\n' "$password" > "$temporary") || { rm -f -- "$temporary"; check_result $E_SYSTEM "Unable to write restic key"; }
+	chown root:root "$temporary" && chmod 0600 "$temporary" || { rm -f -- "$temporary"; check_result $E_SYSTEM "Unable to protect restic key"; }
+	[ "$(stat -c '%U:%G:%a' "$temporary")" = root:root:600 ] || { rm -f -- "$temporary"; check_result $E_SYSTEM "Restic key protection is invalid"; }
+	mv -f -- "$temporary" "$USER_DATA/restic.conf" || { rm -f -- "$temporary"; check_result $E_SYSTEM "Unable to publish restic key"; }
+fi
+# Earlier native runs created this root-owned key 0644. Tighten that exact
+# known state in place so the same key remains usable; reject every other
+# ownership or mode rather than replacing a credential.
+[ -f "$USER_DATA/restic.conf" ] && [ ! -L "$USER_DATA/restic.conf" ] || check_result $E_SYSTEM "Restic key is unsafe"
+[ "$(stat -c '%U:%G:%a' "$USER_DATA/restic.conf")" = root:root:644 ] && chmod 0600 "$USER_DATA/restic.conf"
+[ "$(stat -c '%U:%G:%a' "$USER_DATA/restic.conf")" = root:root:600 ] || check_result $E_SYSTEM "Restic key protection is invalid"
 
-	restic --repo "${REPO%/}/$user" --password-file $USER_DATA/restic.conf init
+# Check if the repository exists and is accessible with the preserved key.
+restic --repo "${REPO%/}/$user" --password-file "$USER_DATA/restic.conf" --json snapshots > /dev/null
+restic_status=$?
+if [ "$restic_status" -eq 10 ]; then
+	# A prior first backup may have persisted the key before repository init.
+	# Reuse that exact key on the retry.
+	restic --repo "${REPO%/}/$user" --password-file "$USER_DATA/restic.conf" init
 	if [ $? -ne 0 ]; then
 		check_result $E_CONNECT "Unable to create restic repo"
 	fi
-else
-	# Check if repo exists and is accessible with restic key
-	restic --repo "${REPO%/}/$user" --password-file $USER_DATA/restic.conf --json snapshots > /dev/null
-	restic_status=$?
-	if [ "$restic_status" -eq 10 ]; then
-		# A previous interrupted first backup can leave the generated key on
-		# disk before Restic creates its repository. Resume with that same key
-		# so a native scheduler retry completes instead of abandoning the user.
-		restic --repo "${REPO%/}/$user" --password-file $USER_DATA/restic.conf init
-		if [ $? -ne 0 ]; then
-			check_result $E_CONNECT "Unable to create restic repo"
-		fi
-	elif [ "$restic_status" -ne 0 ]; then
-		# Send an email
-		echo "Unable to open restic backup. It might not exists or key is incorrect" | $SENDMAIL -s "$subj" "$email" "yes"
-		check_result $E_CONNECT "Unable to access restic repo"
-	fi
+elif [ "$restic_status" -ne 0 ]; then
+	echo "Unable to open restic backup. It might not exists or key is incorrect" | $SENDMAIL -s "$subj" "$email" "yes"
+	check_result $E_CONNECT "Unable to access restic repo"
 fi
 
 # create backup of the user.conf an database

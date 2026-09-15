@@ -258,46 +258,107 @@ is_charset_valid() {
 	fi
 }
 
+# Serialize each complete native database-host inventory update and rewrite only
+# the active host row. Hestia's stock broad substitutions can alter equal
+# counters on unrelated hosts. The lock is scoped to this subshell so it never
+# collides with a caller's operation locks or leaks into child commands.
+iharc_update_database_host_values() (
+	local type_name=$1 target_host=$2 change=$3 account=$4 lock conf temporary host_str new_dbbases new_users
+	lock="$HESTIA/data/iharc-database-hosts.lock"
+	if [ -e "$lock" ] || [ -L "$lock" ]; then
+		[ -f "$lock" ] && [ ! -L "$lock" ] && [ "$(stat -c '%U:%G:%a' "$lock")" = 'root:root:600' ] || exit 1
+	else
+		(umask 077; : > "$lock") || exit 1
+		chown root:root "$lock" && chmod 0600 "$lock" || exit 1
+	fi
+	exec 9>>"$lock" || exit 1
+	flock -x 9 || exit 1
+
+	conf="$HESTIA/conf/$type_name.conf"
+	[ -f "$conf" ] && [ ! -L "$conf" ] || exit 1
+	host_str=$(grep "HOST='$target_host'" "$conf") || exit 1
+	parse_object_kv_list "$host_str"
+	[ -n "$U_DB_BASES" ] || exit 1
+	case "$change" in
+		increase)
+			new_dbbases=$((U_DB_BASES + 1))
+			new_users=$U_SYS_USERS
+			if [ -z "$new_users" ]; then
+				new_users=$account
+			elif [ -z "$(echo "$new_users" | sed "s/,/\n/g" | grep -wx "$account")" ]; then
+				new_users="$new_users,$account"
+			fi
+			;;
+		decrease)
+			[ "$U_DB_BASES" -gt 0 ] || exit 1
+			new_dbbases=$((U_DB_BASES - 1))
+			new_users=$(echo "$U_SYS_USERS" \
+				| sed "s/,/\n/g" \
+				| sed "s/^$account$//g" \
+				| sed "/^$/d" \
+				| sed ':a;N;$!ba;s/\n/,/g')
+			;;
+		*) exit 1 ;;
+	esac
+
+	temporary=$(mktemp "$(dirname "$conf")/.${type_name}.conf.XXXXXX") || exit 1
+	awk -v host="$target_host" -v bases="$new_dbbases" -v users="$new_users" '
+		index($0, "HOST='\''" host "'\''") {
+			matches++
+			if (matches != 1) exit 2
+			sub(/U_DB_BASES='\''[0-9]+'\''/, "U_DB_BASES='\''" bases "'\''")
+			sub(/U_SYS_USERS='\''[^'\'']*'\''/, "U_SYS_USERS='\''" users "'\''")
+		}
+		{ print }
+		END { if (matches != 1) exit 2 }
+	' "$conf" > "$temporary" || { rm -f -- "$temporary"; exit 1; }
+	chown --reference="$conf" "$temporary" && chmod --reference="$conf" "$temporary" || { rm -f -- "$temporary"; exit 1; }
+	mv -f -- "$temporary" "$conf" || { rm -f -- "$temporary"; exit 1; }
+)
+
 # Increase database host value
 increase_dbhost_values() {
-	host_str=$(grep "HOST='$host'" $HESTIA/conf/$type.conf)
-	parse_object_kv_list "$host_str"
-
-	old_dbbases="U_DB_BASES='$U_DB_BASES'"
-	new_dbbases="U_DB_BASES='$((U_DB_BASES + 1))'"
-	if [ -z "$U_SYS_USERS" ]; then
-		old_users="U_SYS_USERS=''"
-		new_users="U_SYS_USERS='$user'"
-	else
-		old_users="U_SYS_USERS='$U_SYS_USERS'"
-		new_users="U_SYS_USERS='$U_SYS_USERS'"
-		if [ -z "$(echo $U_SYS_USERS | sed "s/,/\n/g" | grep -w $user)" ]; then
-			old_users="U_SYS_USERS='$U_SYS_USERS'"
-			new_users="U_SYS_USERS='$U_SYS_USERS,$user'"
-		fi
-	fi
-
-	sed -i "s/$old_dbbases/$new_dbbases/g" $HESTIA/conf/$type.conf
-	sed -i "s/$old_users/$new_users/g" $HESTIA/conf/$type.conf
+	iharc_update_database_host_values "$type" "$host" increase "$user"
 }
 
 # Decrease database host value
 decrease_dbhost_values() {
-	host_str=$(grep "HOST='$HOST'" $HESTIA/conf/$TYPE.conf)
-	parse_object_kv_list "$host_str"
+	iharc_update_database_host_values "$TYPE" "$HOST" decrease "$user"
+}
+# Prepare a newly-created schema for pooled primary-group accounting. MariaDB
+# owns the files, while the customer's primary group is inherited by tables
+# through the setgid directory; the customer never receives filesystem write
+# access to the datadir.
+prepare_mysql_group_quota_dir() {
+	local quota_user=$1
+	local quota_database=$2
+	local datadir
+	local database_dir
+	local database_real
+	local datadir_real
+	local quota_gid
+	local home_device
+	local database_device
 
-	old_dbbases="U_DB_BASES='$U_DB_BASES'"
-	new_dbbases="U_DB_BASES='$((U_DB_BASES - 1))'"
-	old_users="U_SYS_USERS='$U_SYS_USERS'"
-	U_SYS_USERS=$(echo "$U_SYS_USERS" \
-		| sed "s/,/\n/g" \
-		| sed "s/^$user$//g" \
-		| sed "/^$/d" \
-		| sed ':a;N;$!ba;s/\n/,/g')
-	new_users="U_SYS_USERS='$U_SYS_USERS'"
+	datadir=$(mysql_query_raw "SELECT @@datadir") || return 1
+	datadir=${datadir%/}
+	[ -n "$datadir" ] || return 1
+	database_dir="$datadir/$quota_database"
+	datadir_real=$(realpath -e "$datadir") || return 1
+	database_real=$(realpath -e "$database_dir") || return 1
+	case "$database_real" in
+		"$datadir_real"/*) ;;
+		*) return 1 ;;
+	esac
+	home_device=$(df -P "$HOMEDIR/$quota_user" 2> /dev/null | awk 'END {print $1}') || return 1
+	database_device=$(df -P "$database_real" 2> /dev/null | awk 'END {print $1}') || return 1
+	[ -n "$home_device" ] && [ "$home_device" = "$database_device" ] || return 1
 
-	sed -i "s/$old_dbbases/$new_dbbases/g" $HESTIA/conf/$TYPE.conf
-	sed -i "s/$old_users/$new_users/g" $HESTIA/conf/$TYPE.conf
+	quota_gid=$(id -g "$quota_user") || return 1
+	chown -R "mysql:$quota_gid" "$database_real" || return 1
+	chmod 2750 "$database_real" || return 1
+	setfacl -m "u:mysql:rwx,g::r-x,m::r-x" "$database_real" || return 1
+	setfacl -d -m "g::r-x,m::r-x" "$database_real" || return 1
 }
 
 # Create MySQL database
@@ -312,6 +373,11 @@ add_mysql_database() {
 	query="CREATE DATABASE \`$database\` CHARACTER SET $charset"
 	mysql_query "$query"
 	check_result $? "Unable to create database $database"
+
+	if ! prepare_mysql_group_quota_dir "$user" "$database"; then
+		mysql_query "DROP DATABASE \`$database\`" > /dev/null 2>&1
+		check_result "$E_DISK" "Unable to prepare pooled quota directory for $database"
+	fi
 
 	if [ "$mysql_fork" = "mysql" ] && [ "$mysql_ver_sub" -ge 8 ]; then
 		query="CREATE USER \`$dbuser\`@\`%\`
