@@ -4,6 +4,16 @@
 We currently only support changing the layout via CSS. You can customise HTML files and templates, but they **will** be overwritten during updates, so make sure to [set up hooks](#running-commands-before-and-after-updates) to restore your changes after an update.
 :::
 
+## Managed-service integrations
+
+This fork includes optional managed-service lifecycle calls for canonical hosting
+accounts. The hosting deployment supplies the root-owned executables
+`iharc-customer-isolation`, `v-iharc-transfer-policy`,
+`iharc-transfer-uid-floor`, and `iharc-haproxy-cert-sync` under the Hestia
+`bin` directory. They and their node-specific configuration are intentionally
+not distributed in this repository. Operations that require a missing managed
+integration fail closed.
+
 ## Adding a new theme
 
 Create a new theme in `/usr/local/hestia/web/css/themes/custom/my_theme.css`
