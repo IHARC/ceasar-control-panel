@@ -144,6 +144,11 @@ if [[ $BACKEND =~ ^.*PHP-([0-9])\_([0-9])$ ]]; then
 else
 	version=$(multiphp_default_version)
 fi
+if [[ "$user" =~ ^ih[0-9a-f]{14}$ && ! -e "/run/iharc-customer-isolation/delete/$user" ]]; then
+	"$HESTIA/bin/iharc-customer-isolation" reconcile "$user" "$HESTIA" > /dev/null \
+		|| check_result "$E_RESTART" "customer resource isolation could not be reconciled"
+fi
+
 if [[ ("$user" =~ ^ih[0-9a-f]{14}$ || "$user" == "$ROOT_USER") && -x "$BIN/iharc-haproxy-cert-sync" ]]; then
 	"$BIN/iharc-haproxy-cert-sync" \
 		|| check_result "$E_RESTART" "HAProxy authority synchronization could not complete"

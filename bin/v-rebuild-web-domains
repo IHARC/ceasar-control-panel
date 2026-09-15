@@ -126,6 +126,11 @@ done
 # Updating user counters
 $BIN/v-update-user-counters "$user"
 
+if [[ "$user" =~ ^ih[0-9a-f]{14}$ && ! -e "/run/iharc-customer-isolation/delete/$user" ]]; then
+	"$HESTIA/bin/iharc-customer-isolation" reconcile "$user" "$HESTIA" > /dev/null \
+		|| check_result "$E_RESTART" "customer resource isolation could not be reconciled"
+fi
+
 if [ "$restart" = "yes" ]; then
 	# Restarting web server
 	$BIN/v-restart-web "$restart"

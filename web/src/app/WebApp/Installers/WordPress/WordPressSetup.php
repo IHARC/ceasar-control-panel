@@ -69,7 +69,7 @@ class WordPressSetup extends BaseSetup {
             "--dbname=" . $target->database->name,
             "--dbuser=" . $target->database->user,
             "--dbpass=" . $target->database->password,
-            "--dbhost=" . $target->database->host,
+            "--dbhost=" . $this->appcontext->getDatabaseHostEndpoint($target->database->host),
             "--dbprefix=" . "wp_" . Util::generateString(5, false) . "_",
             "--dbcharset=utf8mb4",
             "--locale=" . $options["language"],

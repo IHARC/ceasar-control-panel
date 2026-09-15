@@ -59,8 +59,20 @@ fi
 mkdir -p "$WPCLI_DIR"
 chown $user:$user "$WPCLI_DIR"
 
-user_exec wget --tries=3 --timeout=15 --read-timeout=15 --waitretry=3 --no-dns-cache --quiet -O "$WPCLI_BIN" https://raw.githubusercontent.com/wp-cli/builds/gh-pages/phar/wp-cli.phar
-user_exec chmod +x "$WPCLI_BIN"
+# Cold account egress can reject the first DNS lookup while finite credit is
+# issued. Retry within the existing bounds and never cache a failed download.
+WPCLI_DOWNLOAD=$(user_exec mktemp "$WPCLI_DIR/wp.XXXXXXXX") \
+	|| check_result "$E_DISK" "Unable to stage WP-CLI download"
+if ! user_exec wget --tries=3 --timeout=15 --read-timeout=15 --waitretry=3 --no-dns-cache --retry-on-host-error --quiet -O "$WPCLI_DOWNLOAD" https://raw.githubusercontent.com/wp-cli/builds/gh-pages/phar/wp-cli.phar \
+	|| ! user_exec test -s "$WPCLI_DOWNLOAD"; then
+	user_exec rm -f -- "$WPCLI_DOWNLOAD"
+	check_result "$E_CONNECT" "Unable to download WP-CLI"
+fi
+if ! user_exec chmod +x "$WPCLI_DOWNLOAD" \
+	|| ! user_exec mv -f -- "$WPCLI_DOWNLOAD" "$WPCLI_BIN"; then
+	user_exec rm -f -- "$WPCLI_DOWNLOAD"
+	check_result "$E_DISK" "Unable to publish WP-CLI"
+fi
 echo "alias wp=/home/"$user"/.wp-cli/wp" >> /home/$user/.bash_aliases
 
 #----------------------------------------------------------#

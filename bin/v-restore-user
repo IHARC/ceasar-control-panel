@@ -992,6 +992,11 @@ $BIN/v-update-user-counters "$user"
 $BIN/v-update-user-counters "$ROOT_USER"
 $BIN/v-update-sys-ip-counters
 
+if [[ "$user" =~ ^ih[0-9a-f]{14}$ ]]; then
+	"$HESTIA/bin/iharc-customer-isolation" reconcile "$user" "$HESTIA" > /dev/null \
+		|| check_result "$E_INVALID" "customer resource isolation could not be reconciled after restore"
+fi
+
 # Logging
 $BIN/v-log-action "system" "Info" "Backup" "Restored backup contents (User: $user, Archive: $backup)."
 $BIN/v-log-action "$user" "Info" "Backup" "Restored backup contents (Archive: $backup)."

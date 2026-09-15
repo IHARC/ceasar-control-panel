@@ -335,6 +335,14 @@ fi
 # Adding jailed sftp env
 $BIN/v-add-user-sftp-jail $user
 
+# Canonical IHARC accounts receive their fixed cgroup boundary only after
+# Hestia has recorded the native account and SFTP shape. Any failure is fatal:
+# a usable account without its aggregate boundary is not admitted.
+if [[ "$user" =~ ^ih[0-9a-f]{14}$ ]]; then
+	"$HESTIA/bin/iharc-customer-isolation" reconcile "$user" "$HESTIA" > /dev/null \
+		|| check_result "$E_INVALID" "customer resource isolation could not be reconciled"
+fi
+
 #----------------------------------------------------------#
 #                       Hestia                             #
 #----------------------------------------------------------#

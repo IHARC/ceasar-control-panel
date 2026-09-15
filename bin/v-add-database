@@ -55,6 +55,13 @@ is_object_unsuspended 'user' 'USER' "$user"
 is_object_new 'db' 'DB' "$database"
 is_object_new 'db' 'DBUSER' "$dbuser"
 get_next_dbhost
+# The native helper creates and records one Hestia database host/port per
+# canonical account. It replaces only the internal selected host; the API
+# caller cannot select an endpoint and backups/restores retain DB HOST.
+if [[ "$user" =~ ^ih[0-9a-f]{14}$ && "$type" = mysql ]]; then
+	host=$("$HESTIA/bin/iharc-customer-isolation" database-host "$user" "$HESTIA") \
+		|| check_result "$E_DB" "customer database isolation endpoint is unavailable"
+fi
 is_object_valid "../../../conf/$type" 'HOST' "$host"
 is_object_unsuspended "../../../conf/$type" 'DBHOST' "$host"
 #is_charset_valid

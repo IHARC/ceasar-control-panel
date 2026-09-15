@@ -922,20 +922,13 @@ rebuild_pgsql_database() {
 
 # Import MySQL dump
 import_mysql_database() {
-
-	host_str=$(grep "HOST='$HOST'" $HESTIA/conf/mysql.conf)
-	parse_object_kv_list "$host_str"
-	if [ -z $HOST ] || [ -z $USER ] || [ -z $PASSWORD ]; then
-		echo "Error: mysql config parsing failed"
-		log_event "$E_PARSING" "$ARGUMENTS"
-		exit "$E_PARSING"
-	fi
+	local import_file=$1
+	mysql_connect "$HOST"
 	if [ -f '/usr/bin/mariadb' ]; then
-		mariadb -h $HOST -u $USER -p$PASSWORD $DB < $1 > /dev/null 2>&1
+		mariadb --defaults-file="$mycnf" "$DB" < "$import_file" > /dev/null 2>&1
 	else
-		mysql -h $HOST -u $USER -p$PASSWORD $DB < $1 > /dev/null 2>&1
+		mysql --defaults-file="$mycnf" "$DB" < "$import_file" > /dev/null 2>&1
 	fi
-
 }
 
 # Import PostgreSQL dump

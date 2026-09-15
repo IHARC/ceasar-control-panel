@@ -243,6 +243,14 @@ class HestiaApp
      */
     public function getDatabaseHosts(string $type): array
     {
+        return array_column($this->getDatabaseHostRecords($type), 'HOST');
+    }
+
+    /**
+     * @return array<int, array<string, mixed>>
+     */
+    protected function getDatabaseHostRecords(string $type): array
+    {
         try {
             $result = $this->run('v-list-database-hosts', ['json']);
         } catch (ProcessFailedException) {
@@ -254,7 +262,39 @@ class HestiaApp
             fn(array $host) => $host['TYPE'] === $type,
         );
 
-        return array_column($hostOfType, 'HOST');
+        return $hostOfType;
+    }
+
+    public function getDatabaseHostEndpoint(string $host, string $type = 'mysql'): string
+    {
+        $databaseHost = null;
+        foreach ($this->getDatabaseHostRecords($type) as $candidate) {
+            if (($candidate['HOST'] ?? null) !== $host) {
+                continue;
+            }
+
+            if ($databaseHost !== null) {
+                throw new RuntimeException('Database host inventory is ambiguous');
+            }
+
+            $databaseHost = $candidate;
+        }
+
+        if ($databaseHost === null) {
+            throw new RuntimeException('Database host is unavailable');
+        }
+
+        $port = $databaseHost['PORT'] ?? null;
+        if ((!is_string($port) && !is_int($port)) || !preg_match('/^[1-9][0-9]{0,4}$/', (string) $port)) {
+            throw new RuntimeException('Database host port is invalid');
+        }
+
+        $port = (int) $port;
+        if ($port > 65535) {
+            throw new RuntimeException('Database host port is invalid');
+        }
+
+        return $port === 3306 ? $host : $host . ':' . $port;
     }
 
     public function checkDatabaseLimit(): bool

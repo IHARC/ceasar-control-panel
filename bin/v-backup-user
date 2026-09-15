@@ -156,6 +156,32 @@ check_hestia_demo_mode
 
 check_backup_conditions
 
+# Manual backup API invocations do not necessarily inherit a usable HOME.
+# Keep canonical customer rclone/Restic operations on root's standard,
+# root-owned configuration and cache paths rather than caller-provided ones.
+if [[ "$user" =~ ^ih[0-9a-f]{14}$ ]]; then
+	if [[ ! -d /root || -L /root || "$(stat -c '%U:%G:%a' /root)" != root:root:700 ]]; then
+		check_result "$E_INVALID" "root backup runtime is unavailable or unsafe"
+	fi
+	if [[ -e /root/.cache || -L /root/.cache ]]; then
+		if [[ ! -d /root/.cache || -L /root/.cache || "$(stat -c '%U:%G:%a' /root/.cache)" != root:root:700 ]]; then
+			check_result "$E_INVALID" "root backup cache is unavailable or unsafe"
+		fi
+	else
+		install -d -o root -g root -m 0700 /root/.cache \
+			|| check_result "$E_INVALID" "root backup cache could not be created"
+	fi
+	export HOME=/root
+	export XDG_CACHE_HOME=/root/.cache
+	unset XDG_CONFIG_HOME RCLONE_CONFIG RESTIC_CACHE_DIR
+fi
+
+if [[ "$user" =~ ^ih[0-9a-f]{14}$ ]]; then
+	"$HESTIA/bin/iharc-customer-isolation" backup-open "$user" "$HESTIA" > /dev/null \
+		|| check_result "$E_CONNECT" "customer database isolation could not open for backup"
+	trap '"$HESTIA/bin/iharc-customer-isolation" backup-close "$user" "$HESTIA" > /dev/null 2>&1 || exit 1' EXIT
+fi
+
 # Set backup directory if undefined
 if [ -z "$BACKUP" ]; then
 	BACKUP=/backup

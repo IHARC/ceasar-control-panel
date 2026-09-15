@@ -77,6 +77,14 @@ if [ -n "$CRON_SYSTEM" ] && [ "$CRON_SYSTEM" != 'no' ]; then
 	$BIN/v-suspend-cron-jobs "$user" "no"
 fi
 
+# Canonical IHARC accounts receive a stopped aggregate boundary before Hestia
+# reloads shared web/proxy services. A failure leaves the native account active
+# rather than reporting a suspension while its private instances still run.
+if [[ "$user" =~ ^ih[0-9a-f]{14}$ ]]; then
+	"$HESTIA/bin/iharc-customer-isolation" suspend "$user" "$HESTIA" > /dev/null \
+		|| check_result "$E_INVALID" "customer resource isolation could not suspend"
+fi
+
 #----------------------------------------------------------#
 #                       Hestia                             #
 #----------------------------------------------------------#

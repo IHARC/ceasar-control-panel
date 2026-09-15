@@ -47,6 +47,19 @@ check_hestia_demo_mode
 #                       Action                             #
 #----------------------------------------------------------#
 
+# Native identity removal is terminal-only. This verifier has no policy
+# issuance authority: it requires an already-published terminated policy and
+# an observed local blocked state before resource teardown can begin.
+if [[ "$user" =~ ^ih[0-9a-f]{14}$ && -x "$BIN/v-iharc-transfer-policy" ]]; then
+	"$BIN/v-iharc-transfer-policy" "$user" terminal-ready > /dev/null \
+		|| check_result "$E_INVALID" "terminal transfer policy is not closed"
+fi
+
+if [[ "$user" =~ ^ih[0-9a-f]{14}$ ]]; then
+	"$HESTIA/bin/iharc-customer-isolation" delete-prep "$user" "$HESTIA" > /dev/null \
+		|| check_result "$E_INVALID" "customer resource isolation deletion is not safe"
+fi
+
 # Deleting web domains
 if [ -n "$WEB_SYSTEM" ] && [ "$WEB_SYSTEM" != 'no' ]; then
 	$BIN/v-unsuspend-web-domains "$user" "$restart"
@@ -69,6 +82,10 @@ if [ -n "$MAIL_SYSTEM" ] && [ "$MAIL_SYSTEM" != 'no' ]; then
 fi
 
 # Deleting databases
+if [[ "$user" =~ ^ih[0-9a-f]{14}$ ]]; then
+	"$HESTIA/bin/iharc-customer-isolation" delete-database-prep "$user" "$HESTIA" > /dev/null \
+		|| check_result "$E_DB" "customer database isolation could not prepare for deletion"
+fi
 if [ -n "$DB_SYSTEM" ] && [ "$DB_SYSTEM" != 'no' ]; then
 	$BIN/v-unsuspend-databases "$user"
 	$BIN/v-delete-databases "$user"
@@ -76,7 +93,9 @@ if [ -n "$DB_SYSTEM" ] && [ "$DB_SYSTEM" != 'no' ]; then
 fi
 
 # Unsuspend user just in case
-$BIN/v-unsuspend-user "$user"
+if [[ ! "$user" =~ ^ih[0-9a-f]{14}$ || ! -e "/run/iharc-customer-isolation/delete/$user" ]]; then
+	$BIN/v-unsuspend-user "$user"
+fi
 
 # Releasing user ips
 $BIN/v-delete-user-ips "$user"
@@ -88,6 +107,11 @@ sed -i "/ $user$/d" "$HESTIA/data/queue/traffic.pipe"
 
 # Deleting sftp jail
 $BIN/v-delete-user-sftp-jail "$user"
+if [[ "$user" =~ ^ih[0-9a-f]{14}$ ]]; then
+	"$HESTIA/bin/iharc-customer-isolation" delete-finalize "$user" "$HESTIA" > /dev/null \
+		|| check_result "$E_INVALID" "customer resource isolation deletion is not safe"
+fi
+
 
 # Deleting system user
 if [ "$DISK_QUOTA" = 'yes' ]; then
