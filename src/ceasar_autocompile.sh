@@ -124,16 +124,16 @@ usage() {
 	echo "    --debug         Debug mode"
 	echo "    --pkgrev <n>    Set the package revision number (default: 1)."
 	echo "                    Replaces the '-1' in the version suffix"
-	echo "                    (e.g. --pkgrev 2 → 1.0.4-2+ubuntu24.04)."
+	echo "                    (e.g. --pkgrev 2 → 1.0.5-2+ubuntu24.04)."
 	echo "    --release <id>  Set a release identifier appended to the package version"
-	echo "                    as '~<id>' (e.g. --release myci1 → 1.0.4-1+ubuntu24.04~myci1)."
+	echo "                    as '~<id>' (e.g. --release myci1 → 1.0.5-1+ubuntu24.04~myci1)."
 	echo "                    Useful to distinguish custom or CI builds from official ones."
 	echo "                    If the ceasar control file's Version already has a '~<tag>'"
 	echo "                    suffix (e.g. 1.1.0~alpha) and --release is NOT given, that"
 	echo "                    detected tag (e.g. 'alpha') is used automatically as the"
 	echo "                    release identifier for ALL packages. If --release IS given,"
 	echo "                    it overrides/replaces the detected '~<tag>' suffix instead."
-	echo "                    Can be combined: --pkgrev 2 --release myci1 → 1.0.4-2+ubuntu24.04~myci1."
+	echo "                    Can be combined: --pkgrev 2 --release myci1 → 1.0.5-2+ubuntu24.04~myci1."
 	echo ""
 	echo "For automated builds and installations, you may specify the branch"
 	echo "after one of the above flags. To install the packages, specify 'Y'"
@@ -143,7 +143,7 @@ usage() {
 	echo "This would install a Ceasar Control Panel package compiled with the"
 	echo "develop branch code."
 	echo ""
-	echo "Ceasar 1.0.4 builds only on Ubuntu 24.04 amd64."
+	echo "Ceasar 1.0.5 builds only on Ubuntu 24.04 amd64."
 }
 
 get_distro_suffix() {
@@ -273,7 +273,7 @@ for i in $*; do
 			KEEPBUILD='true'
 			;;
 		--cross)
-			echo "Cross builds are not supported. Ceasar 1.0.4 targets Ubuntu 24.04 amd64." >&2
+			echo "Cross builds are not supported. Ceasar 1.0.5 targets Ubuntu 24.04 amd64." >&2
 			exit 1
 			;;
 		--help | -h)
@@ -333,11 +333,11 @@ fi
 platform_id="$(lsb_release -is 2> /dev/null | tr '[:upper:]' '[:lower:]')"
 platform_release="$(lsb_release -rs 2> /dev/null)"
 if [ "$platform_id" != 'ubuntu' ] || [ "$platform_release" != '24.04' ]; then
-	echo "Ceasar 1.0.4 packages must be built on Ubuntu 24.04." >&2
+	echo "Ceasar 1.0.5 packages must be built on Ubuntu 24.04." >&2
 	exit 1
 fi
 if [ "$architecture" != 'x86_64' ] && [ "$architecture" != 'amd64' ]; then
-	echo "Ceasar 1.0.4 packages must be built for amd64." >&2
+	echo "Ceasar 1.0.5 packages must be built for amd64." >&2
 	exit 1
 fi
 
