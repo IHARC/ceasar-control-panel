@@ -82,6 +82,27 @@ describe('SupabaseIdentityProvider', () => {
 		).rejects.toThrow('Email confirmation must be enabled');
 		expect(auth.signOut).toHaveBeenCalledOnce();
 	});
+
+	it('requires aal2 and uses maintained SDK methods to remove authenticators and passkeys', async () => {
+		const unenroll = vi.fn().mockResolvedValue({ data: {}, error: null });
+		const deletePasskey = vi.fn().mockResolvedValue({ data: null, error: null });
+		const { identity, auth } = identityFixture({
+			mfa: {
+				getAuthenticatorAssuranceLevel: vi.fn().mockResolvedValue({
+					data: { currentLevel: 'aal2', nextLevel: 'aal2' },
+				}),
+				unenroll,
+			},
+			passkey: { delete: deletePasskey },
+		});
+
+		await identity.unenrollFactor('factor-1');
+		await identity.deletePasskey('passkey-1');
+
+		expect(auth.mfa.getAuthenticatorAssuranceLevel).toHaveBeenCalledTimes(2);
+		expect(unenroll).toHaveBeenCalledWith({ factorId: 'factor-1' });
+		expect(deletePasskey).toHaveBeenCalledWith({ passkeyId: 'passkey-1' });
+	});
 });
 
 describe('CustomerBusinessBackend', () => {

@@ -162,7 +162,10 @@
 	<section id="security" class="form-container form-container-wide">
 		<h2 class="u-mb20">Security</h2>
 		<h3 class="u-mb10">Authenticator apps</h3>
-		<div class="units-table u-mb20" data-mfa-rows><p class="units-table-footer">Loading…</p></div>
+		<div class="units-table u-mb20" data-mfa-rows>
+			<div class="units-table-header"><div class="units-table-cell"></div><div class="units-table-cell">Device</div><div class="units-table-cell">Status</div><div class="units-table-cell">Action</div></div>
+			<p class="units-table-footer">Loading…</p>
+		</div>
 		<form data-account-action="mfa-enroll">
 			<div class="u-mb20"><label class="form-label" for="factor-name">Device name</label><input class="form-control" id="factor-name" name="friendly_name" maxlength="120" value="Authenticator"></div>
 			<button class="button button-secondary" type="submit">Add authenticator</button>
@@ -175,7 +178,9 @@
 		</form>
 		<div data-passkey-section>
 			<h3 class="u-mt20 u-mb10">Passkeys</h3>
-			<div class="units-table u-mb20" data-passkey-rows></div>
+			<div class="units-table u-mb20" data-passkey-rows>
+				<div class="units-table-header"><div class="units-table-cell"></div><div class="units-table-cell">Passkey</div><div class="units-table-cell">Last used</div><div class="units-table-cell">Action</div></div>
+			</div>
 			<button class="button button-secondary u-hidden" type="button" data-passkey-register>Register passkey</button>
 		</div>
 	</section>

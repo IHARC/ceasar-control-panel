@@ -230,6 +230,33 @@ async function bindAccount(config, identity, backend) {
 		document.querySelector('[data-passkey-section]')?.remove();
 	}
 
+	document.querySelector('[data-mfa-rows]')?.addEventListener('click', async (event) => {
+		const control = event.target.closest('[data-mfa-remove]');
+		if (!control || !confirm('Remove this authenticator from your account?')) return;
+		try {
+			control.disabled = true;
+			await identity.unenrollFactor(required(control.dataset.mfaRemove));
+			showNotice('Authenticator removed.', 'success');
+			await loadSecurity(identity, config);
+		} catch (error) {
+			control.disabled = false;
+			showError(error);
+		}
+	});
+	document.querySelector('[data-passkey-rows]')?.addEventListener('click', async (event) => {
+		const control = event.target.closest('[data-passkey-remove]');
+		if (!control || !confirm('Remove this passkey from your account?')) return;
+		try {
+			control.disabled = true;
+			await identity.deletePasskey(required(control.dataset.passkeyRemove));
+			showNotice('Passkey removed.', 'success');
+			await loadSecurity(identity, config);
+		} catch (error) {
+			control.disabled = false;
+			showError(error);
+		}
+	});
+
 	const result = await backend.sessionState();
 	context.userId = result.identity?.userId || '';
 	setValue('[name=display_name]', result.identity?.displayName || '');
@@ -529,6 +556,7 @@ async function loadSecurity(identity, config) {
 			' ',
 			row.friendly_name || 'Authenticator',
 			row.status || 'unverified',
+			removeControl('Remove', 'mfaRemove', row.id, row.friendly_name || 'authenticator'),
 		]),
 	);
 	if (config.passkeysEnabled) {
@@ -539,9 +567,20 @@ async function loadSecurity(identity, config) {
 				' ',
 				row.friendly_name || 'Passkey',
 				formatDate(row.last_used_at || row.created_at),
+				removeControl('Remove', 'passkeyRemove', row.id, row.friendly_name || 'passkey'),
 			]),
 		);
 	}
+}
+
+function removeControl(label, datasetName, id, itemName) {
+	const button = document.createElement('button');
+	button.className = 'button button-secondary';
+	button.type = 'button';
+	button.dataset[datasetName] = String(id || '');
+	button.textContent = label;
+	button.setAttribute('aria-label', `${label} ${itemName}`);
+	return button;
 }
 
 function renderTable(selector, rows) {
@@ -564,7 +603,11 @@ function renderTable(selector, rows) {
 			const value = document.createElement('div');
 			value.className =
 				index === 0 ? 'units-table-cell units-table-heading-cell u-text-bold' : 'units-table-cell';
-			value.textContent = String(entry || '—');
+			if (entry instanceof Node) {
+				value.append(entry);
+			} else {
+				value.textContent = String(entry || '—');
+			}
 			item.append(value);
 		}
 		target.append(item);
