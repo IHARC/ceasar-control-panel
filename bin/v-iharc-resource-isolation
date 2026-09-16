@@ -5,20 +5,35 @@ set +x
 
 user=${1:-}
 action=${2:-}
-[[ $# -eq 2 && "$user" =~ ^ih[0-9a-f]{14}$ ]] || { echo 'Error: invalid account'; exit 1; }
-[[ "$action" == reconcile || "$action" == status ]] || { echo 'Error: invalid action'; exit 1; }
+[[ $# -eq 2 && "$user" =~ ^ih[0-9a-f]{14}$ ]] || {
+	echo 'Error: invalid account'
+	exit 1
+}
+[[ "$action" == reconcile || "$action" == status ]] || {
+	echo 'Error: invalid action'
+	exit 1
+}
 
 # Ceasar's config ends with an optional local.conf test, which returns 1 when
 # no override exists. Validate the loaded installation path separately.
-[[ -r /etc/ceasar/ceasar.conf ]] || { echo 'Error: Ceasar configuration is unavailable'; exit 1; }
+[[ -r /etc/ceasar/ceasar.conf ]] || {
+	echo 'Error: Ceasar configuration is unavailable'
+	exit 1
+}
 unset CEASAR
 source /etc/ceasar/ceasar.conf || [[ -n ${CEASAR:-} ]]
-[[ ${CEASAR:-} == /* && -d "$CEASAR" ]] || { echo 'Error: Ceasar configuration is unavailable'; exit 1; }
+[[ ${CEASAR:-} == /* && -d "$CEASAR" ]] || {
+	echo 'Error: Ceasar configuration is unavailable'
+	exit 1
+}
 helper="$CEASAR/bin/iharc-customer-isolation"
-[[ -x "$helper" && ! -L "$helper" ]] || { echo 'Error: resource isolation helper is unavailable'; exit 1; }
+[[ -x "$helper" && ! -L "$helper" ]] || {
+	echo 'Error: resource isolation helper is unavailable'
+	exit 1
+}
 
 if [[ "$action" == status ]]; then
-  exec "$helper" status "$user" "$CEASAR"
+	exec "$helper" status "$user" "$CEASAR"
 fi
-"$helper" reconcile "$user" "$CEASAR" >/dev/null
+"$helper" reconcile "$user" "$CEASAR" > /dev/null
 printf '0\n'

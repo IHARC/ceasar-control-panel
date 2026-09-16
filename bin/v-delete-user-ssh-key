@@ -28,7 +28,7 @@ parse_ssh_key_line() {
 	local line=$1
 	local sshkey
 
-	sshkey=$(printf '%s\n' "$line" | LC_ALL=C ssh-keygen -l -E sha256 -f - 2>/dev/null) || return 1
+	sshkey=$(printf '%s\n' "$line" | LC_ALL=C ssh-keygen -l -E sha256 -f - 2> /dev/null) || return 1
 	sshkey=${sshkey#* }
 	key_fingerprint=${sshkey%% *}
 	sshkey=${sshkey#* }
@@ -56,8 +56,11 @@ source "$USER_DATA/user.conf"
 SSH_KEY_LOCK_DIRECTORY="/run/ceasar/ssh-key-locks"
 install -d -o root -g root -m 0700 "$SSH_KEY_LOCK_DIRECTORY" || check_result $? "Unable to prepare SSH key lock" "$E_SYSTEM"
 SSH_KEY_LOCK_FILE="$SSH_KEY_LOCK_DIRECTORY/$user.lock"
-(umask 077; : >> "$SSH_KEY_LOCK_FILE") || check_result $? "Unable to prepare SSH key lock" "$E_SYSTEM"
-exec 9>>"$SSH_KEY_LOCK_FILE" || check_result $? "Unable to open SSH key lock" "$E_SYSTEM"
+(
+	umask 077
+	: >> "$SSH_KEY_LOCK_FILE"
+) || check_result $? "Unable to prepare SSH key lock" "$E_SYSTEM"
+exec 9>> "$SSH_KEY_LOCK_FILE" || check_result $? "Unable to open SSH key lock" "$E_SYSTEM"
 flock -x 9 || check_result $? "Unable to acquire SSH key lock" "$E_SYSTEM"
 
 AUTHKEY_FILE="$HOMEDIR/$user/.ssh/authorized_keys"

@@ -56,7 +56,10 @@ try {
 } catch (Throwable) {
     exit(1);
 }
-' "$config") || { echo '{"error":"managed-service adapter is unavailable"}' >&2; exit 1; }
+' "$config") || {
+	echo '{"error":"managed-service adapter is unavailable"}' >&2
+	exit 1
+}
 
 # Fully parse and canonicalize stdin before starting the adapter. In
 # particular, a rejected JSON request must never execute an adapter process.
@@ -113,7 +116,10 @@ try {
 } catch (Throwable) {
     exit(1);
 }
-' "$actor" "$max_request_bytes") || { echo '{"error":"invalid managed-service request"}' >&2; exit 1; }
+' "$actor" "$max_request_bytes") || {
+	echo '{"error":"invalid managed-service request"}' >&2
+	exit 1
+}
 
 set -o pipefail
 printf '%s' "$request" | "$adapter"

@@ -4,7 +4,7 @@
 
 - **Beta testing**:
   - Download and install builds from the `beta` branch. If you encounter an issue with a beta build, file an issue report on [GitHub](https://www.github.com/iharc-jordan/ceasar-control-panel/issues).<br>
-    `v-update-sys-ceasar-git ceasar beta install` will install the latest beta build from our GitHub repository.
+    Build an exact commit with `src/ceasar_autocompile.sh` and install the resulting local packages in a disposable Ubuntu 24.04 amd64 environment.
 - **Code review and bug fixes**:
   - Read over the code and if you notice errors (even spelling mistakes), submit a pull request with your changes.
 - **New features**:

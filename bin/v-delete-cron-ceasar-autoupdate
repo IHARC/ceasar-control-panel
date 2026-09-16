@@ -30,7 +30,6 @@ check_ceasar_demo_mode
 #----------------------------------------------------------#
 
 sed -i "/v-update-sys-ceasar-all/d" "/var/spool/cron/crontabs/ceasarweb"
-sed -i "/v-update-sys-ceasar-git/d" "/var/spool/cron/crontabs/ceasarweb"
 
 #----------------------------------------------------------#
 #                       Ceasar                             #

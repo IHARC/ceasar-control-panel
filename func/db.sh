@@ -268,10 +268,13 @@ iharc_update_database_host_values() (
 	if [ -e "$lock" ] || [ -L "$lock" ]; then
 		[ -f "$lock" ] && [ ! -L "$lock" ] && [ "$(stat -c '%U:%G:%a' "$lock")" = 'root:root:600' ] || exit 1
 	else
-		(umask 077; : > "$lock") || exit 1
+		(
+			umask 077
+			: > "$lock"
+		) || exit 1
 		chown root:root "$lock" && chmod 0600 "$lock" || exit 1
 	fi
-	exec 9>>"$lock" || exit 1
+	exec 9>> "$lock" || exit 1
 	flock -x 9 || exit 1
 
 	conf="$CEASAR/conf/$type_name.conf"
@@ -311,9 +314,18 @@ iharc_update_database_host_values() (
 		}
 		{ print }
 		END { if (matches != 1) exit 2 }
-	' "$conf" > "$temporary" || { rm -f -- "$temporary"; exit 1; }
-	chown --reference="$conf" "$temporary" && chmod --reference="$conf" "$temporary" || { rm -f -- "$temporary"; exit 1; }
-	mv -f -- "$temporary" "$conf" || { rm -f -- "$temporary"; exit 1; }
+	' "$conf" > "$temporary" || {
+		rm -f -- "$temporary"
+		exit 1
+	}
+	chown --reference="$conf" "$temporary" && chmod --reference="$conf" "$temporary" || {
+		rm -f -- "$temporary"
+		exit 1
+	}
+	mv -f -- "$temporary" "$conf" || {
+		rm -f -- "$temporary"
+		exit 1
+	}
 )
 
 # Increase database host value

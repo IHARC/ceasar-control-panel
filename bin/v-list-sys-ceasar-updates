@@ -18,6 +18,8 @@ format=${1-shell}
 source /etc/ceasar/ceasar.conf
 # shellcheck source=/usr/local/ceasar/func/main.sh
 source $CEASAR/func/main.sh
+# shellcheck source=/usr/local/ceasar/func/package.sh
+source "$CEASAR/func/package.sh"
 # load config file
 source_conf "$CEASAR/conf/ceasar.conf"
 
@@ -83,7 +85,7 @@ php_v=$(apt-cache policy ceasar-php | grep Candidate | cut -d ':' -f 2 | xargs)
 check_installed_deb ceasar
 
 UPDATED='yes'
-if [ -n "$ceasar_v" ] && [ "$ceasar_v" \> "$VERSION" ]; then
+if ceasar_version_is_newer "$ceasar_v" "$VERSION"; then
 	UPDATED='no'
 fi
 
@@ -94,7 +96,7 @@ data="$data UPDATED='$UPDATED' DESCR='Ceasar core package' TIME='$TIME' DATE='$D
 check_installed_deb ceasar-php
 
 UPDATED='yes'
-if [ -n "$php_v" ] && [ "$php_v" \> "$VERSION" ]; then
+if ceasar_version_is_newer "$php_v" "$VERSION"; then
 	UPDATED='no'
 fi
 
@@ -106,7 +108,7 @@ data="$data TIME='$TIME' DATE='$DATE'"
 check_installed_deb ceasar-nginx
 
 UPDATED='yes'
-if [ -n "$nginx_v" ] && [ "$nginx_v" \> "$VERSION" ]; then
+if ceasar_version_is_newer "$nginx_v" "$VERSION"; then
 	UPDATED='no'
 fi
 

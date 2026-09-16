@@ -14,7 +14,7 @@ source $CEASAR/func/main.sh
 # load config file
 source_conf "$CEASAR/conf/ceasar.conf"
 # upgrade config file
-source "$CEASAR/install/upgrade/upgrade.conf"
+source "$CEASAR/install/component-versions.conf"
 # Folder paths
 SM_INSTALL_DIR="/var/lib/snappymail"
 SM_LOG="/var/log/snappymail"

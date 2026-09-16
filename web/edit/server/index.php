@@ -118,8 +118,6 @@ if (is_array($dns_cluster)) {
 if (empty($v_dns_cluster)) {
 	$v_dns_cluster = "";
 }
-$v_release_branch = $_SESSION["RELEASE_BRANCH"];
-
 // List smtp relay settings
 if (!empty($_SESSION["SMTP_RELAY"])) {
 	$v_smtp_relay = $_SESSION["SMTP_RELAY"];

@@ -38,17 +38,8 @@ check_ceasar_demo_mode
 
 if [ "$status" = "enable" ]; then
 	if [ ! -f "$CEASAR/web/api/index.php" ]; then
-		wget -q https://raw.githubusercontent.com/iharc-jordan/ceasar-control-panel/$RELEASE_BRANCH/web/api/index.php -O $CEASAR/web/api/index.php
-		if [ ! -s "$CEASAR/web/api/index.php" ]; then
-			wget -q https://raw.githubusercontent.com/iharc-jordan/ceasar-control-panel/release/web/api/index.php -O $CEASAR/web/api/index.php
-			if [ ! -s "$CEASAR/web/api/index.php" ]; then
-				# Throw error message to user
-				echo "ERROR: API installation failed."
-				# Remove empty file created by wget output
-				rm -f "$CEASAR/web/api/index.php"
-				exit 1
-			fi
-		fi
+		echo "ERROR: The packaged API entry point is missing; reinstall the ceasar package." >&2
+		exit 1
 	else
 		sed -i 's|die("Error: Disabled");|//die("Error: Disabled");|g' $CEASAR/web/api/index.php
 		sed -i 's|////|//|g' $CEASAR/web/api/index.php

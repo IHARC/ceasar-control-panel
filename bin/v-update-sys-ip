@@ -166,15 +166,6 @@ for ip in $ips; do
 	fi
 done
 
-# Updating NAT
-pub_ipv4="$(curl -fsLm5 --retry 2 --ipv4 https://ip.ceasar.com/)"
-if [ ! -e "$CEASAR/data/ips/$pub_ipv4" ]; then
-	if [ -z "$(grep -R "$pub_ipv4" $CEASAR/data/ips/)" ]; then
-		ip="$(ls -t $CEASAR/data/ips/ | head -n1)"
-		$BIN/v-change-sys-ip-nat "$ip" "$pub_ipv4"
-	fi
-fi
-
 # Updating IP usage counters
 $BIN/v-update-sys-ip-counters
 

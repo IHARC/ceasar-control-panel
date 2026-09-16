@@ -17,7 +17,7 @@ source "$CEASAR/func/db.sh"
 # load config file
 source_conf "$CEASAR/conf/ceasar.conf"
 # upgrade config file
-source "$CEASAR/install/upgrade/upgrade.conf"
+source "$CEASAR/install/component-versions.conf"
 
 MODE="$2"
 UPDATE="no"

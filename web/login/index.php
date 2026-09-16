@@ -54,7 +54,8 @@ if (isset($_SESSION["user"])) {
 					// URLs before the session token can be appended to a redirect.
 					if (preg_match('~^/(?!/)[^\x00-\x1F\x7F\\\\]*$~D', $edit_link)) {
 						$separator = str_contains($edit_link, "?") ? "&" : "?";
-						$url = $edit_link . $separator . "token=" . rawurlencode($_SESSION["token"]);
+						$url =
+							$edit_link . $separator . "token=" . rawurlencode($_SESSION["token"]);
 						header("Location: " . $url);
 						die();
 					}

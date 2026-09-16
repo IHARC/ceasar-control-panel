@@ -23,7 +23,7 @@ source_conf "$CEASAR/conf/ceasar.conf"
 
 # Retrieve Ceasar Control Panel version number
 CEASAR_VERSION=$(grep VERSION $CEASAR/conf/ceasar.conf | cut -d '=' -f2 | sed "s|'||g")
-CEASAR_RELEASE=$(grep RELEASE_BRANCH $CEASAR/conf/ceasar.conf | cut -d '=' -f2 | sed "s|'||g")
+CEASAR_SOURCE='apt'
 
 # JSON list function
 json_list() {
@@ -34,7 +34,7 @@ json_list() {
         "VERSION": "'$VERSION'",
         "ARCH": "'$ARCH'",
         "CEASAR": "'$CEASAR_VERSION'",
-        "RELEASE": "'$CEASAR_RELEASE'",
+        "SOURCE": "'$CEASAR_SOURCE'",
         "UPTIME": "'$UPTIME'",
         "LOADAVERAGE": "'$LOADAVERAGE'"
         }'
@@ -43,20 +43,20 @@ json_list() {
 
 # SHELL list function
 shell_list() {
-	echo "HOSTNAME   OS   VER   ARCH  CEASAR  RELEASE  UPTIME   LA"
-	echo "--------   --   ---   ----  ------  -------  ------   --"
-	echo "$HOSTNAME $OS $VERSION $ARCH $CEASAR_VERSION $CEASAR_RELEASE $UPTIME $LOADAVERAGE"
+	echo "HOSTNAME   OS   VER   ARCH  CEASAR  SOURCE  UPTIME   LA"
+	echo "--------   --   ---   ----  ------  ------  ------   --"
+	echo "$HOSTNAME $OS $VERSION $ARCH $CEASAR_VERSION $CEASAR_SOURCE $UPTIME $LOADAVERAGE"
 }
 
 # PLAIN list function
 plain_list() {
-	echo -e "$HOSTNAME\t$OS\t$VERSION\t$ARCH\t$CEASAR_VERSION\t$CEASAR_RELEASE\t$UPTIME\t$LOADAVERAGE"
+	echo -e "$HOSTNAME\t$OS\t$VERSION\t$ARCH\t$CEASAR_VERSION\t$CEASAR_SOURCE\t$UPTIME\t$LOADAVERAGE"
 }
 
 # CSV list function
 csv_list() {
-	echo "HOSTNAME,OS,VERSION,ARCH,CEASAR,RELEASE,UPTIME,LOADAVERAGE"
-	echo "$HOSTNAME,$OS,$VERSION,$ARCH,$CEASAR_VERSION,$CEASAR_RELEASE,$UPTIME,$LOADAVERAGE"
+	echo "HOSTNAME,OS,VERSION,ARCH,CEASAR,SOURCE,UPTIME,LOADAVERAGE"
+	echo "$HOSTNAME,$OS,$VERSION,$ARCH,$CEASAR_VERSION,$CEASAR_SOURCE,$UPTIME,$LOADAVERAGE"
 }
 
 #----------------------------------------------------------#

@@ -112,7 +112,6 @@ if [[ "$user" =~ ^ih[0-9a-f]{14}$ ]]; then
 		|| check_result "$E_INVALID" "customer resource isolation deletion is not safe"
 fi
 
-
 # Deleting system user
 if [ "$DISK_QUOTA" = 'yes' ]; then
 	update_user_group_quota "$user" 'unlimited' || check_result "$E_DISK" "group quota cleanup failed"

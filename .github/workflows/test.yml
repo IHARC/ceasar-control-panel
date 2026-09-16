@@ -7,17 +7,38 @@ on:
       - main
 
 jobs:
+  standalone:
+    name: Standalone runtime contracts
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+
+      - name: Install focused test dependencies
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq bats
+
+      - name: Validate installer platform and profile gates
+        run: sudo bash tests/release/test-installer-validation.sh
+
+      - name: Verify Debian version ordering
+        run: bats test/version-order.bats
+
+      - name: Verify IHARC authority, kernel, transfer, and enforcement behavior
+        run: python3 -m unittest discover -s tests/iharc -p "test_*.py" -v
+
   docs:
     name: Docs site
     runs-on: ubuntu-latest
     steps:
       - name: Checkout code
-        uses: actions/checkout@v7
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
 
       - name: Setup Node
-        uses: actions/setup-node@v7
+        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7
         with:
-          node-version: "lts/*"
+          node-version: "22.23.2"
 
       - name: Install Node packages
         run: npm ci --ignore-scripts

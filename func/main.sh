@@ -112,7 +112,6 @@ MAILTPL=$CEASAR/data/templates/mail
 DNSTPL=$CEASAR/data/templates/dns
 RRD=$CEASAR/web/rrd
 SENDMAIL="$CEASAR/web/inc/mail-wrapper.php"
-CEASAR_GIT_REPO="https://raw.githubusercontent.com/iharc-jordan/ceasar-control-panel"
 CEASAR_THEMES="$CEASAR/web/css/themes"
 CEASAR_THEMES_CUSTOM="$CEASAR/web/css/themes/custom"
 SCRIPT="$(basename $0)"

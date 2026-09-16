@@ -75,7 +75,6 @@ function renderNativeLogin(string $appName, string $repositoryRoot): string {
 		"TITLE" => "{{page}} - {{appname}}",
 		"THEME" => "default",
 		"userTheme" => "default",
-		"RELEASE_BRANCH" => "release",
 		"DEBUG_MODE" => "false",
 		"HIDE_DOCS" => "yes",
 		"token" => "ceasar-preview-token",

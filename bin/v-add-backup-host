@@ -21,9 +21,6 @@ HIDE=4
 path=${5-/backup}
 port=$6
 
-# CPU Architecture
-arch=$(arch)
-
 # Includes
 # shellcheck source=/etc/ceasar/ceasar.conf
 source /etc/ceasar/ceasar.conf
@@ -33,12 +30,6 @@ source $CEASAR/func/main.sh
 source $CEASAR/func/backup.sh
 # load config file
 source_conf "$CEASAR/conf/ceasar.conf"
-# Fetch current verison B2 CLI tool
-source_conf "$CEASAR/install/upgrade/upgrade.conf"
-
-# Paths
-b2cli="/usr/local/bin/b2"
-b2lnk="https://github.com/Backblaze/B2_Command_Line_Tool/releases/download/v$b2_v/b2-linux"
 
 #----------------------------------------------------------#
 #                    Verifications                         #
@@ -153,25 +144,13 @@ if [ "$type" = 'sftp' ]; then
 fi
 
 if [ "$type" = 'b2' ]; then
-	# Download b2 binary
-	if [ ! -f "$b2cli" ]; then
-		if [ "$arch" = 'aarch64' ] || [ "$arch" = 'arm64' ]; then
-			echo "Error: B2 binary for arm64 must be downloaded manually."
-			exit 3
-		else
-			wget -O $b2cli $b2lnk > /dev/null 2>&1
-			chmod +x $b2cli > /dev/null 2>&1
-		fi
-		if [ ! -f "$b2cli" ]; then
-			echo "Error: Binary download failed, b2 doesn't work as expected."
-			exit 3
-		fi
+	if ! command -v b2 > /dev/null 2>&1; then
+		echo "Error: Install the distribution-provided b2 command before configuring a B2 backup host." >&2
+		exit 3
 	fi
-
-	# Validate b2 binary
 	b2version="$(b2 version)"
 	if [[ ! "$b2version" =~ "b2 command line tool" ]]; then
-		echo "Error: Binary download failed, b2 doesn't work as expected."
+		echo "Error: The installed b2 command is not compatible." >&2
 		exit 3
 	fi
 
@@ -185,7 +164,10 @@ if [ "$type" = 'b2' ]; then
 fi
 
 if [ "$type" = 'rclone' ]; then
-	curl -s https://rclone.org/install.sh | bash /dev/null > /dev/null 2>&1
+	if ! command -v rclone > /dev/null 2>&1; then
+		echo "Error: Install rclone from the Ubuntu package repository before configuring this backup host." >&2
+		exit 3
+	fi
 	# Verify account exists
 	if [ ! -z "$(cat /root/.config/rclone/rclone.conf | grep "\[$host\]")" ]; then
 		echo "test" > /tmp/ceasar-backup.txt

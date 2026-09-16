@@ -7328,8 +7328,9 @@ update ceasar package/configs
 v-update-sys-ceasar ceasar-php
 ```
 
-This function runs as apt update trigger. It pulls shell script from ceasar
-server and runs it. (ceasar, ceasar-nginx and ceasar-php are valid options)
+Updates the installed Ceasar core, Nginx, and PHP packages together from the
+signed Ceasar APT repository. The optional web-terminal package is included
+when installed.
 
 ## v-update-sys-ceasar-all
 
@@ -7339,27 +7340,7 @@ update all ceasar packages
 
 **Options**: –
 
-This function of updating all ceasar packages
-
-## v-update-sys-ceasar-git
-
-[Source](https://github.com/iharc-jordan/ceasar-control-panel/blob/release/bin/v-update-sys-ceasar-git)
-
-Install update from Git repository
-
-**Options**: `REPOSITORY` `BRANCH` `INSTALL`
-
-**Examples**:
-
-```bash
-v-update-sys-ceasar-git ceasar staging/beta install
-# Will download from the ceasar repository
-# Pulls code from staging/beta branch
-# install: installs package immediately
-# install-auto: installs package and schedules automatic updates from Git
-```
-
-Downloads and compiles/installs packages from GitHub repositories
+Updates the complete installed Ceasar package set in one APT transaction.
 
 ## v-update-sys-ip
 

@@ -157,14 +157,6 @@
 							<?= tohtml($_SESSION["VERSION"]) ?>
 						</span>
 					</p>
-					<?php if ($_SESSION["RELEASE_BRANCH"] !== "release") { ?>
-						<p class="u-mb10">
-							<?= tohtml( _("Release")) ?>:
-							<span class="optional">
-								<?= tohtml($_SESSION["RELEASE_BRANCH"]) ?>
-							</span>
-						</p>
-					<?php } ?>
 					<p class="u-mb5">
 						<?= tohtml( _("Options")) ?>
 					</p>

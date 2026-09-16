@@ -78,7 +78,7 @@ fi
 
 cp "$tmpdir/home/$user/backup/ceasar/user.conf" "$USER_DATA/"
 cp -r "$tmpdir/home/$user/backup/ceasar/ssl" "$USER_DATA/" > /dev/null 2>&1
-cp -r" $tmpdir/home/$user/backup/ceasar/backup-excludes.conf" "$USER_DATA"/ > /dev/null 2>&1
+cp -r "$tmpdir/home/$user/backup/ceasar/backup-excludes.conf" "$USER_DATA/" > /dev/null 2>&1
 
 old_uid=$(cut -f 3 -d : $tmpdir/home/$user/backup/pam/passwd)
 # Rebuilding user

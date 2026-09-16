@@ -54,10 +54,25 @@ source_conf $CEASAR/conf/restic.conf
 if [ ! -f "$USER_DATA/restic.conf" ]; then
 	password=$(generate_password '' '32')
 	temporary=$(mktemp "$USER_DATA/.restic.conf.XXXXXX") || check_result $E_SYSTEM "Unable to stage restic key"
-	(umask 077; printf '%s\n' "$password" > "$temporary") || { rm -f -- "$temporary"; check_result $E_SYSTEM "Unable to write restic key"; }
-	chown root:root "$temporary" && chmod 0600 "$temporary" || { rm -f -- "$temporary"; check_result $E_SYSTEM "Unable to protect restic key"; }
-	[ "$(stat -c '%U:%G:%a' "$temporary")" = root:root:600 ] || { rm -f -- "$temporary"; check_result $E_SYSTEM "Restic key protection is invalid"; }
-	mv -f -- "$temporary" "$USER_DATA/restic.conf" || { rm -f -- "$temporary"; check_result $E_SYSTEM "Unable to publish restic key"; }
+	(
+		umask 077
+		printf '%s\n' "$password" > "$temporary"
+	) || {
+		rm -f -- "$temporary"
+		check_result $E_SYSTEM "Unable to write restic key"
+	}
+	chown root:root "$temporary" && chmod 0600 "$temporary" || {
+		rm -f -- "$temporary"
+		check_result $E_SYSTEM "Unable to protect restic key"
+	}
+	[ "$(stat -c '%U:%G:%a' "$temporary")" = root:root:600 ] || {
+		rm -f -- "$temporary"
+		check_result $E_SYSTEM "Restic key protection is invalid"
+	}
+	mv -f -- "$temporary" "$USER_DATA/restic.conf" || {
+		rm -f -- "$temporary"
+		check_result $E_SYSTEM "Unable to publish restic key"
+	}
 fi
 # Earlier native runs created this root-owned key 0644. Tighten that exact
 # known state in place so the same key remains usable; reject every other

@@ -54,7 +54,10 @@ http {
 # define('CEASAR_PASS',   ''); // <- # openssl rand -base64 12
 # define('CEASAR_EMAIL',  'user@domain.tld');
 define("CEASAR_BRANCH", "~localsrc");
-define("CEASAR_ARGS", "--force --interactive no --clamav no -p " . CEASAR_PASS . " --email " . CEASAR_EMAIL);
+define(
+	"CEASAR_ARGS",
+	"--force --interactive no --clamav no -p " . CEASAR_PASS . " --email " . CEASAR_EMAIL,
+);
 define("LXC_TIMEOUT", 30);
 
 if (

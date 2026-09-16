@@ -1,0 +1,17 @@
+{
+	"schema": 1,
+	"installer": {
+		"hostname": "host.example.com",
+		"email": "admin@example.com",
+		"username": "admin",
+		"interactive": false,
+		"public_address": "203.0.113.10",
+		"webterminal": false
+	},
+	"managed_services": {
+		"enabled": false
+	},
+	"customer": {
+		"enabled": false
+	}
+}

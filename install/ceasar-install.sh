@@ -16,6 +16,7 @@ export PATH=$PATH:/sbin
 export DEBIAN_FRONTEND=noninteractive
 CEASAR_APT_URL="${CEASAR_APT_URL:-https://iharc-jordan.github.io/ceasar-control-panel/apt}"
 CEASAR_APT_KEY_URL="${CEASAR_APT_KEY_URL:-$CEASAR_APT_URL/ceasar-archive-keyring.gpg}"
+CEASAR_APT_KEY_FINGERPRINT='CA9AA1D56C448BF5EEB0FB0A2A3C8C6E0AF11058'
 VERSION='ubuntu'
 CEASAR='/usr/local/ceasar'
 LOG="/root/ceasar_install_backups/ceasar_install-$(date +%d%m%Y%H%M).log"
@@ -30,6 +31,10 @@ architecture="${CEASAR_ARCH:-$(uname -m)}"
 CEASAR_INSTALL_DIR="$CEASAR/install/deb"
 CEASAR_COMMON_DIR="$CEASAR/install/common"
 VERBOSE='no'
+SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
+profile_customer_config=''
+profile_customer_enabled='no'
+profile_managed_services='no'
 
 # Define software versions
 CEASAR_INSTALL_VER='1.0.0'
@@ -111,6 +116,7 @@ help() {
   -u, --username          Set admin user
   -p, --password          Set admin password
   -P, --public-address    Explicit public IPv4 address for NAT
+      --config FILE      Validated JSON install profile
   -D, --with-debs         Path to Ceasar debs
   -V, --validate-only     Validate platform and inputs without mutation
   -f, --force             Force installation
@@ -168,7 +174,7 @@ reject_legacy_panel() {
 	fi
 	if command -v dpkg-query > /dev/null 2>&1 \
 		&& dpkg-query -W -f='${Status}\n' "$legacy_name" "${legacy_name}-nginx" "${legacy_name}-php" 2> /dev/null \
-			| grep -q 'install ok installed'; then
+		| grep -q 'install ok installed'; then
 		check_result 1 "An existing Hestia package was detected. Remove it before installing Ceasar."
 	fi
 }
@@ -211,6 +217,179 @@ validate_local_packages() {
 				|| check_result 1 "Local Ceasar packages must target amd64: $package_file"
 		fi
 	done
+}
+
+validate_release_bundle() {
+	local manifest="$SCRIPT_DIR/ceasar-release.json"
+	[ -f "$manifest" ] || return 0
+	command -v python3 > /dev/null 2>&1 || check_result 1 "python3 is required to verify the Ceasar release bundle."
+	python3 - "$manifest" "$SCRIPT_DIR" << 'PY'
+import hashlib
+import json
+import pathlib
+import re
+import sys
+
+manifest_path = pathlib.Path(sys.argv[1])
+bundle_dir = pathlib.Path(sys.argv[2])
+data = json.loads(manifest_path.read_text(encoding="utf-8"))
+if data.get("schema") != 1 or data.get("version") != "1.0.0":
+    raise SystemExit("unsupported Ceasar release manifest")
+if data.get("platform") != "ubuntu24.04" or data.get("architecture") != "amd64":
+    raise SystemExit("release bundle does not target Ubuntu 24.04 amd64")
+if not re.fullmatch(r"[0-9a-f]{40}", str(data.get("commit", ""))):
+    raise SystemExit("release manifest commit must be an exact 40-character Git commit")
+packages = data.get("packages")
+if not isinstance(packages, list) or {item.get("name") for item in packages} != {
+    "ceasar", "ceasar-nginx", "ceasar-php", "ceasar-web-terminal"
+}:
+    raise SystemExit("release manifest must contain the four Ceasar packages")
+for item in packages:
+    filename = item.get("filename")
+    digest = item.get("sha256")
+    if not isinstance(filename, str) or pathlib.Path(filename).name != filename:
+        raise SystemExit("invalid package filename in release manifest")
+    if not isinstance(digest, str) or not re.fullmatch(r"[0-9a-f]{64}", digest):
+        raise SystemExit("invalid package digest in release manifest")
+    package = bundle_dir / filename
+    if not package.is_file() or hashlib.sha256(package.read_bytes()).hexdigest() != digest:
+        raise SystemExit(f"release package digest mismatch: {filename}")
+PY
+	check_result $? "Ceasar release bundle verification failed."
+	[ -n "$withdebs" ] || withdebs="$SCRIPT_DIR"
+}
+
+load_install_profile() {
+	local profile=$1
+	local args_file state_file
+	[ -f "$profile" ] || check_result 1 "Ceasar install profile does not exist: $profile"
+	command -v python3 > /dev/null 2>&1 || check_result 1 "python3 is required to validate a Ceasar install profile."
+	args_file="$(mktemp)"
+	state_file="$(mktemp)"
+	profile_customer_config="$(mktemp)"
+	python3 - "$profile" "$profile_customer_config" "$state_file" > "$args_file" << 'PY'
+import ipaddress
+import json
+import pathlib
+import re
+import sys
+from urllib.parse import urlparse
+
+profile_path = pathlib.Path(sys.argv[1])
+customer_path = pathlib.Path(sys.argv[2])
+state_path = pathlib.Path(sys.argv[3])
+data = json.loads(profile_path.read_text(encoding="utf-8"))
+if not isinstance(data, dict) or data.get("schema") != 1:
+    raise SystemExit("install profile schema must be 1")
+allowed_top = {"schema", "installer", "customer", "managed_services"}
+if set(data) - allowed_top:
+    raise SystemExit("install profile contains unsupported top-level keys")
+
+installer = data.get("installer", {})
+if not isinstance(installer, dict):
+    raise SystemExit("installer profile must be an object")
+options = {
+    "apache": "--apache", "phpfpm": "--phpfpm", "multiphp": "--multiphp",
+    "vsftpd": "--vsftpd", "proftpd": "--proftpd", "named": "--named",
+    "mysql": "--mysql", "mysql8": "--mysql8", "postgresql": "--postgresql",
+    "exim": "--exim", "dovecot": "--dovecot", "sieve": "--sieve",
+    "clamav": "--clamav", "spamassassin": "--spamassassin",
+    "iptables": "--iptables", "fail2ban": "--fail2ban", "quota": "--quota",
+    "resourcelimit": "--resourcelimit", "webterminal": "--webterminal",
+    "api": "--api", "port": "--port", "lang": "--lang",
+    "interactive": "--interactive", "hostname": "--hostname", "email": "--email",
+    "username": "--username", "password": "--password",
+    "public_address": "--public-address",
+}
+if set(installer) - (set(options) | {"force"}):
+    raise SystemExit("installer profile contains unsupported keys")
+for key, value in installer.items():
+    if key == "force":
+        if value is True:
+            print("--force")
+        elif value is not False:
+            raise SystemExit("installer.force must be a boolean")
+        continue
+    if isinstance(value, bool):
+        value = "yes" if value else "no"
+    if not isinstance(value, (str, int)) or "\n" in str(value) or "\r" in str(value):
+        raise SystemExit(f"installer.{key} must be a scalar without newlines")
+    if key == "public_address":
+        ipaddress.IPv4Address(str(value))
+    print(options[key])
+    print(str(value))
+
+def https_url(value, field, expected_path=None):
+    if not isinstance(value, str):
+        raise SystemExit(f"customer.{field} must be a string")
+    parsed = urlparse(value)
+    if parsed.scheme != "https" or not parsed.hostname or parsed.username or parsed.password:
+        raise SystemExit(f"customer.{field} must be an HTTPS URL without credentials")
+    if parsed.query or parsed.fragment:
+        raise SystemExit(f"customer.{field} must not contain a query or fragment")
+    if expected_path is not None and parsed.path.rstrip("/") != expected_path:
+        raise SystemExit(f"customer.{field} must use {expected_path}")
+    return parsed
+
+customer = data.get("customer", {"enabled": False})
+if not isinstance(customer, dict) or not isinstance(customer.get("enabled", False), bool):
+    raise SystemExit("customer profile must be an object with a boolean enabled value")
+customer_enabled = customer.get("enabled", False)
+if customer_enabled:
+    required = {
+        "schema", "enabled", "brand_name", "supabase_url", "supabase_publishable_key",
+        "terms_url", "privacy_url", "passkeys_enabled", "passkey_rp_id",
+        "login_url", "callback_url", "account_url", "worker_api_base",
+    }
+    if set(customer) != required or customer.get("schema") != 1:
+        raise SystemExit("enabled customer profile fields do not match schema 1")
+    if not isinstance(customer["brand_name"], str) or not customer["brand_name"].strip():
+        raise SystemExit("customer.brand_name is required")
+    supabase = https_url(customer["supabase_url"], "supabase_url")
+    if not supabase.hostname.endswith(".supabase.co"):
+        raise SystemExit("customer.supabase_url must be a Supabase project URL")
+    key = customer["supabase_publishable_key"]
+    if not isinstance(key, str) or not key.startswith("sb_publishable_"):
+        raise SystemExit("customer.supabase_publishable_key must be a browser publishable key")
+    https_url(customer["terms_url"], "terms_url")
+    https_url(customer["privacy_url"], "privacy_url")
+    login = https_url(customer["login_url"], "login_url", "/customer/login")
+    callback = https_url(customer["callback_url"], "callback_url", "/auth/callback")
+    account = https_url(customer["account_url"], "account_url", "/customer/account")
+    origins = {(item.scheme, item.hostname, item.port) for item in (login, callback, account)}
+    if len(origins) != 1:
+        raise SystemExit("customer login, callback, and account URLs must share one origin")
+    rp_id = customer["passkey_rp_id"]
+    if not isinstance(rp_id, str) or not re.fullmatch(r"[a-z0-9](?:[a-z0-9.-]{0,251}[a-z0-9])?", rp_id):
+        raise SystemExit("customer.passkey_rp_id is invalid")
+    if login.hostname != rp_id and not login.hostname.endswith("." + rp_id):
+        raise SystemExit("customer.passkey_rp_id must cover the customer hostname")
+    if customer["worker_api_base"] != "/api/iharc/v1/customer":
+        raise SystemExit("customer.worker_api_base must be /api/iharc/v1/customer")
+    if not isinstance(customer["passkeys_enabled"], bool):
+        raise SystemExit("customer.passkeys_enabled must be a boolean")
+    customer_path.write_text(json.dumps(customer, indent=2) + "\n", encoding="utf-8")
+else:
+    if set(customer) - {"enabled"}:
+        raise SystemExit("disabled customer profile accepts only enabled=false")
+    customer_path.write_text("", encoding="utf-8")
+
+managed = data.get("managed_services", {"enabled": False})
+if not isinstance(managed, dict) or set(managed) != {"enabled"} or not isinstance(managed["enabled"], bool):
+    raise SystemExit("managed_services must contain only a boolean enabled value")
+state_path.write_text(
+    f"profile_customer_enabled={'yes' if customer_enabled else 'no'}\n"
+    f"profile_managed_services={'yes' if managed['enabled'] else 'no'}\n",
+    encoding="utf-8",
+)
+PY
+	check_result $? "Ceasar install profile validation failed."
+	mapfile -t profile_args < "$args_file"
+	# Generated by the fixed parser above and contains only yes/no assignments.
+	# shellcheck disable=SC1090
+	source "$state_file"
+	rm -f "$args_file" "$state_file"
+	trap 'rm -f "$profile_customer_config"' EXIT
 }
 
 # Source conf in installer
@@ -328,6 +507,36 @@ version_ge() { test "$(printf '%s\n' "$@" | sort -V | head -n 1)" != "$1" -o -n 
 #                    Verifications                         #
 #----------------------------------------------------------#
 
+# Extract and validate an optional JSON install profile before translating the
+# remaining command line. Explicit command-line flags are appended after the
+# profile and therefore take precedence.
+original_args=("$@")
+filtered_args=()
+profile_file=''
+index=0
+while [ "$index" -lt "${#original_args[@]}" ]; do
+	arg="${original_args[$index]}"
+	case "$arg" in
+		--config)
+			index=$((index + 1))
+			[ "$index" -lt "${#original_args[@]}" ] || check_result 1 "--config requires a JSON file."
+			profile_file="${original_args[$index]}"
+			;;
+		--config=*) profile_file="${arg#--config=}" ;;
+		*.json)
+			[ -z "$profile_file" ] || check_result 1 "Only one Ceasar install profile may be supplied."
+			profile_file="$arg"
+			;;
+		*) filtered_args+=("$arg") ;;
+	esac
+	index=$((index + 1))
+done
+profile_args=()
+if [ -n "$profile_file" ]; then
+	load_install_profile "$profile_file"
+fi
+set -- "${profile_args[@]}" "${filtered_args[@]}"
+
 # Translating argument to --gnu-long-options
 for arg; do
 	delim=""
@@ -377,39 +586,39 @@ eval set -- "$args"
 # Parsing arguments
 while getopts "a:w:v:j:k:m:M:g:d:x:z:Z:c:t:i:b:r:o:q:L:l:y:s:u:e:p:P:W:D:Vfh" Option; do
 	case $Option in
-		a) apache=$OPTARG ;;        # Apache
-		w) phpfpm=$OPTARG ;;        # PHP-FPM
-		o) multiphp=$OPTARG ;;      # Multi-PHP
-		v) vsftpd=$OPTARG ;;        # Vsftpd
-		j) proftpd=$OPTARG ;;       # Proftpd
-		k) named=$OPTARG ;;         # Named
-		m) mysql=$OPTARG ;;         # MariaDB
-		M) mysql8=$OPTARG ;;        # MySQL
-		g) postgresql=$OPTARG ;;    # PostgreSQL
-		x) exim=$OPTARG ;;          # Exim
-		z) dovecot=$OPTARG ;;       # Dovecot
-		Z) sieve=$OPTARG ;;         # Sieve
-		c) clamd=$OPTARG ;;         # ClamAV
-		t) spamd=$OPTARG ;;         # SpamAssassin
-		i) iptables=$OPTARG ;;      # Iptables
-		b) fail2ban=$OPTARG ;;      # Fail2ban
-		q) quota=$OPTARG ;;         # FS Quota
-		L) resourcelimit=$OPTARG ;; # Resource Limitation
-		W) webterminal=$OPTARG ;;   # Web Terminal
-		r) port=$OPTARG ;;          # Backend Port
-		l) lang=$OPTARG ;;          # Language
-		d) api=$OPTARG ;;           # Activate API
-		y) interactive=$OPTARG ;;   # Interactive install
-		s) servername=$OPTARG ;;    # Hostname
-		e) email=$OPTARG ;;         # Admin email
-		u) username=$OPTARG ;;      # Admin username
-		p) vpass=$OPTARG ;;         # Admin password
+		a) apache=$OPTARG ;;         # Apache
+		w) phpfpm=$OPTARG ;;         # PHP-FPM
+		o) multiphp=$OPTARG ;;       # Multi-PHP
+		v) vsftpd=$OPTARG ;;         # Vsftpd
+		j) proftpd=$OPTARG ;;        # Proftpd
+		k) named=$OPTARG ;;          # Named
+		m) mysql=$OPTARG ;;          # MariaDB
+		M) mysql8=$OPTARG ;;         # MySQL
+		g) postgresql=$OPTARG ;;     # PostgreSQL
+		x) exim=$OPTARG ;;           # Exim
+		z) dovecot=$OPTARG ;;        # Dovecot
+		Z) sieve=$OPTARG ;;          # Sieve
+		c) clamd=$OPTARG ;;          # ClamAV
+		t) spamd=$OPTARG ;;          # SpamAssassin
+		i) iptables=$OPTARG ;;       # Iptables
+		b) fail2ban=$OPTARG ;;       # Fail2ban
+		q) quota=$OPTARG ;;          # FS Quota
+		L) resourcelimit=$OPTARG ;;  # Resource Limitation
+		W) webterminal=$OPTARG ;;    # Web Terminal
+		r) port=$OPTARG ;;           # Backend Port
+		l) lang=$OPTARG ;;           # Language
+		d) api=$OPTARG ;;            # Activate API
+		y) interactive=$OPTARG ;;    # Interactive install
+		s) servername=$OPTARG ;;     # Hostname
+		e) email=$OPTARG ;;          # Admin email
+		u) username=$OPTARG ;;       # Admin username
+		p) vpass=$OPTARG ;;          # Admin password
 		P) public_address=$OPTARG ;; # Explicit public IPv4 address
-		D) withdebs=$OPTARG ;;      # Ceasar debs path
-		V) validate_only='yes' ;;   # Read-only validation
-		f) force='yes' ;;           # Force install
-		h) help ;;                  # Help
-		*) help ;;                  # Print help (default)
+		D) withdebs=$OPTARG ;;       # Ceasar debs path
+		V) validate_only='yes' ;;    # Read-only validation
+		f) force='yes' ;;            # Force install
+		h) help ;;                   # Help
+		*) help ;;                   # Print help (default)
 	esac
 done
 
@@ -418,6 +627,7 @@ reject_legacy_panel
 if [ -n "$public_address" ] && ! validate_public_address "$public_address"; then
 	check_result 1 "The public address must be a valid IPv4 address."
 fi
+validate_release_bundle
 validate_local_packages
 if [ "$validate_only" = 'yes' ]; then
 	echo "Ceasar platform validation passed: Ubuntu 24.04 amd64."
@@ -922,6 +1132,11 @@ echo "[ * ] Ceasar Control Panel"
 echo "deb [arch=amd64 signed-by=/usr/share/keyrings/ceasar-archive-keyring.gpg] $CEASAR_APT_URL noble main" > $apt/ceasar.list
 curl --fail --silent --show-error "$CEASAR_APT_KEY_URL" -o /usr/share/keyrings/ceasar-archive-keyring.gpg
 check_result $? "Unable to install the Ceasar APT signing key"
+ceasar_key_fingerprint="$(gpg --batch --show-keys --with-colons /usr/share/keyrings/ceasar-archive-keyring.gpg + | awk -F: '$1 == "fpr" {print $10; exit}')"
+if [ "$ceasar_key_fingerprint" != "$CEASAR_APT_KEY_FINGERPRINT" ]; then
+	rm -f /usr/share/keyrings/ceasar-archive-keyring.gpg
+	check_result 1 "Ceasar APT signing key fingerprint verification failed"
+fi
 
 # Installing Node.js repo
 if [ "$webterminal" = 'yes' ]; then
@@ -1500,8 +1715,11 @@ write_config_value "INACTIVE_SESSION_TIMEOUT" "60"
 
 # Version and optional integrations
 write_config_value "VERSION" "${CEASAR_INSTALL_VER}"
-write_config_value "MANAGED_SERVICES" "no"
-write_config_value "CUSTOMER_MODULE" "no"
+write_config_value "MANAGED_SERVICES" "$profile_managed_services"
+write_config_value "CUSTOMER_MODULE" "$profile_customer_enabled"
+if [ "$profile_customer_enabled" = 'yes' ]; then
+	install -o root -g ceasarweb -m 0640 "$profile_customer_config" "$CEASAR/conf/customer.json"
+fi
 
 # Email notifications after upgrade
 write_config_value "UPGRADE_SEND_EMAIL" "true"
@@ -1900,9 +2118,9 @@ fi
 #                    Configure phpMyAdmin                  #
 #----------------------------------------------------------#
 
-# Source upgrade.conf with phpmyadmin versions
-# shellcheck source=/usr/local/ceasar/install/upgrade/upgrade.conf
-source $CEASAR/install/upgrade/upgrade.conf
+# Source pinned optional-component versions.
+# shellcheck source=/usr/local/ceasar/install/component-versions.conf
+source "$CEASAR/install/component-versions.conf"
 
 if [ "$mysql" = 'yes' ] || [ "$mysql8" = 'yes' ]; then
 	# Display upgrade information

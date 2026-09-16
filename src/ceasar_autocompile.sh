@@ -97,6 +97,18 @@ get_branch_file() {
 	fi
 }
 
+copy_local_source() {
+	local destination=$1
+	rm -rf "$destination"
+	mkdir -p "$destination"
+	tar -C "$SRC_DIR" \
+		--exclude='./.git' \
+		--exclude='./node_modules' \
+		--exclude='*/node_modules' \
+		--exclude='./dist' \
+		-cf - . | tar -C "$destination" -xf -
+}
+
 usage() {
 	echo "Usage:"
 	echo "    $0 (--all|--ceasar|--nginx|--php|--web-terminal) [options] [branch] [Y]"
@@ -463,7 +475,7 @@ ZLIB='https://github.com/madler/zlib/archive/refs/tags/v'$ZLIB_V'.tar.gz'
 if [[ $PHP_V =~ - ]]; then
 	PHP='http://de2.php.net/distributions/php-'$(echo $PHP_V | cut -d"-" -f1)'.tar.gz'
 else
-PHP='https://www.php.net/distributions/php-'$(echo $PHP_V | cut -d"~" -f1)'.tar.gz'
+	PHP='https://www.php.net/distributions/php-'$(echo $PHP_V | cut -d"~" -f1)'.tar.gz'
 fi
 
 NGINX_SHA256="$(awk -v file="$(basename "$NGINX")" '$1 == file { print $2 }' "$SRC_DIR/src/sources.lock")"
@@ -504,16 +516,7 @@ if [ "$NGINX_B" = true ]; then
 		BUILD_DIR_NGINX=$BUILD_DIR/nginx-$(echo $NGINX_V | cut -d"~" -f1)
 	fi
 
-	if [ "$KEEPBUILD" != 'true' ] || [ ! -d "$BUILD_DIR_CEASARNGINX" ] || [ ! -f "$BUILD_DIR_NGINX/Makefile" ]; then
-		# Check if target directory exist
-		if [ -d "$BUILD_DIR_CEASARNGINX" ]; then
-			#mv $BUILD_DIR/ceasar-nginx_$NGINX_V $BUILD_DIR/ceasar-nginx_$NGINX_V-$(timestamp)
-			rm -r "$BUILD_DIR_CEASARNGINX"
-		fi
-
-		# Create directory
-		mkdir -p $BUILD_DIR_CEASARNGINX
-
+	if [ "$KEEPBUILD" != 'true' ] || [ ! -f "$BUILD_DIR_NGINX/Makefile" ]; then
 		# Download and unpack source files
 		download_file "$NGINX" '-' '' "$NGINX_SHA256" | tar xz
 		download_file "$OPENSSL" '-' '' "$OPENSSL_SHA256" | tar xz
@@ -545,11 +548,6 @@ if [ "$NGINX_B" = true ]; then
 		rm -r "$BUILD_DIR$INSTALL_DIR"
 	fi
 
-	# Copy local ceasar source files
-	if [ "$use_src_folder" == 'true' ] && [ -d $SRC_DIR ]; then
-		cp -rf "$SRC_DIR/" $BUILD_DIR/ceasar-$branch_dash
-	fi
-
 	# Create the files and install them
 	make -j $NUM_CPUS && make DESTDIR=$BUILD_DIR install
 
@@ -557,7 +555,9 @@ if [ "$NGINX_B" = true ]; then
 	if [ "$KEEPBUILD" != 'true' ]; then
 		rm -r $BUILD_DIR_NGINX $BUILD_DIR/openssl-$OPENSSL_V $BUILD_DIR/pcre2-$PCRE_V $BUILD_DIR/zlib-$ZLIB_V
 	fi
-	cd $BUILD_DIR_CEASARNGINX
+	rm -rf "$BUILD_DIR_CEASARNGINX"
+	mkdir -p "$BUILD_DIR_CEASARNGINX"
+	cd "$BUILD_DIR_CEASARNGINX"
 
 	# Move nginx directory
 	mkdir -p $BUILD_DIR_CEASARNGINX/usr/local/ceasar
@@ -602,7 +602,7 @@ if [ "$NGINX_B" = true ]; then
 
 	if [ "$KEEPBUILD" != 'true' ]; then
 		# Clean up the source folder
-		rm -r ceasar- nginx_$NGINX_V
+		rm -rf "$BUILD_DIR_NGINX"
 		rm -rf $BUILD_DIR/rpmbuild
 		if [ "$use_src_folder" == 'true' ] && [ -d $BUILD_DIR/ceasar-$branch_dash ]; then
 			rm -r $BUILD_DIR/ceasar-$branch_dash
@@ -633,15 +633,7 @@ if [ "$PHP_B" = true ]; then
 		BUILD_DIR_PHP=$BUILD_DIR/php-$(echo $PHP_V | cut -d"~" -f1)
 	fi
 
-	if [ "$KEEPBUILD" != 'true' ] || [ ! -d "$BUILD_DIR_CEASARPHP" ] || [ ! -f "$BUILD_DIR_PHP/Makefile" ]; then
-		# Check if target directory exist
-		if [ -d $BUILD_DIR_CEASARPHP ]; then
-			rm -r $BUILD_DIR_CEASARPHP
-		fi
-
-		# Create directory
-		mkdir -p $BUILD_DIR_CEASARPHP
-
+	if [ "$KEEPBUILD" != 'true' ] || [ ! -f "$BUILD_DIR_PHP/Makefile" ]; then
 		# Download and unpack source files
 		cd $BUILD_DIR
 		download_file "$PHP" '-' '' "$PHP_SHA256" | tar xz
@@ -666,20 +658,11 @@ if [ "$PHP_B" = true ]; then
 
 	# Create the files and install them
 	make -j $NUM_CPUS && make INSTALL_ROOT=$BUILD_DIR install
+	rm -rf "$BUILD_DIR_CEASARPHP"
 
-	# Copy local ceasar source files
-	if [ "$use_src_folder" == 'true' ] && [ -d $SRC_DIR ]; then
-		[ "$CEASAR_DEBUG" ] && echo DEBUG: cp -rf "$SRC_DIR/" $BUILD_DIR/ceasar-$branch_dash
-		cp -rf "$SRC_DIR/" $BUILD_DIR/ceasar-$branch_dash
-	fi
 	# Move php directory
 	[ "$CEASAR_DEBUG" ] && echo DEBUG: mkdir -p $BUILD_DIR_CEASARPHP/usr/local/ceasar
 	mkdir -p $BUILD_DIR_CEASARPHP/usr/local/ceasar
-
-	[ "$CEASAR_DEBUG" ] && echo DEBUG: rm -r $BUILD_DIR_CEASARPHP/usr/local/ceasar/php
-	if [ -d $BUILD_DIR_CEASARPHP/usr/local/ceasar/php ]; then
-		rm -r $BUILD_DIR_CEASARPHP/usr/local/ceasar/php
-	fi
 
 	[ "$CEASAR_DEBUG" ] && echo DEBUG: mv ${BUILD_DIR}/usr/local/ceasar/php ${BUILD_DIR_CEASARPHP}/usr/local/ceasar/
 	mv ${BUILD_DIR}/usr/local/ceasar/php ${BUILD_DIR_CEASARPHP}/usr/local/ceasar/
@@ -819,22 +802,16 @@ if [ "$CEASAR_B" = true ]; then
 	# Change to build directory
 	cd $BUILD_DIR
 
-	if [ "$KEEPBUILD" != 'true' ] || [ ! -d "$BUILD_DIR_CEASAR" ]; then
-		# Check if target directory exist
-		if [ -d $BUILD_DIR_CEASAR ]; then
-			rm -r $BUILD_DIR_CEASAR
-		fi
-
-		# Create directory
-		mkdir -p $BUILD_DIR_CEASAR
-	fi
+	# Package staging must be clean even when compiler source caches are kept.
+	rm -rf "$BUILD_DIR_CEASAR"
+	mkdir -p "$BUILD_DIR_CEASAR"
 
 	cd $BUILD_DIR
 	rm -rf $BUILD_DIR/ceasar-$branch_dash
 	# Download and unpack source files
 	if [ "$use_src_folder" == 'true' ]; then
-		[ "$CEASAR_DEBUG" ] && echo DEBUG: cp -rf "$SRC_DIR/" $BUILD_DIR/ceasar-$branch_dash
-		cp -rf "$SRC_DIR/" $BUILD_DIR/ceasar-$branch_dash
+		[ "$CEASAR_DEBUG" ] && echo DEBUG: copying local source to "$BUILD_DIR/ceasar-$branch_dash"
+		copy_local_source "$BUILD_DIR/ceasar-$branch_dash"
 	elif [ -d $SRC_DIR ]; then
 		download_file $CEASAR_ARCHIVE_LINK '-' 'fresh' | tar xz
 	fi

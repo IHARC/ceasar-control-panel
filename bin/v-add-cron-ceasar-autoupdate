@@ -3,7 +3,7 @@
 # options: MODE
 #
 # This function adds a cronjob for ceasar automatic updates
-# that can be downloaded from apt or git.
+# delivered through the signed Ceasar APT repository.
 
 #----------------------------------------------------------#
 #                Variables & Functions                     #
@@ -26,8 +26,7 @@ source_conf "$CEASAR/conf/ceasar.conf"
 
 is_system_enabled "$CRON_SYSTEM" 'CRON_SYSTEM'
 check_cron_apt=$(grep 'v-update-sys-ceasar-all' "/var/spool/cron/crontabs/ceasarweb")
-check_cron_git=$(grep 'v-update-sys-ceasar-git' "/var/spool/cron/crontabs/ceasarweb")
-if [ -n "$check_cron_apt" ] || [ -n "$check_cron_git" ]; then
+if [ -n "$check_cron_apt" ]; then
 	exit
 fi
 
@@ -52,14 +51,9 @@ if [ -z "$mode" ] || [ "$mode" = "apt" ]; then
 	wday='*'
 	command='v-update-sys-ceasar-all'
 fi
-
-if [ "$mode" = "git" ]; then
-	min='0'
-	hour='0'
-	day='*'
-	month='*'
-	wday='*'
-	command='v-update-sys-ceasar-git'
+if [ "$mode" != "" ] && [ "$mode" != "apt" ]; then
+	echo "ERROR: Ceasar automatic updates support APT only." >&2
+	exit 2
 fi
 
 sed -i -e "\$a$min $hour * * * sudo /usr/local/ceasar/bin/$command" "/var/spool/cron/crontabs/ceasarweb"

@@ -268,7 +268,7 @@ if [[ "$defer_edge" != yes && "$user" =~ ^ih[0-9a-f]{14}$ ]]; then
 	"$CEASAR/bin/iharc-customer-isolation" reconcile "$user" "$CEASAR" > /dev/null \
 		|| check_result "$E_INVALID" "customer resource isolation could not be reconciled after Restic restore"
 fi
-if [[ "$defer_edge" != yes && ( "$user" =~ ^ih[0-9a-f]{14}$ || "$user" == "$ROOT_USER" ) && -x "$BIN/iharc-haproxy-cert-sync" ]]; then
+if [[ "$defer_edge" != yes && ("$user" =~ ^ih[0-9a-f]{14}$ || "$user" == "$ROOT_USER") && -x "$BIN/iharc-haproxy-cert-sync" ]]; then
 	"$BIN/iharc-haproxy-cert-sync" \
 		|| check_result "$E_RESTART" "HAProxy authority synchronization could not complete"
 fi

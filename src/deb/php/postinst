@@ -31,11 +31,9 @@ if [ -z "$CEASAR" ]; then
 	export PATH
 fi
 
-# Load upgrade functions and variables
+# Load runtime functions and variables
 source /usr/local/ceasar/func/main.sh
-source /usr/local/ceasar/func/upgrade.sh
 source /usr/local/ceasar/conf/ceasar.conf
-source /usr/local/ceasar/install/upgrade/upgrade.conf
 
 # Restart ceasar service
 if [ -f "/etc/init.d/ceasar" ]; then

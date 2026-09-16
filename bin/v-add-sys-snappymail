@@ -16,7 +16,7 @@ source $CEASAR/func/main.sh
 # load config file
 source_conf "$CEASAR/conf/ceasar.conf"
 # upgrade config file
-source "$CEASAR/install/upgrade/upgrade.conf"
+source "$CEASAR/install/component-versions.conf"
 
 MODE=$1
 UPDATE="no"

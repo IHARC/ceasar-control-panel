@@ -119,7 +119,7 @@ if (isset($_SESSION["user"])) {
 	}
 }
 
-if ($_SESSION["RELEASE_BRANCH"] == "release" && $_SESSION["DEBUG_MODE"] == "false") {
+if ($_SESSION["DEBUG_MODE"] == "false") {
 	define("JS_LATEST_UPDATE", "v=" . $_SESSION["VERSION"]);
 } else {
 	define("JS_LATEST_UPDATE", "r=" . time());

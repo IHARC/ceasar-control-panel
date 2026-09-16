@@ -60,32 +60,9 @@ Use if you have Ceasar already installed, for your changes to take effect.
 ./ceasar_autocompile.sh --all --install '~localsrc'
 ```
 
-## Updating Ceasar from GitHub
-
-The following is useful for pulling the latest staging/beta changes from GitHub and compiling the changes.
-
-::: info
-The following method only supports building the `ceasar` package. If you need to build `ceasar-nginx` or `ceasar-php`, use one of the previous commands.
-:::
-
-1. Install Node.js [Download](https://nodejs.org/en/download) or use [Node Source APT](https://github.com/nodesource/distributions)
-
-```bash
-v-update-sys-ceasar-git [USERNAME] [BRANCH]
-```
-
-**Note:** Sometimes dependencies will get added or removed when the packages are installed with `dpkg`. It is not possible to preload the dependencies. If this happens, you will see an error like this:
-
-```bash
-dpkg: error processing package ceasar (–install):
-dependency problems - leaving unconfigured
-```
-
-To solve this issue, run:
-
-```bash
-apt install -f
-```
+Installed Ceasar systems update through the signed Ceasar APT repository.
+Development builds must use `~localsrc` from an exact checkout and should be
+tested in a disposable Ubuntu 24.04 amd64 environment.
 
 ## Building for other architectures or OS releases on the same machine
 
