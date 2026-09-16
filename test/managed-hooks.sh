@@ -69,7 +69,7 @@ assert_managed_failure_propagates resource:ih0123456789abcd guard_resource_hook 
 assert_managed_failure_propagates authority:admin guard_authority_hook admin
 assert_managed_failure_propagates global guard_global_hook
 
-python3 - "$repo_root" <<'PY'
+python3 - "$repo_root" << 'PY'
 import pathlib
 import re
 import sys
