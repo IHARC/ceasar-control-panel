@@ -812,11 +812,13 @@ rebuild_mysql_database() {
 	if [ "$?" -eq 0 ]; then
 		database_created=1
 	fi
-	if ! prepare_mysql_group_quota_dir "$user" "$DB"; then
-		if [ "$database_created" -eq 1 ]; then
-			mysql_query "DROP DATABASE \`$DB\`" > /dev/null 2>&1
+	if is_iharc_managed_user "$user"; then
+		if ! prepare_mysql_group_quota_dir "$user" "$DB"; then
+			if [ "$database_created" -eq 1 ]; then
+				mysql_query "DROP DATABASE \`$DB\`" > /dev/null 2>&1
+			fi
+			check_result "$E_DISK" "Unable to prepare pooled quota directory for $DB"
 		fi
-		check_result "$E_DISK" "Unable to prepare pooled quota directory for $DB"
 	fi
 	if [ "$mysql_fork" = "mysql" ]; then
 		# mysql

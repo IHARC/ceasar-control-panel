@@ -1404,8 +1404,8 @@ function check_ip_not_banned(){
     assert_file_contains "$HOMEDIR/$user/conf/dns/${domain}.db" "mx.ceasar.com."
 
     run v-change-dns-record $user $domain 50 '@' MX mx.ceasar.com
-    assert_success
-    refute_output
+    assert_failure $E_EXISTS
+    assert_output "No pending changes in DNS entry."
 
     assert_file_contains "$HOMEDIR/$user/conf/dns/${domain}.db" "mx.ceasar.com."
 
@@ -1423,8 +1423,8 @@ function check_ip_not_banned(){
     assert_file_contains "$HOMEDIR/$user/conf/dns/${domain}.db" "mx.ceasar.com."
 
     run v-change-dns-record $user $domain 50 '@' NS mx.ceasar.com
-    assert_success
-    refute_output
+    assert_failure $E_EXISTS
+    assert_output "No pending changes in DNS entry."
 
     assert_file_contains "$HOMEDIR/$user/conf/dns/${domain}.db" "mx.ceasar.com."
 
@@ -1461,8 +1461,8 @@ function check_ip_not_banned(){
     assert_file_contains "$HOMEDIR/$user/conf/dns/${domain}.db" "mx.ceasar.com."
 
     run v-change-dns-record $user $domain 50 'mail' CNAME mx.ceasar.com
-    assert_success
-    refute_output
+    assert_failure $E_EXISTS
+    assert_output "No pending changes in DNS entry."
 
     assert_file_contains "$HOMEDIR/$user/conf/dns/${domain}.db" "mx.ceasar.com."
 
@@ -1682,9 +1682,8 @@ function check_ip_not_banned(){
 
 @test "MAIL: Add account 3" {
 	run v-add-mail-account $user $domain ceasar "$userpass2"
-	assert_success
-	assert_file_contains /etc/exim4/domains/$domain/limits "ceasar@$domain"
-	refute_output
+	assert_failure $E_EXISTS
+	assert_output "Error: mail alias ceasar already exists"
 }
 
 @test "MAIL: Add account 4" {

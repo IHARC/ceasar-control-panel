@@ -386,9 +386,11 @@ add_mysql_database() {
 	mysql_query "$query"
 	check_result $? "Unable to create database $database"
 
-	if ! prepare_mysql_group_quota_dir "$user" "$database"; then
-		mysql_query "DROP DATABASE \`$database\`" > /dev/null 2>&1
-		check_result "$E_DISK" "Unable to prepare pooled quota directory for $database"
+	if is_iharc_managed_user "$user"; then
+		if ! prepare_mysql_group_quota_dir "$user" "$database"; then
+			mysql_query "DROP DATABASE \`$database\`" > /dev/null 2>&1
+			check_result "$E_DISK" "Unable to prepare pooled quota directory for $database"
+		fi
 	fi
 
 	if [ "$mysql_fork" = "mysql" ] && [ "$mysql_ver_sub" -ge 8 ]; then

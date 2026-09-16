@@ -128,6 +128,20 @@ if found_files != expected_files:
         "automatic IHARC hook file set changed: "
         f"missing={sorted(expected_files - found_files)!r} extra={sorted(found_files - expected_files)!r}"
     )
+
+for relative in ("func/db.sh", "func/rebuild.sh"):
+    lines = (root / relative).read_text(encoding="utf-8").splitlines()
+    calls = [
+        number
+        for number, line in enumerate(lines, start=1)
+        if "prepare_mysql_group_quota_dir" in line
+        and not line.lstrip().startswith("#")
+        and not line.rstrip().endswith("() {")
+    ]
+    for number in calls:
+        nearby = lines[max(0, number - 7) : number]
+        if not any("is_iharc_managed_user" in candidate for candidate in nearby):
+            errors.append(f"{relative}:{number}: pooled database quota is not guarded by managed mode")
 if errors:
     raise SystemExit("\n".join(errors))
 PY
