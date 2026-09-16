@@ -64,6 +64,12 @@ export class SupabaseIdentityProvider {
 		throwIfError(error);
 	}
 
+	async updatePassword(password) {
+		const { data, error } = await this.client.auth.updateUser({ password });
+		throwIfError(error);
+		return data.user;
+	}
+
 	async session() {
 		const { data, error } = await this.client.auth.getSession();
 		throwIfError(error);
@@ -76,43 +82,6 @@ export class SupabaseIdentityProvider {
 		return data.user;
 	}
 
-	async assurance() {
-		const { data, error } = await this.client.auth.mfa.getAuthenticatorAssuranceLevel();
-		throwIfError(error);
-		return data;
-	}
-
-	async listFactors() {
-		const { data, error } = await this.client.auth.mfa.listFactors();
-		throwIfError(error);
-		return data;
-	}
-
-	async enrollTotp(friendlyName) {
-		const { data, error } = await this.client.auth.mfa.enroll({
-			factorType: 'totp',
-			friendlyName,
-		});
-		throwIfError(error);
-		return data;
-	}
-
-	async verifyTotp(factorId, code) {
-		const { data, error } = await this.client.auth.mfa.challengeAndVerify({
-			factorId,
-			code,
-		});
-		throwIfError(error);
-		return data;
-	}
-
-	async unenrollFactor(factorId) {
-		await this.requireAal2();
-		const { data, error } = await this.client.auth.mfa.unenroll({ factorId });
-		throwIfError(error);
-		return data;
-	}
-
 	async listPasskeys() {
 		if (!this.config.passkeysEnabled) return [];
 		const { data, error } = await this.client.auth.passkey.list();
@@ -122,26 +91,17 @@ export class SupabaseIdentityProvider {
 
 	async registerPasskey() {
 		if (!this.config.passkeysEnabled) throw new Error('Passkeys are not enabled.');
-		await this.requireAal2();
 		const { data, error } = await this.client.auth.registerPasskey();
 		throwIfError(error);
 		return data;
 	}
 
 	async deletePasskey(passkeyId) {
-		await this.requireAal2();
 		const { data, error } = await this.client.auth.passkey.delete({
 			passkeyId,
 		});
 		throwIfError(error);
 		return data;
-	}
-
-	async requireAal2() {
-		const assurance = await this.assurance();
-		if (assurance.currentLevel !== 'aal2') {
-			throw new Error('Confirm a second factor before making this change.');
-		}
 	}
 
 	async signOut() {
@@ -210,38 +170,28 @@ export class CustomerBusinessBackend {
 		requestedCustomDomain,
 		idempotencyKey,
 	}) {
-		const result = await this.#request(
-			'POST',
-			'/billing/checkout-sessions',
-			{
-				accountId,
-				planCode,
-				intent,
-				siteType,
-				requestedCustomDomain: requestedCustomDomain || null,
-				idempotencyKey,
-			},
-			true,
-		);
+		const result = await this.#request('POST', '/billing/checkout-sessions', {
+			accountId,
+			planCode,
+			intent,
+			siteType,
+			requestedCustomDomain: requestedCustomDomain || null,
+			idempotencyKey,
+		});
 		return result.url ? { ...result, url: this.#hostedUrl(result.url) } : result;
 	}
 
 	confirmMigration(serviceId, { accountId, workspaceReadyOperationId, idempotencyKey }) {
-		return this.#request(
-			'POST',
-			`/migrations/${pathId(serviceId)}/confirm`,
-			{
-				accountId,
-				workspaceReadyOperationId,
-				customerAttestsImportComplete: true,
-				idempotencyKey,
-			},
-			true,
-		);
+		return this.#request('POST', `/migrations/${pathId(serviceId)}/confirm`, {
+			accountId,
+			workspaceReadyOperationId,
+			customerAttestsImportComplete: true,
+			idempotencyKey,
+		});
 	}
 
 	async billingPortal(accountId) {
-		const result = await this.#request('POST', '/billing/portal-sessions', { accountId }, true);
+		const result = await this.#request('POST', '/billing/portal-sessions', { accountId });
 		return this.#hostedUrl(result.portalUrl || result.url);
 	}
 
@@ -269,11 +219,11 @@ export class CustomerBusinessBackend {
 	}
 
 	requestEmailChange(email) {
-		return this.#request('POST', '/profile/email-change', { email }, true);
+		return this.#request('POST', '/profile/email-change', { email });
 	}
 
 	changePassword(password) {
-		return this.#request('POST', '/profile/password', { password }, true);
+		return this.#request('POST', '/profile/password', { password });
 	}
 
 	#hostedUrl(value) {
@@ -284,8 +234,7 @@ export class CustomerBusinessBackend {
 		return destination.toString();
 	}
 
-	async #request(method, path, payload, aal2 = false) {
-		if (aal2) await this.identity.requireAal2();
+	async #request(method, path, payload) {
 		const session = await this.identity.session();
 		if (!session?.access_token) throw new Error('Sign in to continue.');
 		const options = {

@@ -4,7 +4,7 @@
 			<h1>Customer account</h1>
 		</div>
 		<div class="toolbar-right">
-			<p><span data-customer-email>Loading…</span> · <strong data-customer-aal>—</strong></p>
+			<p><span data-customer-email>Loading…</span></p>
 		</div>
 	</div>
 </div>
@@ -120,24 +120,9 @@
 		</form>
 	</section>
 
-	<section id="security" class="form-container form-container-wide">
+	<section id="security" class="form-container form-container-wide" data-passkey-section>
 		<h2 class="u-mb20">Security</h2>
-		<h3 class="u-mb10">Authenticator apps</h3>
-		<div class="units-table u-mb20" data-mfa-rows>
-			<div class="units-table-header"><div class="units-table-cell"></div><div class="units-table-cell">Device</div><div class="units-table-cell">Status</div><div class="units-table-cell">Action</div></div>
-			<p class="units-table-footer">Loading…</p>
-		</div>
-		<form data-account-action="mfa-enroll">
-			<div class="u-mb20"><label class="form-label" for="factor-name">Device name</label><input class="form-control" id="factor-name" name="friendly_name" maxlength="120" value="Authenticator"></div>
-			<button class="button button-secondary" type="submit">Add authenticator</button>
-		</form>
-		<img data-mfa-qr class="u-hidden u-mt20 u-max-width300" alt="Authenticator QR code">
-		<form class="u-hidden u-mt20" data-account-action="mfa-verify" data-mfa-verify>
-			<input type="hidden" name="factor_id">
-			<div class="u-mb20"><label class="form-label" for="factor-code">Verification code</label><input class="form-control" id="factor-code" name="code" inputmode="numeric" autocomplete="one-time-code" pattern="[0-9]{6}" required></div>
-			<button class="button" type="submit">Verify factor</button>
-		</form>
-		<div data-passkey-section>
+		<div>
 			<h3 class="u-mt20 u-mb10">Passkeys</h3>
 			<div class="units-table u-mb20" data-passkey-rows>
 				<div class="units-table-header"><div class="units-table-cell"></div><div class="units-table-cell">Passkey</div><div class="units-table-cell">Last used</div><div class="units-table-cell">Action</div></div>

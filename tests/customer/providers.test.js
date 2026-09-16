@@ -20,11 +20,7 @@ function identityFixture(overrides = {}) {
 			.fn()
 			.mockResolvedValue({ data: { session: { access_token: 'passkey' } } }),
 		signOut: vi.fn().mockResolvedValue({ error: null }),
-		mfa: {
-			getAuthenticatorAssuranceLevel: vi.fn().mockResolvedValue({
-				data: { currentLevel: 'aal2', nextLevel: 'aal2' },
-			}),
-		},
+		updateUser: vi.fn().mockResolvedValue({ data: { user: { id: 'user-1' } } }),
 		...overrides,
 	};
 	const factory = vi.fn().mockReturnValue({ auth });
@@ -84,25 +80,24 @@ describe('SupabaseIdentityProvider', () => {
 		expect(auth.signOut).toHaveBeenCalledOnce();
 	});
 
-	it('requires aal2 and uses maintained SDK methods to remove authenticators and passkeys', async () => {
-		const unenroll = vi.fn().mockResolvedValue({ data: {}, error: null });
+	it('updates a recovery session password through Supabase without a customer backend call', async () => {
+		const { identity, auth } = identityFixture();
+		await expect(identity.updatePassword('correct horse battery staple')).resolves.toEqual({
+			id: 'user-1',
+		});
+		expect(auth.updateUser).toHaveBeenCalledWith({ password: 'correct horse battery staple' });
+	});
+
+	it('uses maintained passkey methods without an MFA assurance check', async () => {
 		const deletePasskey = vi.fn().mockResolvedValue({ data: null, error: null });
 		const { identity, auth } = identityFixture({
-			mfa: {
-				getAuthenticatorAssuranceLevel: vi.fn().mockResolvedValue({
-					data: { currentLevel: 'aal2', nextLevel: 'aal2' },
-				}),
-				unenroll,
-			},
 			passkey: { delete: deletePasskey },
 		});
 
-		await identity.unenrollFactor('factor-1');
 		await identity.deletePasskey('passkey-1');
 
-		expect(auth.mfa.getAuthenticatorAssuranceLevel).toHaveBeenCalledTimes(2);
-		expect(unenroll).toHaveBeenCalledWith({ factorId: 'factor-1' });
 		expect(deletePasskey).toHaveBeenCalledWith({ passkeyId: 'passkey-1' });
+		expect(auth).not.toHaveProperty('mfa');
 	});
 });
 
@@ -125,7 +120,6 @@ describe('CustomerBusinessBackend', () => {
 	it('sends bearer tokens only to fixed same-origin customer routes', async () => {
 		const identity = {
 			session: vi.fn().mockResolvedValue({ access_token: 'customer-token' }),
-			requireAal2: vi.fn(),
 		};
 		const fetcher = vi.fn().mockResolvedValue(
 			new Response(
@@ -160,7 +154,6 @@ describe('CustomerBusinessBackend', () => {
 	it('uses the browser fetch function without an illegal receiver', async () => {
 		const identity = {
 			session: vi.fn().mockResolvedValue({ access_token: 'customer-token' }),
-			requireAal2: vi.fn(),
 		};
 		const fetcher = vi.fn().mockResolvedValue(
 			new Response(JSON.stringify({ data: { contexts: [], services: [] } }), {
@@ -184,7 +177,6 @@ describe('CustomerBusinessBackend', () => {
 	it('uses the implemented typed business route contract', async () => {
 		const identity = {
 			session: vi.fn().mockResolvedValue({ access_token: 'customer-token' }),
-			requireAal2: vi.fn(),
 		};
 		const fetcher = vi.fn().mockImplementation(() =>
 			Promise.resolve(
@@ -279,21 +271,27 @@ describe('CustomerBusinessBackend', () => {
 		});
 	});
 
-	it('requires aal2 before migration confirmation and billing portal calls', async () => {
+	it('does not require an MFA step-up before migration confirmation and billing portal calls', async () => {
 		const identity = {
 			session: vi.fn().mockResolvedValue({ access_token: 'customer-token' }),
-			requireAal2: vi.fn().mockRejectedValue(new Error('step up')),
 		};
-		const fetcher = vi.fn();
+		const fetcher = vi.fn().mockImplementation(() =>
+			Promise.resolve(
+				new Response(JSON.stringify({ data: { url: 'https://billing.stripe.com/session' } }), {
+					status: 200,
+					headers: { 'content-type': 'application/json' },
+				}),
+			),
+		);
 		const backend = new CustomerBusinessBackend(identity, config.workerApiBase, fetcher);
-		await expect(
-			backend.confirmMigration('service-1', {
-				accountId: 'account-1',
-				workspaceReadyOperationId: 'operation-1',
-				idempotencyKey: 'request-1',
-			}),
-		).rejects.toThrow('step up');
-		await expect(backend.billingPortal('account-1')).rejects.toThrow('step up');
-		expect(fetcher).not.toHaveBeenCalled();
+		await backend.confirmMigration('service-1', {
+			accountId: 'account-1',
+			workspaceReadyOperationId: 'operation-1',
+			idempotencyKey: 'request-1',
+		});
+		await expect(backend.billingPortal('account-1')).resolves.toBe(
+			'https://billing.stripe.com/session',
+		);
+		expect(fetcher).toHaveBeenCalledTimes(2);
 	});
 });

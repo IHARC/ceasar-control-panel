@@ -21,15 +21,6 @@
 				 · <button class="u-button-reset login-form-link" type="button" data-auth-view="recovery">Forgot password?</button>
 			</p>
 		</form>
-		<form class="u-hidden" data-mfa-challenge>
-			<h1 class="login-title">Confirm your second factor</h1>
-			<input type="hidden" name="factor_id">
-			<div class="u-mb20">
-				<label for="customer-mfa-code" class="form-label">Authentication code</label>
-				<input class="form-control" id="customer-mfa-code" name="code" inputmode="numeric" autocomplete="one-time-code" pattern="[0-9]{6}" maxlength="6" required>
-			</div>
-			<button class="button" type="submit">Verify and continue</button>
-		</form>
 		<form id="create-account" class="u-hidden" data-customer-auth-form="sign-up">
 			<h1 class="login-title">Create customer account</h1>
 			<p class="u-mb20">We will email a confirmation link before you can sign in.</p>

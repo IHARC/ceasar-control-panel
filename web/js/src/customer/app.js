@@ -42,7 +42,7 @@ function bindLogin(config, identity) {
 			try {
 				if (form.dataset.customerAuthForm === 'sign-in') {
 					await identity.signIn(String(data.get('email')), String(data.get('password')));
-					if (!(await beginMfaChallenge(identity))) location.assign(accountUrl);
+					location.assign(accountUrl);
 				} else if (form.dataset.customerAuthForm === 'sign-up') {
 					await identity.signUp(
 						String(data.get('email')),
@@ -66,24 +66,13 @@ function bindLogin(config, identity) {
 		});
 	}
 
-	document.querySelector('[data-mfa-challenge]')?.addEventListener('submit', async (event) => {
-		event.preventDefault();
-		const data = new FormData(event.currentTarget);
-		try {
-			await identity.verifyTotp(String(data.get('factor_id')), String(data.get('code')));
-			location.assign(accountUrl);
-		} catch (error) {
-			showError(error);
-		}
-	});
-
 	const passkey = document.querySelector('[data-passkey-sign-in]');
 	if (passkey && config.passkeysEnabled) {
 		passkey.classList.remove('u-hidden');
 		passkey.addEventListener('click', async () => {
 			try {
 				await identity.signInWithPasskey();
-				if (!(await beginMfaChallenge(identity))) location.assign(accountUrl);
+				location.assign(accountUrl);
 			} catch (error) {
 				showError(error);
 			}
@@ -92,28 +81,10 @@ function bindLogin(config, identity) {
 }
 
 function showAuthView(view) {
-	for (const form of document.querySelectorAll('[data-customer-auth-form], [data-mfa-challenge]')) {
-		const active =
-			(view === 'sign-in' && form.dataset.customerAuthForm === 'sign-in') ||
-			form.dataset.customerAuthForm === view;
+	for (const form of document.querySelectorAll('[data-customer-auth-form]')) {
+		const active = form.dataset.customerAuthForm === view;
 		form.classList.toggle('u-hidden', !active);
 	}
-}
-
-async function beginMfaChallenge(identity) {
-	const assurance = await identity.assurance();
-	if (assurance.currentLevel !== 'aal1' || assurance.nextLevel !== 'aal2') return false;
-	const factors = await identity.listFactors();
-	const factor = factors.totp?.find((item) => item.status === 'verified');
-	if (!factor) throw new Error('A verified second factor is required.');
-	const form = document.querySelector('[data-mfa-challenge]');
-	for (const other of document.querySelectorAll('[data-customer-auth-form]')) {
-		other.classList.add('u-hidden');
-	}
-	form.querySelector('[name=factor_id]').value = factor.id;
-	form.classList.remove('u-hidden');
-	form.querySelector('[name=code]').focus();
-	return true;
 }
 
 async function handleCallback(config, identity) {
@@ -122,11 +93,35 @@ async function handleCallback(config, identity) {
 	if (!code) throw new Error('The confirmation link is incomplete.');
 	await identity.exchangeConfirmation(code);
 	const setup = customerSetupSelection(location.search);
-	const destination =
-		parameters.get('mode') === 'recovery'
-			? new URL('#profile', config.accountUrl).toString()
-			: customerSetupUrl(config.accountUrl, setup);
-	location.replace(destination);
+	if (parameters.get('mode') === 'recovery') {
+		bindRecovery(config, identity);
+		return;
+	}
+	location.replace(customerSetupUrl(config.accountUrl, setup));
+}
+
+function bindRecovery(config, identity) {
+	const form = document.querySelector('[data-customer-recovery]');
+	if (!form) throw new Error('Password reset form is unavailable.');
+	document.querySelector('[data-customer-callback-status]')?.remove();
+	form.classList.remove('u-hidden');
+	form.addEventListener('submit', async (event) => {
+		event.preventDefault();
+		const data = new FormData(form);
+		const password = required(data.get('password'));
+		if (password !== required(data.get('password_confirm'))) {
+			showError(new Error('Passwords do not match.'));
+			return;
+		}
+		try {
+			await identity.updatePassword(password);
+			showNotice('Password updated. You can now sign in.', 'success');
+			form.remove();
+			setTimeout(() => location.replace(config.loginUrl), 1000);
+		} catch (error) {
+			showError(error);
+		}
+	});
 }
 
 async function bindAccount(config, identity, backend) {
@@ -145,10 +140,9 @@ async function bindAccount(config, identity, backend) {
 		setupPlanCode: setup.planCode,
 		state: {},
 	};
-	const [user, assurance] = await Promise.all([identity.user(), identity.assurance()]);
+	const user = await identity.user();
 	document.querySelector('[data-customer-sign-out]')?.classList.remove('u-hidden');
 	setText('[data-customer-email]', user.email || '');
-	setText('[data-customer-aal]', assurance.currentLevel || 'aal1');
 	setValue('[name=intent]', setup.intent);
 
 	for (const form of document.querySelectorAll('[data-account-action]')) {
@@ -248,7 +242,7 @@ async function bindAccount(config, identity, backend) {
 			try {
 				await identity.registerPasskey();
 				showNotice('Passkey registered.', 'success');
-				await loadSecurity(identity, config);
+				await loadPasskeys(identity, config);
 			} catch (error) {
 				showError(error);
 			}
@@ -257,19 +251,6 @@ async function bindAccount(config, identity, backend) {
 		document.querySelector('[data-passkey-section]')?.remove();
 	}
 
-	document.querySelector('[data-mfa-rows]')?.addEventListener('click', async (event) => {
-		const control = event.target.closest('[data-mfa-remove]');
-		if (!control || !confirm('Remove this authenticator from your account?')) return;
-		try {
-			control.disabled = true;
-			await identity.unenrollFactor(required(control.dataset.mfaRemove));
-			showNotice('Authenticator removed.', 'success');
-			await loadSecurity(identity, config);
-		} catch (error) {
-			control.disabled = false;
-			showError(error);
-		}
-	});
 	document.querySelector('[data-passkey-rows]')?.addEventListener('click', async (event) => {
 		const control = event.target.closest('[data-passkey-remove]');
 		if (!control || !confirm('Remove this passkey from your account?')) return;
@@ -277,7 +258,7 @@ async function bindAccount(config, identity, backend) {
 			control.disabled = true;
 			await identity.deletePasskey(required(control.dataset.passkeyRemove));
 			showNotice('Passkey removed.', 'success');
-			await loadSecurity(identity, config);
+			await loadPasskeys(identity, config);
 		} catch (error) {
 			control.disabled = false;
 			showError(error);
@@ -294,7 +275,7 @@ async function bindAccount(config, identity, backend) {
 	if (context.supportCaseId) {
 		renderSupportDetail(await backend.supportCase(context.supportCaseId), context);
 	}
-	await loadSecurity(identity, config);
+	await loadPasskeys(identity, config);
 }
 
 async function accountAction(action, data, context, identity, backend) {
@@ -314,20 +295,6 @@ async function accountAction(action, data, context, identity, backend) {
 	if (action === 'password-change') {
 		await backend.changePassword(required(data.password));
 		return 'Password changed.';
-	}
-	if (action === 'mfa-enroll') {
-		const enrollment = await identity.enrollTotp(clean(data.friendly_name) || 'Authenticator');
-		const qr = document.querySelector('[data-mfa-qr]');
-		qr.src = enrollment.totp.qr_code;
-		qr.classList.remove('u-hidden');
-		const verify = document.querySelector('[data-mfa-verify]');
-		verify.querySelector('[name=factor_id]').value = enrollment.id;
-		verify.classList.remove('u-hidden');
-		return 'Scan the code, then enter the six-digit value.';
-	}
-	if (action === 'mfa-verify') {
-		await identity.verifyTotp(required(data.factor_id), required(data.code));
-		return 'Authenticator verified.';
 	}
 	const accountId = required(context.accountId);
 	const serviceId = clean(context.serviceId);
@@ -575,17 +542,7 @@ function renderSupportDetail(state, context) {
 	);
 }
 
-async function loadSecurity(identity, config) {
-	const factors = await identity.listFactors();
-	renderTable(
-		'[data-mfa-rows]',
-		(factors.all || []).map((row) => [
-			' ',
-			row.friendly_name || 'Authenticator',
-			row.status || 'unverified',
-			removeControl('Remove', 'mfaRemove', row.id, row.friendly_name || 'authenticator'),
-		]),
-	);
+async function loadPasskeys(identity, config) {
 	if (config.passkeysEnabled) {
 		const passkeys = await identity.listPasskeys();
 		renderTable(
