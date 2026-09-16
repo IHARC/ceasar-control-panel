@@ -76,7 +76,7 @@ function bindLogin(config, identity) {
 		passkey.addEventListener('click', async () => {
 			try {
 				await identity.signInWithPasskey();
-				location.assign(config.accountUrl);
+				if (!(await beginMfaChallenge(identity))) location.assign(config.accountUrl);
 			} catch (error) {
 				showError(error);
 			}
