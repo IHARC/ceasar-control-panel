@@ -80,11 +80,23 @@ describe('SupabaseIdentityProvider', () => {
 		expect(auth.signOut).toHaveBeenCalledOnce();
 	});
 
-	it('updates a recovery session password through Supabase without a customer backend call', async () => {
+	it('updates profile, email, and recovery password through Supabase without customer backend calls', async () => {
 		const { identity, auth } = identityFixture();
+		await expect(identity.updateProfile('Example customer')).resolves.toEqual({ id: 'user-1' });
+		await expect(identity.updateEmail('new@example.com', config.callbackUrl)).resolves.toEqual({
+			id: 'user-1',
+		});
 		await expect(identity.updatePassword('correct horse battery staple')).resolves.toEqual({
 			id: 'user-1',
 		});
+		expect(auth.updateUser).toHaveBeenNthCalledWith(1, {
+			data: { display_name: 'Example customer' },
+		});
+		expect(auth.updateUser).toHaveBeenNthCalledWith(
+			2,
+			{ email: 'new@example.com' },
+			{ emailRedirectTo: config.callbackUrl },
+		);
 		expect(auth.updateUser).toHaveBeenCalledWith({ password: 'correct horse battery staple' });
 	});
 
@@ -199,7 +211,6 @@ describe('CustomerBusinessBackend', () => {
 		await backend.serviceState('service-1');
 		await backend.supportCase('case-1');
 		await backend.createAccount('Example account');
-		await backend.updateProfile('Example customer');
 		await expect(
 			backend.requestTrialAdmission({
 				accountId: 'account-1',
@@ -239,31 +250,26 @@ describe('CustomerBusinessBackend', () => {
 		});
 		await backend.replyToSupportCase('case-1', 'Thanks', 'request-5');
 		await backend.closeSupportCase('case-1', 'request-6');
-		await backend.requestEmailChange('new@example.com');
-		await backend.changePassword('correct horse battery staple');
 		expect(fetcher.mock.calls.map(([url]) => url)).toEqual([
 			'/api/provider/v1/customer/accounts/account-1/state',
 			'/api/provider/v1/customer/services/service-1/state',
 			'/api/provider/v1/customer/support/case-1',
 			'/api/provider/v1/customer/accounts',
-			'/api/provider/v1/customer/profile',
 			'/api/provider/v1/customer/admissions/trial',
 			'/api/provider/v1/customer/billing/checkout-sessions',
 			'/api/provider/v1/customer/migrations/service-1/confirm',
 			'/api/provider/v1/customer/support',
 			'/api/provider/v1/customer/support/case-1/replies',
 			'/api/provider/v1/customer/support/case-1/close',
-			'/api/provider/v1/customer/profile/email-change',
-			'/api/provider/v1/customer/profile/password',
 		]);
-		expect(JSON.parse(fetcher.mock.calls[5][1].body)).toEqual({
+		expect(JSON.parse(fetcher.mock.calls[4][1].body)).toEqual({
 			accountId: 'account-1',
 			planCode: 'starter',
 			siteType: 'wordpress',
 			requestedCustomDomain: 'example.com',
 			idempotencyKey: 'request-1',
 		});
-		expect(JSON.parse(fetcher.mock.calls[7][1].body)).toEqual({
+		expect(JSON.parse(fetcher.mock.calls[6][1].body)).toEqual({
 			accountId: 'account-1',
 			workspaceReadyOperationId: 'operation-1',
 			customerAttestsImportComplete: true,

@@ -156,6 +156,7 @@ async function bindAccount(config, identity, backend) {
 					form.dataset.accountAction,
 					data,
 					context,
+					config,
 					identity,
 					backend,
 				);
@@ -277,9 +278,9 @@ async function bindAccount(config, identity, backend) {
 	await loadPasskeys(identity, config);
 }
 
-async function accountAction(action, data, context, identity, backend) {
+export async function accountAction(action, data, context, config, identity, backend) {
 	if (action === 'profile') {
-		await backend.updateProfile(required(data.display_name));
+		await identity.updateProfile(required(data.display_name));
 		return 'Profile saved.';
 	}
 	if (action === 'account-create') {
@@ -288,11 +289,11 @@ async function accountAction(action, data, context, identity, backend) {
 		return 'Customer account created.';
 	}
 	if (action === 'email-change') {
-		await backend.requestEmailChange(required(data.email));
+		await identity.updateEmail(required(data.email), config.callbackUrl);
 		return 'Check the new address to confirm the change.';
 	}
 	if (action === 'password-change') {
-		await backend.changePassword(required(data.password));
+		await identity.updatePassword(passwordValue(data.password));
 		return 'Password changed.';
 	}
 	const accountId = required(context.accountId);

@@ -23,8 +23,13 @@ async function recoveryForm() {
 	globalThis.FormData = dom.window.FormData;
 	globalThis.Node = dom.window.Node;
 	globalThis.Event = dom.window.Event;
-	const { bindRecovery } = await import('../../web/js/src/customer/app.js');
-	return { bindRecovery, dom, form: document.querySelector('[data-customer-recovery]') };
+	const { accountAction, bindRecovery } = await import('../../web/js/src/customer/app.js');
+	return {
+		accountAction,
+		bindRecovery,
+		dom,
+		form: document.querySelector('[data-customer-recovery]'),
+	};
 }
 
 async function submit(form) {
@@ -33,6 +38,29 @@ async function submit(form) {
 }
 
 describe('customer recovery form', () => {
+	it('uses the ordinary Supabase session for profile, email, and password changes', async () => {
+		const { accountAction } = await recoveryForm();
+		const identity = {
+			updateProfile: vi.fn().mockResolvedValue({}),
+			updateEmail: vi.fn().mockResolvedValue({}),
+			updatePassword: vi.fn().mockResolvedValue({}),
+		};
+		const config = { callbackUrl: 'https://app.example.com/auth/callback' };
+		await accountAction('profile', { display_name: 'Example' }, {}, config, identity, {});
+		await accountAction('email-change', { email: 'new@example.com' }, {}, config, identity, {});
+		await accountAction(
+			'password-change',
+			{ password: ' password with spaces ' },
+			{},
+			config,
+			identity,
+			{},
+		);
+		expect(identity.updateProfile).toHaveBeenCalledWith('Example');
+		expect(identity.updateEmail).toHaveBeenCalledWith('new@example.com', config.callbackUrl);
+		expect(identity.updatePassword).toHaveBeenCalledWith(' password with spaces ');
+	});
+
 	it('shows a password mismatch without calling Supabase', async () => {
 		const { bindRecovery, form } = await recoveryForm();
 		const identity = { updatePassword: vi.fn() };

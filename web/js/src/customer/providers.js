@@ -70,6 +70,23 @@ export class SupabaseIdentityProvider {
 		return data.user;
 	}
 
+	async updateProfile(displayName) {
+		const { data, error } = await this.client.auth.updateUser({
+			data: { display_name: displayName },
+		});
+		throwIfError(error);
+		return data.user;
+	}
+
+	async updateEmail(email, callbackUrl) {
+		const { data, error } = await this.client.auth.updateUser(
+			{ email },
+			{ emailRedirectTo: callbackUrl },
+		);
+		throwIfError(error);
+		return data.user;
+	}
+
 	async session() {
 		const { data, error } = await this.client.auth.getSession();
 		throwIfError(error);
@@ -139,10 +156,6 @@ export class CustomerBusinessBackend {
 
 	createAccount(displayName) {
 		return this.#request('POST', '/accounts', { displayName });
-	}
-
-	updateProfile(displayName) {
-		return this.#request('PATCH', '/profile', { displayName });
 	}
 
 	async requestTrialAdmission({
@@ -216,14 +229,6 @@ export class CustomerBusinessBackend {
 		return this.#request('POST', `/support/${pathId(caseId)}/close`, {
 			idempotencyKey,
 		});
-	}
-
-	requestEmailChange(email) {
-		return this.#request('POST', '/profile/email-change', { email });
-	}
-
-	changePassword(password) {
-		return this.#request('POST', '/profile/password', { password });
 	}
 
 	#hostedUrl(value) {
