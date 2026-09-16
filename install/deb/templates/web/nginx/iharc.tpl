@@ -1,5 +1,5 @@
 # Private Nginx origin for the HAProxy account edge.
-# Hestia still owns the server names and native document roots. TLS and public
+# Ceasar still owns the server names and native document roots. TLS and public
 # listeners are deliberately absent: only HAProxy may reach this origin.
 server {
     listen 127.0.0.1:%proxy_port%;

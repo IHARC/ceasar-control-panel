@@ -1,5 +1,5 @@
 <?php
-use function Hestiacp\quoteshellarg\quoteshellarg;
+use function Ceasar\Shell\quoteshellarg;
 
 ob_start();
 include $_SERVER["DOCUMENT_ROOT"] . "/inc/main.php";
@@ -15,7 +15,7 @@ if ($read_only === true) {
 if ($_SESSION["userContext"] === "admin") {
 	if (!empty($_GET["user"])) {
 		$v_username = quoteshellarg($_GET["user"]);
-		exec(HESTIA_CMD . "v-delete-user " . $v_username, $output, $return_var);
+		exec(CEASAR_CMD . "v-delete-user " . $v_username, $output, $return_var);
 	}
 	check_return_code($return_var, $output);
 	unset($_SESSION["look"]);

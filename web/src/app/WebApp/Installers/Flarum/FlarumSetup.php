@@ -2,11 +2,11 @@
 
 declare(strict_types=1);
 
-namespace Hestia\WebApp\Installers\Flarum;
+namespace Ceasar\WebApp\Installers\Flarum;
 
-use Hestia\System\Util;
-use Hestia\WebApp\BaseSetup;
-use Hestia\WebApp\InstallationTarget\InstallationTarget;
+use Ceasar\System\Util;
+use Ceasar\WebApp\BaseSetup;
+use Ceasar\WebApp\InstallationTarget\InstallationTarget;
 
 class FlarumSetup extends BaseSetup
 {

@@ -63,7 +63,7 @@
 						<?php } else { ?>
 							<i class="fas fa-flask icon-red" title="<?= tohtml($sys["sysinfo"]["RELEASE"]) ?>"></i>
 						<?php } ?>
-						v<?= tohtml($sys["sysinfo"]["HESTIA"]) ?>
+						v<?= tohtml($sys["sysinfo"]["CEASAR"]) ?>
 					</span>
 				</li>
 				<li class="server-summary-item">

@@ -19,16 +19,16 @@ domain_idn=$2
 restart=$3
 
 # Includes
-# shellcheck source=/etc/hestiacp/hestia.conf
-source /etc/hestiacp/hestia.conf
-# shellcheck source=/usr/local/hestia/func/main.sh
-source $HESTIA/func/main.sh
-# shellcheck source=/usr/local/hestia/func/domain.sh
-source $HESTIA/func/domain.sh
-# shellcheck source=/usr/local/hestia/func/ip.sh
-source $HESTIA/func/ip.sh
+# shellcheck source=/etc/ceasar/ceasar.conf
+source /etc/ceasar/ceasar.conf
+# shellcheck source=/usr/local/ceasar/func/main.sh
+source $CEASAR/func/main.sh
+# shellcheck source=/usr/local/ceasar/func/domain.sh
+source $CEASAR/func/domain.sh
+# shellcheck source=/usr/local/ceasar/func/ip.sh
+source $CEASAR/func/ip.sh
 # load config file
-source_conf "$HESTIA/conf/hestia.conf"
+source_conf "$CEASAR/conf/ceasar.conf"
 
 # Additional argument formatting
 format_domain
@@ -47,7 +47,7 @@ is_object_valid 'web' 'DOMAIN' "$domain"
 is_object_unsuspended 'web' 'DOMAIN' "$domain"
 
 # Perform verification if read-only mode is enabled
-check_hestia_demo_mode
+check_ceasar_demo_mode
 
 #----------------------------------------------------------#
 #                       Action                             #
@@ -80,7 +80,7 @@ if [ -n "$PROXY_SYSTEM" ] && [ -n "$PROXY" ]; then
 fi
 
 #----------------------------------------------------------#
-#                       Hestia                             #
+#                       Ceasar                             #
 #----------------------------------------------------------#
 
 # Updating config

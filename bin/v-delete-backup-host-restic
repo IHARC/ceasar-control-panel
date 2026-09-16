@@ -13,29 +13,29 @@
 # Argument definition
 
 # Includes
-# shellcheck source=/etc/hestiacp/hestia.conf
-source /etc/hestiacp/hestia.conf
-# shellcheck source=/usr/local/hestia/func/main.sh
-source $HESTIA/func/main.sh
+# shellcheck source=/etc/ceasar/ceasar.conf
+source /etc/ceasar/ceasar.conf
+# shellcheck source=/usr/local/ceasar/func/main.sh
+source $CEASAR/func/main.sh
 # load config file
-source_conf "$HESTIA/conf/hestia.conf"
+source_conf "$CEASAR/conf/ceasar.conf"
 
 #----------------------------------------------------------#
 #                    Verifications                         #
 #----------------------------------------------------------#
 
 # Perform verification if read-only mode is enabled
-check_hestia_demo_mode
+check_ceasar_demo_mode
 
 #----------------------------------------------------------#
 #                       Action                             #
 #----------------------------------------------------------#
 
 # Deleting host config
-rm -f $HESTIA/conf/restic.conf
+rm -f $CEASAR/conf/restic.conf
 
 #----------------------------------------------------------#
-#                       Hestia                             #
+#                       Ceasar                             #
 #----------------------------------------------------------#
 
 $BIN/v-change-sys-config-value 'BACKUP_INCREMENTAL' 'no'

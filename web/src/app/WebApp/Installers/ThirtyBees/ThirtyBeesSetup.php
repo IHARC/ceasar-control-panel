@@ -2,10 +2,10 @@
 
 declare(strict_types=1);
 
-namespace Hestia\WebApp\Installers\ThirtyBees;
+namespace Ceasar\WebApp\Installers\ThirtyBees;
 
-use Hestia\WebApp\BaseSetup;
-use Hestia\WebApp\InstallationTarget\InstallationTarget;
+use Ceasar\WebApp\BaseSetup;
+use Ceasar\WebApp\InstallationTarget\InstallationTarget;
 
 class ThirtyBeesSetup extends BaseSetup {
     protected array $info = [

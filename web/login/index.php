@@ -1,5 +1,5 @@
 <?php
-use function Hestiacp\quoteshellarg\quoteshellarg;
+use function Ceasar\Shell\quoteshellarg;
 
 define("NO_AUTH_REQUIRED", true);
 // Main include
@@ -24,14 +24,14 @@ if (isset($_SESSION["user"])) {
 		if (verify_csrf($_GET)) {
 			$v_user = quoteshellarg($_GET["loginas"]);
 			$v_impersonator = quoteshellarg($_SESSION["user"]);
-			exec(HESTIA_CMD . "v-list-user " . $v_user . " json", $output, $return_var);
+			exec(CEASAR_CMD . "v-list-user " . $v_user . " json", $output, $return_var);
 			if ($return_var == 0) {
 				$data = json_decode(implode("", $output), true);
 				reset($data);
 				$_SESSION["look"] = key($data);
 				// Log impersonation events
 				exec(
-					HESTIA_CMD .
+					CEASAR_CMD .
 						"v-log-action " .
 						$v_impersonator .
 						" 'Info' 'Security' 'Logged in as another user (User: $v_user)'",
@@ -39,7 +39,7 @@ if (isset($_SESSION["user"])) {
 					$return_var,
 				);
 				exec(
-					HESTIA_CMD .
+					CEASAR_CMD .
 						"v-log-action system 'Warning' 'Security' 'User impersonation session started (User: $v_user, Administrator: $v_impersonator)'",
 					$output,
 					$return_var,
@@ -54,7 +54,8 @@ if (isset($_SESSION["user"])) {
 					// URLs before the session token can be appended to a redirect.
 					if (preg_match('~^/(?!/)[^\x00-\x1F\x7F\\\\]*$~D', $edit_link)) {
 						$separator = str_contains($edit_link, "?") ? "&" : "?";
-						$url = $edit_link . $separator . "token=" . rawurlencode($_SESSION["token"]);
+						$url =
+							$edit_link . $separator . "token=" . rawurlencode($_SESSION["token"]);
 						header("Location: " . $url);
 						die();
 					}
@@ -83,7 +84,7 @@ if (isset($_SESSION["user"])) {
 			],
 		);
 
-		exec(HESTIA_CMD . "v-list-user " . $v_user . " json", $output, $return_var);
+		exec(CEASAR_CMD . "v-list-user " . $v_user . " json", $output, $return_var);
 		$data = json_decode(implode("", $output), true);
 		unset($output);
 
@@ -128,7 +129,7 @@ function authenticate_user($user, $password, $twofa = "") {
 		// Get user's salt
 		$output = "";
 		exec(
-			HESTIA_CMD . "v-get-user-salt " . $v_user . " " . $v_ip . " json",
+			CEASAR_CMD . "v-get-user-salt " . $v_user . " " . $v_ip . " json",
 			$output,
 			$return_var,
 		);
@@ -160,7 +161,7 @@ function authenticate_user($user, $password, $twofa = "") {
 				$v_password = stream_get_meta_data($fp)["uri"];
 				fwrite($fp, $password . "\n");
 				exec(
-					HESTIA_CMD .
+					CEASAR_CMD .
 						"v-check-user-password " .
 						$v_user .
 						" " .
@@ -187,7 +188,7 @@ function authenticate_user($user, $password, $twofa = "") {
 
 			// Check user hash
 			exec(
-				HESTIA_CMD . "v-check-user-hash " . $v_user . " " . $v_hash . " " . $v_ip,
+				CEASAR_CMD . "v-check-user-hash " . $v_user . " " . $v_hash . " " . $v_ip,
 				$output,
 				$return_var,
 			);
@@ -201,7 +202,7 @@ function authenticate_user($user, $password, $twofa = "") {
 				$error = _("Invalid username or password");
 				$v_session_id = quoteshellarg($_POST["token"]);
 				exec(
-					HESTIA_CMD .
+					CEASAR_CMD .
 						"v-log-user-login " .
 						$v_user .
 						" " .
@@ -216,7 +217,7 @@ function authenticate_user($user, $password, $twofa = "") {
 				return $error;
 			} else {
 				// Get user specific parameters
-				exec(HESTIA_CMD . "v-list-user " . $v_user . " json", $output, $return_var);
+				exec(CEASAR_CMD . "v-list-user " . $v_user . " json", $output, $return_var);
 				$data = json_decode(implode("", $output), true);
 				unset($output);
 				if ($data[$user]["LOGIN_DISABLED"] === "yes") {
@@ -224,7 +225,7 @@ function authenticate_user($user, $password, $twofa = "") {
 					$error = _("Invalid username or password");
 					$v_session_id = quoteshellarg($_POST["token"]);
 					exec(
-						HESTIA_CMD .
+						CEASAR_CMD .
 							"v-log-user-login " .
 							$v_user .
 							" " .
@@ -248,7 +249,7 @@ function authenticate_user($user, $password, $twofa = "") {
 						$error = _("Invalid username or password");
 						$v_session_id = quoteshellarg($_POST["token"]);
 						exec(
-							HESTIA_CMD .
+							CEASAR_CMD .
 								"v-log-user-login " .
 								$v_user .
 								" " .
@@ -274,7 +275,7 @@ function authenticate_user($user, $password, $twofa = "") {
 						if (strlen($twofa) < 10) {
 							$v_twofa = quoteshellarg($twofa);
 							exec(
-								HESTIA_CMD . "v-check-user-2fa " . $v_user . " " . $v_twofa,
+								CEASAR_CMD . "v-check-user-2fa " . $v_user . " " . $v_twofa,
 								$output,
 								$return_var,
 							);
@@ -289,7 +290,7 @@ function authenticate_user($user, $password, $twofa = "") {
 									//allow a few failed attemps before start of logging.
 									if ($_SESSION["failed_twofa"] > 2) {
 										exec(
-											HESTIA_CMD .
+											CEASAR_CMD .
 												"v-log-user-login " .
 												$v_user .
 												" " .
@@ -327,7 +328,7 @@ function authenticate_user($user, $password, $twofa = "") {
 				//log successfull login attempt
 				$v_session_id = quoteshellarg($_POST["token"]);
 				exec(
-					HESTIA_CMD .
+					CEASAR_CMD .
 						"v-log-user-login " .
 						$v_user .
 						" " .
@@ -357,7 +358,7 @@ function authenticate_user($user, $password, $twofa = "") {
 
 				// Define language
 				$output = "";
-				exec(HESTIA_CMD . "v-list-sys-languages json", $output, $return_var);
+				exec(CEASAR_CMD . "v-list-sys-languages json", $output, $return_var);
 				$languages = json_decode(implode("", $output), true);
 				$_SESSION["language"] = in_array($data[$v_user]["LANGUAGE"], $languages)
 					? $data[$user]["LANGUAGE"]
@@ -432,17 +433,17 @@ if (
 	unset($_POST);
 }
 // Check system configuration
-load_hestia_config();
+load_ceasar_config();
 
 // Detect language
 if (empty($_SESSION["language"])) {
 	$output = "";
-	exec(HESTIA_CMD . "v-list-sys-config json", $output, $return_var);
+	exec(CEASAR_CMD . "v-list-sys-config json", $output, $return_var);
 	$config = json_decode(implode("", $output), true);
 	$lang = $config["config"]["LANGUAGE"];
 
 	$output = "";
-	exec(HESTIA_CMD . "v-list-sys-languages json", $output, $return_var);
+	exec(CEASAR_CMD . "v-list-sys-languages json", $output, $return_var);
 	$languages = json_decode(implode("", $output), true);
 	$_SESSION["language"] = in_array($lang, $languages) ? $lang : "en";
 }

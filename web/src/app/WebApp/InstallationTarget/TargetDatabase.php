@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-namespace Hestia\WebApp\InstallationTarget;
+namespace Ceasar\WebApp\InstallationTarget;
 
 class TargetDatabase
 {

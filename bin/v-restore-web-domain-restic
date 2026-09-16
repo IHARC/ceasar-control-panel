@@ -21,22 +21,22 @@ new_user=${5-no}
 defer_edge=${6-no}
 
 # Includes
-# shellcheck source=/etc/hestiacp/hestia.conf
-source /etc/hestiacp/hestia.conf
-# shellcheck source=/usr/local/hestia/func/main.sh
-source $HESTIA/func/main.sh
-# shellcheck source=/usr/local/hestia/func/domain.sh
-source $HESTIA/func/domain.sh
-# shellcheck source=/usr/local/hestia/func/ip.sh
-source $HESTIA/func/ip.sh
-# shellcheck source=/usr/local/hestia/func/rebuild.sh
-source $HESTIA/func/rebuild.sh
-# shellcheck source=/usr/local/hestia/func/syshealth.sh
-source $HESTIA/func/syshealth.sh
+# shellcheck source=/etc/ceasar/ceasar.conf
+source /etc/ceasar/ceasar.conf
+# shellcheck source=/usr/local/ceasar/func/main.sh
+source $CEASAR/func/main.sh
+# shellcheck source=/usr/local/ceasar/func/domain.sh
+source $CEASAR/func/domain.sh
+# shellcheck source=/usr/local/ceasar/func/ip.sh
+source $CEASAR/func/ip.sh
+# shellcheck source=/usr/local/ceasar/func/rebuild.sh
+source $CEASAR/func/rebuild.sh
+# shellcheck source=/usr/local/ceasar/func/syshealth.sh
+source $CEASAR/func/syshealth.sh
 # load config file
-source_conf "$HESTIA/conf/hestia.conf"
+source_conf "$CEASAR/conf/ceasar.conf"
 
-source_conf $HESTIA/conf/restic.conf
+source_conf $CEASAR/conf/restic.conf
 
 #----------------------------------------------------------#
 #                    Verifications                         #
@@ -47,7 +47,7 @@ check_args '3' "$#" "$args_usage"
 is_format_valid 'user'
 is_object_valid 'user' 'USER' "$user"
 
-source_conf $HESTIA/conf/restic.conf
+source_conf $CEASAR/conf/restic.conf
 
 #----------------------------------------------------------#
 #                       Action                             #
@@ -79,7 +79,7 @@ for domain in "${domains[@]}"; do
 				rm -rf $tmpdir
 				error="$domain belongs to another user"
 				echo "$error" | $SENDMAIL -s "$subj" $email $notify
-				sed -i "/ $user /d" $HESTIA/data/queue/backup.pipe
+				sed -i "/ $user /d" $CEASAR/data/queue/backup.pipe
 				check_result "$E_PARSING" "$error"
 			fi
 		fi
@@ -90,7 +90,7 @@ for domain in "${domains[@]}"; do
 
 		# Restoring web.conf
 		if [ -z "$check_config" ]; then
-			parse_object_kv_list $(cat $tmpdir/home/$user/backup/web/$domain/hestia/web.conf)
+			parse_object_kv_list $(cat $tmpdir/home/$user/backup/web/$domain/ceasar/web.conf)
 
 			# Deleting conflicting aliases
 			for dom_alias in ${ALIAS//,/ }; do
@@ -146,16 +146,16 @@ for domain in "${domains[@]}"; do
 			# Copying SSL certificates
 			if [ "$SSL" = 'yes' ]; then
 
-				if [ -f "$tmpdir/home/$user/backup/web/$domain/hestia/$domain.crt" ]; then
-					cp -f "$tmpdir/home/$user/backup/web/$domain/hestia/$domain.crt" "$USER_DATA/ssl/"
-					if [ -f "$tmpdir/home/$user/backup/web/$domain/hestia/$domain.ca" ]; then
-						cp -f "$tmpdir/home/$user/backup/web/$domain/hestia/$domain.ca" "$USER_DATA/ssl/"
+				if [ -f "$tmpdir/home/$user/backup/web/$domain/ceasar/$domain.crt" ]; then
+					cp -f "$tmpdir/home/$user/backup/web/$domain/ceasar/$domain.crt" "$USER_DATA/ssl/"
+					if [ -f "$tmpdir/home/$user/backup/web/$domain/ceasar/$domain.ca" ]; then
+						cp -f "$tmpdir/home/$user/backup/web/$domain/ceasar/$domain.ca" "$USER_DATA/ssl/"
 					fi
-					if [ -f "$tmpdir/home/$user/backup/web/$domain/hestia/$domain.pem" ]; then
-						cp -f "$tmpdir/home/$user/backup/web/$domain/hestia/$domain.pem" "$USER_DATA/ssl/"
+					if [ -f "$tmpdir/home/$user/backup/web/$domain/ceasar/$domain.pem" ]; then
+						cp -f "$tmpdir/home/$user/backup/web/$domain/ceasar/$domain.pem" "$USER_DATA/ssl/"
 					fi
-					if [ -f "$tmpdir/home/$user/backup/web/$domain/hestia/$domain.key" ]; then
-						cp -f "$tmpdir/home/$user/backup/web/$domain/hestia/$domain.key" "$USER_DATA/ssl/"
+					if [ -f "$tmpdir/home/$user/backup/web/$domain/ceasar/$domain.key" ]; then
+						cp -f "$tmpdir/home/$user/backup/web/$domain/ceasar/$domain.key" "$USER_DATA/ssl/"
 					fi
 				fi
 			fi
@@ -233,7 +233,7 @@ for domain in "${domains[@]}"; do
 	fi
 done
 #----------------------------------------------------------#
-#                       Hestia                             #
+#                       Ceasar                             #
 #----------------------------------------------------------#
 if [ "$new_user" = "yes" ]; then
 	rebuild_user_conf || check_result "$E_RESTART" "Unable to rebuild user configuration"
@@ -241,7 +241,7 @@ fi
 
 # A newly restored canonical account leaves this native parent owned by the
 # account. Restore only its protected parent metadata before edge publication.
-if [[ "$new_user" == yes && "$user" =~ ^ih[0-9a-f]{14}$ ]]; then
+if [[ "$new_user" == yes ]] && is_iharc_managed_user "$user"; then
 	web_directory="$HOMEDIR/$user/web"
 	if [[ ! -d "$web_directory" || -L "$web_directory" || "$(readlink -e -- "$web_directory")" != "$web_directory" || "$(stat -c '%U:%G:%a' -- "$web_directory")" != "$user:$user:751" ]]; then
 		check_result "$E_INVALID" "restored customer web parent is unsafe"
@@ -264,16 +264,16 @@ $BIN/v-update-sys-ip-counters
 # A direct web restore bypasses ordinary domain hooks. Reconcile the canonical
 # private edge before publishing restored authority; either failure leaves the
 # queued restore in place for retry.
-if [[ "$defer_edge" != yes && "$user" =~ ^ih[0-9a-f]{14}$ ]]; then
-	"$HESTIA/bin/iharc-customer-isolation" reconcile "$user" "$HESTIA" > /dev/null \
+if [[ "$defer_edge" != yes ]] && is_iharc_managed_user "$user"; then
+	"$CEASAR/bin/iharc-customer-isolation" reconcile "$user" "$CEASAR" > /dev/null \
 		|| check_result "$E_INVALID" "customer resource isolation could not be reconciled after Restic restore"
 fi
-if [[ "$defer_edge" != yes && ( "$user" =~ ^ih[0-9a-f]{14}$ || "$user" == "$ROOT_USER" ) && -x "$BIN/iharc-haproxy-cert-sync" ]]; then
+if [[ "$defer_edge" != yes ]] && is_iharc_managed_authority_user "$user" && [[ -x "$BIN/iharc-haproxy-cert-sync" ]]; then
 	"$BIN/iharc-haproxy-cert-sync" \
 		|| check_result "$E_RESTART" "HAProxy authority synchronization could not complete"
 fi
 
-sed -i "/v-restore-web-domain-restic '$user' '$snapshot' '$web' /d" $HESTIA/data/queue/backup.pipe
+sed -i "/v-restore-web-domain-restic '$user' '$snapshot' '$web' /d" $CEASAR/data/queue/backup.pipe
 
 # Logging
 $BIN/v-log-action "system" "Info" "Backup" "Web domain successfully restored (User: $user, Snapshot: $snapshot, Databse: $database)."

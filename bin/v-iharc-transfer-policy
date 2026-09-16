@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
 set -Eeuo pipefail
 set +x
-HESTIA=${HESTIA:-/usr/local/hestia}
-exec /usr/bin/python3 -I "$HESTIA/libexec/iharc/iharc_transfer_publish.py" "$@"
+CEASAR=${CEASAR:-/usr/local/ceasar}
+exec /usr/bin/python3 -I "$CEASAR/libexec/iharc/iharc_transfer_publish.py" "$@"

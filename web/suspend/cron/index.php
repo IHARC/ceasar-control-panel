@@ -1,5 +1,5 @@
 <?php
-use function Hestiacp\quoteshellarg\quoteshellarg;
+use function Ceasar\Shell\quoteshellarg;
 ob_start();
 include $_SERVER["DOCUMENT_ROOT"] . "/inc/main.php";
 
@@ -13,7 +13,7 @@ if ($read_only === true) {
 
 if (!empty($_GET["job"])) {
 	$v_job = quoteshellarg($_GET["job"]);
-	exec(HESTIA_CMD . "v-suspend-cron-job " . $user . " " . $v_job, $output, $return_var);
+	exec(CEASAR_CMD . "v-suspend-cron-job " . $user . " " . $v_job, $output, $return_var);
 	check_return_code($return_var, $output);
 	unset($output);
 }

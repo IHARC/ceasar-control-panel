@@ -11,12 +11,12 @@
 #----------------------------------------------------------#
 
 # Includes
-# shellcheck source=/etc/hestiacp/hestia.conf
-source /etc/hestiacp/hestia.conf
-# shellcheck source=/usr/local/hestia/func/main.sh
-source "$HESTIA/func/main.sh"
+# shellcheck source=/etc/ceasar/ceasar.conf
+source /etc/ceasar/ceasar.conf
+# shellcheck source=/usr/local/ceasar/func/main.sh
+source "$CEASAR/func/main.sh"
 # load config file
-source_conf "$HESTIA/conf/hestia.conf"
+source_conf "$CEASAR/conf/ceasar.conf"
 
 # Function to safely remove quota options from fstab
 remove_quota_options() {
@@ -76,7 +76,7 @@ remove_quota_files() {
 #----------------------------------------------------------#
 
 # Perform verification if read-only mode is enabled
-check_hestia_demo_mode
+check_ceasar_demo_mode
 
 #----------------------------------------------------------#
 #                       Action                             #
@@ -197,8 +197,8 @@ log_history "INFO" "Cleaning up quota-related files"
 [ -f "/etc/cron.daily/quotacheck" ] && rm -f "/etc/cron.daily/quotacheck"
 [ -f "/forcequotacheck" ] && rm -f "/forcequotacheck"
 
-# Update hestia.conf value
-log_history "INFO" "Updating Hestia configuration"
+# Update ceasar.conf value
+log_history "INFO" "Updating Ceasar configuration"
 "$BIN/v-change-sys-config-value" "DISK_QUOTA" "no"
 
 # Remove quota package
@@ -208,7 +208,7 @@ if dpkg -l 2> /dev/null | grep -q "^ii.*quota"; then
 fi
 
 #----------------------------------------------------------#
-#                       Hestia                             #
+#                       Ceasar                             #
 #----------------------------------------------------------#
 
 # Logging

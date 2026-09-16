@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Build the non-root HAProxy runtime configuration from Hestia's vendor file.
+# Build the non-root HAProxy runtime configuration from Ceasar's vendor file.
 # HAProxy 2.4 requires set-mark to start with CAP_NET_ADMIN, but it cannot
 # preserve that capability across its own global user/group privilege drop.
 # systemd therefore starts it directly as haproxy with only the two network
@@ -11,19 +11,22 @@ readonly source_config=/etc/haproxy/haproxy.cfg
 readonly runtime_dir=/run/haproxy
 readonly runtime_config=$runtime_dir/iharc-base.cfg
 
-fail() { printf 'iharc-haproxy-runtime-config: %s\n' "$*" >&2; exit 1; }
+fail() {
+	printf 'iharc-haproxy-runtime-config: %s\n' "$*" >&2
+	exit 1
+}
 [[ $(id -u) -eq 0 ]] || fail 'root is required'
 [[ -f "$source_config" && ! -L "$source_config" ]] || fail 'vendor HAProxy configuration is unavailable'
 [[ $(stat -c '%u:%g:%a' "$source_config") == 0:0:644 ]] || fail 'vendor HAProxy configuration ownership is unsafe'
 
 for directive in chroot user group daemon; do
-  count=$(awk -v wanted="$directive" '
+	count=$(awk -v wanted="$directive" '
     $0 ~ /^global[[:space:]]*$/ { in_global=1; next }
     in_global && $0 ~ /^[^[:space:]#]/ { in_global=0 }
     in_global && $1 == wanted { count++ }
     END { print count + 0 }
   ' "$source_config")
-  [[ "$count" == 1 ]] || fail "vendor global $directive directive is ambiguous"
+	[[ "$count" == 1 ]] || fail "vendor global $directive directive is ambiguous"
 done
 
 install -d -o root -g haproxy -m 0750 "$runtime_dir"

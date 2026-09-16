@@ -12,17 +12,17 @@
 
 # Importing system environment  as we run this script
 #       mostly by cron wich not read it by itself
-source /etc/profile.d/hestia.sh
+source /etc/profile.d/ceasar.sh
 
 # Includes
-# shellcheck source=/etc/hestiacp/hestia.conf
-source /etc/hestiacp/hestia.conf
-# shellcheck source=/usr/local/hestia/func/main.sh
-source $HESTIA/func/main.sh
-# shellcheck source=/usr/local/hestia/func/domain.sh
-source $HESTIA/func/domain.sh
+# shellcheck source=/etc/ceasar/ceasar.conf
+source /etc/ceasar/ceasar.conf
+# shellcheck source=/usr/local/ceasar/func/main.sh
+source $CEASAR/func/main.sh
+# shellcheck source=/usr/local/ceasar/func/domain.sh
+source $CEASAR/func/domain.sh
 # load config file
-source_conf "$HESTIA/conf/hestia.conf"
+source_conf "$CEASAR/conf/ceasar.conf"
 
 # Argument definition
 user=$1
@@ -72,11 +72,11 @@ TOTAL_USERS=0
 
 # Updating user stats
 for user in $user_list; do
-	USER_DATA=$HESTIA/data/users/$user
-	if [ ! -f "$HESTIA/data/users/$user/user.conf" ]; then
+	USER_DATA=$CEASAR/data/users/$user
+	if [ ! -f "$CEASAR/data/users/$user/user.conf" ]; then
 		continue
 	fi
-	USER_DATA=$HESTIA/data/users/$user
+	USER_DATA=$CEASAR/data/users/$user
 	source $USER_DATA/user.conf
 	next_month=$(date +'%m/01/%y' -d "$(date +%Y-%m-15) 1 month")
 	DATE=$(date -d "$next_month -1day" +%F)
@@ -133,7 +133,7 @@ done
 
 if [ "$update_overall_stats" = 'yes' ]; then
 	# Updating overall stats
-	stats="$HESTIA/data/users/$ROOT_USER/overall_stats.log"
+	stats="$CEASAR/data/users/$ROOT_USER/overall_stats.log"
 
 	s="DATE='$DATE' TIME='$TIME' PACKAGE='default' IP_OWNED='$TOTAL_IP_OWNED'"
 	s="$s DISK_QUOTA='0' U_DISK='$TOTAL_U_DISK' U_DISK_DIRS='$TOTAL_U_DISK_DIRS'"
@@ -163,7 +163,7 @@ if [ "$update_overall_stats" = 'yes' ]; then
 fi
 
 #----------------------------------------------------------#
-#                       Hestia                             #
+#                       Ceasar                             #
 #----------------------------------------------------------#
 
 # Logging

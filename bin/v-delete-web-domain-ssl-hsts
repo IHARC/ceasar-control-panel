@@ -17,14 +17,14 @@ restart=$3
 quiet=$4
 
 # Includes
-# shellcheck source=/etc/hestiacp/hestia.conf
-source /etc/hestiacp/hestia.conf
-# shellcheck source=/usr/local/hestia/func/main.sh
-source $HESTIA/func/main.sh
-# shellcheck source=/usr/local/hestia/func/domain.sh
-source $HESTIA/func/domain.sh
+# shellcheck source=/etc/ceasar/ceasar.conf
+source /etc/ceasar/ceasar.conf
+# shellcheck source=/usr/local/ceasar/func/main.sh
+source $CEASAR/func/main.sh
+# shellcheck source=/usr/local/ceasar/func/domain.sh
+source $CEASAR/func/domain.sh
 # load config file
-source_conf "$HESTIA/conf/hestia.conf"
+source_conf "$CEASAR/conf/ceasar.conf"
 
 #----------------------------------------------------------#
 #                    Verifications                         #
@@ -37,7 +37,7 @@ is_object_valid 'web' 'DOMAIN' "$domain"
 is_object_valid 'web' 'DOMAIN' "$domain" "$SSL_FORCE"
 
 # Perform verification if read-only mode is enabled
-check_hestia_demo_mode
+check_ceasar_demo_mode
 
 #----------------------------------------------------------#
 #                       Action                             #
@@ -56,7 +56,7 @@ fi
 rm -f $hstsconf
 
 #----------------------------------------------------------#
-#                       Hestia                             #
+#                       Ceasar                             #
 #----------------------------------------------------------#
 
 # Set forcessl flag to enabled

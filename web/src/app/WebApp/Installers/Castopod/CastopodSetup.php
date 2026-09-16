@@ -2,11 +2,11 @@
 
 declare(strict_types=1);
 
-namespace Hestia\WebApp\Installers\Castopod;
+namespace Ceasar\WebApp\Installers\Castopod;
 
-use Hestia\System\Util;
-use Hestia\WebApp\BaseSetup;
-use Hestia\WebApp\InstallationTarget\InstallationTarget;
+use Ceasar\System\Util;
+use Ceasar\WebApp\BaseSetup;
+use Ceasar\WebApp\InstallationTarget\InstallationTarget;
 use function file_get_contents;
 use function str_replace;
 

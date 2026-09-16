@@ -1,5 +1,5 @@
 <?php
-use function Hestiacp\quoteshellarg\quoteshellarg;
+use function Ceasar\Shell\quoteshellarg;
 
 ob_start();
 include $_SERVER["DOCUMENT_ROOT"] . "/inc/main.php";
@@ -15,7 +15,7 @@ if ($read_only === true) {
 if ($_SESSION["userContext"] === "admin") {
 	if (!empty($_GET["ip"])) {
 		$v_ip = quoteshellarg($_GET["ip"]);
-		exec(HESTIA_CMD . "v-delete-sys-ip " . $v_ip, $output, $return_var);
+		exec(CEASAR_CMD . "v-delete-sys-ip " . $v_ip, $output, $return_var);
 	}
 	check_return_code($return_var, $output);
 	unset($output);

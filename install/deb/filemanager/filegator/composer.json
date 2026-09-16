@@ -20,8 +20,7 @@
 		"rakit/validation": "^1.1",
 		"league/flysystem": "^1.1",
 		"league/flysystem-ziparchive": "^1.0",
-		"league/flysystem-sftp": "^1.0",
-		"hestiacp/phpquoteshellarg": "^1.0"
+		"league/flysystem-sftp": "^1.0"
 	},
 	"authors": [
 		{
@@ -30,6 +29,9 @@
 		}
 	],
 	"autoload": {
+		"files": [
+			"backend/Ceasar/Shell/quoteshellarg.php"
+		],
 		"psr-4": {
 			"Filegator\\": "backend"
 		}

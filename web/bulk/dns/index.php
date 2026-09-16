@@ -1,5 +1,5 @@
 <?php
-use function Hestiacp\quoteshellarg\quoteshellarg;
+use function Ceasar\Shell\quoteshellarg;
 
 ob_start();
 
@@ -93,7 +93,7 @@ if (empty($_POST["record"])) {
 		foreach ($domain as $value) {
 			// DNS
 			$value = quoteshellarg($value);
-			exec(HESTIA_CMD . $cmd . " " . $user . " " . $value . " no", $output, $return_var);
+			exec(CEASAR_CMD . $cmd . " " . $user . " " . $value . " no", $output, $return_var);
 			$restart = "yes";
 		}
 	} else {
@@ -105,7 +105,7 @@ if (empty($_POST["record"])) {
 		$value = quoteshellarg($value);
 		$dom = quoteshellarg($domain);
 		exec(
-			HESTIA_CMD . $cmd . " " . $user . " " . $dom . " " . $value . " no",
+			CEASAR_CMD . $cmd . " " . $user . " " . $dom . " " . $value . " no",
 			$output,
 			$return_var,
 		);
@@ -114,7 +114,7 @@ if (empty($_POST["record"])) {
 }
 
 if (!empty($restart)) {
-	exec(HESTIA_CMD . "v-restart-dns", $output, $return_var);
+	exec(CEASAR_CMD . "v-restart-dns", $output, $return_var);
 }
 
 if (empty($_POST["record"])) {

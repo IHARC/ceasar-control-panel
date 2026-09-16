@@ -14,12 +14,12 @@
 domain=$1
 
 # Includes
-# shellcheck source=/etc/hestiacp/hestia.conf
-source /etc/hestiacp/hestia.conf
-# shellcheck source=/usr/local/hestia/func/main.sh
-source $HESTIA/func/main.sh
+# shellcheck source=/etc/ceasar/ceasar.conf
+source /etc/ceasar/ceasar.conf
+# shellcheck source=/usr/local/ceasar/func/main.sh
+source $CEASAR/func/main.sh
 # load config file
-source_conf "$HESTIA/conf/hestia.conf"
+source_conf "$CEASAR/conf/ceasar.conf"
 
 #----------------------------------------------------------#
 #                    Verifications                         #
@@ -29,7 +29,7 @@ check_args '1' "$#" 'HOSTNAME'
 is_format_valid 'domain'
 
 # Perform verification if read-only mode is enabled
-check_hestia_demo_mode
+check_ceasar_demo_mode
 
 #----------------------------------------------------------#
 #                       Action                             #
@@ -50,13 +50,13 @@ echo "$domain" > /etc/hostname
 
 # Update webmail's password plugin configuration
 if [ -d /etc/roundcube/ ]; then
-	sed -i "/password_hestia_host/c\$rcmail_config['password_hestia_host'] = '$domain';" /etc/roundcube/plugins/password/config.inc.php
+	sed -i "/password_ceasar_host/c\$rcmail_config['password_ceasar_host'] = '$domain';" /etc/roundcube/plugins/password/config.inc.php
 fi
 if [ -d /etc/rainloop/ ]; then
-	sed -i "/hestia_host/c\hestia_host = \"$domain\"" /etc/rainloop/data/_data_/_default_/configs/plugin-hestia-change-password.ini
+	sed -i "/ceasar_host/c\ceasar_host = \"$domain\"" /etc/rainloop/data/_data_/_default_/configs/plugin-ceasar-change-password.ini
 fi
 if [ -d /var/lib/snappymail/ ]; then
-	sed -i "/\"hestia_host\":/c\\        \"hestia_host\": \"$domain\"," /var/lib/snappymail/data/_data_/_default_/configs/plugin-change-password.json
+	sed -i "/\"ceasar_host\":/c\\        \"ceasar_host\": \"$domain\"," /var/lib/snappymail/data/_data_/_default_/configs/plugin-change-password.json
 fi
 
 # Update /etc/hosts
@@ -83,7 +83,7 @@ if [ -f /etc/hosts ]; then
 fi
 
 #----------------------------------------------------------#
-#                       Hestia                             #
+#                       Ceasar                             #
 #----------------------------------------------------------#
 
 # Logging

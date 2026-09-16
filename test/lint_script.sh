@@ -1,11 +1,11 @@
 #!/bin/bash
 
 # Includes
-# shellcheck source=/usr/local/hestia/conf/hestia.conf
-source $HESTIA/conf/hestia.conf
+# shellcheck source=/usr/local/ceasar/conf/ceasar.conf
+source $CEASAR/conf/ceasar.conf
 
 # Variables and arguments
-HESTIA="/usr/local/hestia"
+CEASAR="/usr/local/ceasar"
 script=$1
 log=$2
 scroll=$3
@@ -32,7 +32,7 @@ if [ -z "$package_check" ]; then
 fi
 
 # Set debug path and ensure it exists
-DEBUG_PATH="$HOME/hst-debug/"
+DEBUG_PATH="$HOME/ceasar-debug/"
 if [ ! -d "$DEBUG_PATH" ]; then
 	mkdir "$DEBUG_PATH"
 fi

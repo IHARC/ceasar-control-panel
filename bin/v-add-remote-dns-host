@@ -32,14 +32,14 @@ dns_user=${6-dns-cluster}
 DNS_USER=$dns_user
 
 # Includes
-# shellcheck source=/etc/hestiacp/hestia.conf
-source /etc/hestiacp/hestia.conf
-# shellcheck source=/usr/local/hestia/func/main.sh
-source $HESTIA/func/main.sh
-# shellcheck source=/usr/local/hestia/func/remote.sh
-source $HESTIA/func/remote.sh
+# shellcheck source=/etc/ceasar/ceasar.conf
+source /etc/ceasar/ceasar.conf
+# shellcheck source=/usr/local/ceasar/func/main.sh
+source $CEASAR/func/main.sh
+# shellcheck source=/usr/local/ceasar/func/remote.sh
+source $CEASAR/func/remote.sh
 # load config file
-source_conf "$HESTIA/conf/hestia.conf"
+source_conf "$CEASAR/conf/ceasar.conf"
 
 #----------------------------------------------------------#
 #                    Verifications                         #
@@ -65,7 +65,7 @@ is_dnshost_new
 is_dnshost_alive
 
 # Perform verification if read-only mode is enabled
-check_hestia_demo_mode
+check_ceasar_demo_mode
 
 #----------------------------------------------------------#
 #                       Action                             #
@@ -89,14 +89,14 @@ else
 fi
 
 # Adding host to dns-cluster.conf
-echo "$str" >> $HESTIA/conf/dns-cluster.conf
-chmod 660 $HESTIA/conf/dns-cluster.conf
+echo "$str" >> $CEASAR/conf/dns-cluster.conf
+chmod 660 $CEASAR/conf/dns-cluster.conf
 
 # Enabling DNS_CLUSTER
-if [ -z "$(grep DNS_CLUSTER= $HESTIA/conf/hestia.conf)" ]; then
-	sed -i "s/^STATS_/DNS_CLUSTER='yes'\nSTATS_/g" $HESTIA/conf/hestia.conf
+if [ -z "$(grep DNS_CLUSTER= $CEASAR/conf/ceasar.conf)" ]; then
+	sed -i "s/^STATS_/DNS_CLUSTER='yes'\nSTATS_/g" $CEASAR/conf/ceasar.conf
 else
-	sed -i "s/DNS_CLUSTER=.*/DNS_CLUSTER='yes'/g" $HESTIA/conf/hestia.conf
+	sed -i "s/DNS_CLUSTER=.*/DNS_CLUSTER='yes'/g" $CEASAR/conf/ceasar.conf
 fi
 
 # Enabling remote dns-cluster queue
@@ -115,19 +115,19 @@ $BIN/v-sync-dns-cluster
 check_result $? "$HOST sync failed" "$E_CONNECT"
 
 #----------------------------------------------------------#
-#                       Hestia                             #
+#                       Ceasar                             #
 #----------------------------------------------------------#
 
 # Adding local  dns-cluster cron job
 cmd="v-update-sys-queue dns-cluster"
-check_cron=$(grep "$cmd" "/var/spool/cron/crontabs/hestiaweb" 2> /dev/null)
+check_cron=$(grep "$cmd" "/var/spool/cron/crontabs/ceasarweb" 2> /dev/null)
 if [ -z "$check_cron" ] && [ ! -z "$CRON_SYSTEM" ]; then
 	min='*/5'
 	hour='*'
 	day='*'
 	month='*'
 	wday='*'
-	sed -i -e "\$a$min $hour * * * sudo /usr/local/hestia/bin/$cmd" "/var/spool/cron/crontabs/hestiaweb"
+	sed -i -e "\$a$min $hour * * * sudo /usr/local/ceasar/bin/$cmd" "/var/spool/cron/crontabs/ceasarweb"
 fi
 
 # Logging

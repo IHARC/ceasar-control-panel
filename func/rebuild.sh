@@ -2,7 +2,7 @@
 
 #===========================================================================#
 #                                                                           #
-# Hestia Control Panel - Rebuild Function Library                           #
+# Ceasar Control Panel - Rebuild Function Library                           #
 #                                                                           #
 #===========================================================================#
 
@@ -63,8 +63,8 @@ rebuild_user_conf() {
 		sed -i "/MAIL_ACCOUNTS/a RATE_LIMIT='200'" $USER_DATA/user.conf
 	fi
 	# Run template trigger
-	if [ -x "$HESTIA/data/packages/$PACKAGE.sh" ]; then
-		$HESTIA/data/packages/$PACKAGE.sh "$user" "$CONTACT" "$NAME"
+	if [ -x "$CEASAR/data/packages/$PACKAGE.sh" ]; then
+		$CEASAR/data/packages/$PACKAGE.sh "$user" "$CONTACT" "$NAME"
 	fi
 
 	# Rebuild user
@@ -72,28 +72,28 @@ rebuild_user_conf() {
 	id "$user" &> /dev/null || /usr/sbin/useradd "$user" -s "$shell" -c "$CONTACT" \
 		-m -d "$HOMEDIR/$user" > /dev/null 2>&1
 
-	# Add a general group for normal users created by Hestia
-	if [ -z "$(grep "^hestia-users:" /etc/group)" ]; then
-		groupadd --system "hestia-users"
+	# Add a general group for normal users created by Ceasar
+	if [ -z "$(grep "^ceasar-users:" /etc/group)" ]; then
+		groupadd --system "ceasar-users"
 	fi
 
-	# Keep the shared group and deny ACL for service identities; customer accounts
-	# remain primary-group-only so a group quota cannot be escaped via chgrp.
+	# Managed customer accounts remain primary-group-only so their pooled group
+	# quota cannot be escaped via a supplementary group. Standalone accounts keep
+	# Ceasar's native shared-group membership.
 	if [ "$user" = "$ROOT_USER" ]; then
 		setfacl -m "g:$ROOT_USER:r-x" "$HOMEDIR/$user"
-	else
+	elif is_iharc_managed_user "$user"; then
 		# Remove legacy customer and same-UID FTP identities from the shared
 		# group when an existing account is rebuilt under primary-only policy.
 		while read -r legacy_identity; do
-			gpasswd -d "$legacy_identity" hestia-users > /dev/null 2>&1 || true
+			gpasswd -d "$legacy_identity" ceasar-users > /dev/null 2>&1 || true
 		done < <(getent passwd | awk -F: -v uid="$(id -u "$user")" '$3 == uid {print $1}')
 		setfacl -m "u:$user:r-x" "$HOMEDIR/$user"
+	else
+		usermod -a -G "ceasar-users" "$user"
+		setfacl -m "u:$user:r-x" "$HOMEDIR/$user"
 	fi
-	setfacl -m "g:hestia-users:---" "$HOMEDIR/$user"
-	chmod o-rwx "$HOMEDIR/$user"
-	if id www-data > /dev/null 2>&1; then
-		setfacl -m "u:www-data:--x" "$HOMEDIR/$user"
-	fi
+	setfacl -m "g:ceasar-users:---" "$HOMEDIR/$user"
 
 	# Update user shell
 	/usr/bin/chsh -s "$shell" "$user" &> /dev/null
@@ -119,7 +119,14 @@ rebuild_user_conf() {
 		$HOMEDIR/$user/.ssh \
 		$HOMEDIR/$user/.npm \
 		$HOMEDIR/$user/.wp-cli
-	chmod u+x,g+x $HOMEDIR/$user
+	if is_iharc_managed_user "$user"; then
+		chmod u+x,g+x "$HOMEDIR/$user"
+		if id www-data > /dev/null 2>&1; then
+			setfacl -m "u:www-data:--x" "$HOMEDIR/$user"
+		fi
+	else
+		chmod a+x "$HOMEDIR/$user"
+	fi
 	chmod a+x $HOMEDIR/$user/conf
 	chown --no-dereference $user:$user \
 		$HOMEDIR/$user \
@@ -136,8 +143,8 @@ rebuild_user_conf() {
 	$BIN/v-add-user-sftp-jail "$user"
 
 	# Update disk pipe
-	sed -i "/ $user$/d" $HESTIA/data/queue/disk.pipe
-	echo "$BIN/v-update-user-disk $user" >> $HESTIA/data/queue/disk.pipe
+	sed -i "/ $user$/d" $CEASAR/data/queue/disk.pipe
+	echo "$BIN/v-update-user-disk $user" >> $CEASAR/data/queue/disk.pipe
 
 	# WEB
 	if [ -n "$WEB_SYSTEM" ] && [ "$WEB_SYSTEM" != 'no' ]; then
@@ -145,12 +152,12 @@ rebuild_user_conf() {
 		chmod 770 $USER_DATA/ssl
 		touch $USER_DATA/web.conf
 		chmod 660 $USER_DATA/web.conf
-		if [ "$(grep -w $user $HESTIA/data/queue/traffic.pipe)" ]; then
+		if [ "$(grep -w $user $CEASAR/data/queue/traffic.pipe)" ]; then
 			echo "$BIN/v-update-web-domains-traff $user" \
-				>> $HESTIA/data/queue/traffic.pipe
+				>> $CEASAR/data/queue/traffic.pipe
 		fi
 		echo "$BIN/v-update-web-domains-disk $user" \
-			>> $HESTIA/data/queue/disk.pipe
+			>> $CEASAR/data/queue/disk.pipe
 
 		if [[ -L "$HOMEDIR/$user/web" ]]; then
 			rm $HOMEDIR/$user/web
@@ -193,7 +200,7 @@ rebuild_user_conf() {
 		touch $USER_DATA/mail.conf
 		chmod 660 $USER_DATA/mail.conf
 		echo "$BIN/v-update-mail-domains-disk $user" \
-			>> $HESTIA/data/queue/disk.pipe
+			>> $CEASAR/data/queue/disk.pipe
 
 		if [[ -L "$HOMEDIR/$user/mail" ]]; then
 			rm $HOMEDIR/$user/mail
@@ -210,7 +217,7 @@ rebuild_user_conf() {
 	if [ -n "$DB_SYSTEM" ] && [ "$DB_SYSTEM" != 'no' ]; then
 		touch $USER_DATA/db.conf
 		chmod 660 $USER_DATA/db.conf
-		echo "$BIN/v-update-databases-disk $user" >> $HESTIA/data/queue/disk.pipe
+		echo "$BIN/v-update-databases-disk $user" >> $CEASAR/data/queue/disk.pipe
 
 		if [ "$create_user" = "yes" ]; then
 			$BIN/v-rebuild-databases $user
@@ -375,9 +382,9 @@ rebuild_web_domain_conf() {
 		fi
 
 		webstats="$BIN/v-update-web-domain-stat $user $domain"
-		check_webstats=$(grep "$webstats" $HESTIA/data/queue/webstats.pipe)
+		check_webstats=$(grep "$webstats" $CEASAR/data/queue/webstats.pipe)
 		if [ -z "$check_webstats" ]; then
-			echo "$webstats" >> $HESTIA/data/queue/webstats.pipe
+			echo "$webstats" >> $CEASAR/data/queue/webstats.pipe
 		fi
 
 		if [ -n "$STATS_USER" ]; then
@@ -470,7 +477,7 @@ rebuild_web_domain_conf() {
 		chgrp $user $htpasswd $htaccess
 	done
 
-	# domain folder permissions: DOMAINDIR_WRITABLE: default-val:no source:hestia.conf
+	# domain folder permissions: DOMAINDIR_WRITABLE: default-val:no source:ceasar.conf
 	DOMAINDIR_MODE=551
 	if [ "$DOMAINDIR_WRITABLE" = 'yes' ]; then DOMAINDIR_MODE=751; fi
 
@@ -812,11 +819,13 @@ rebuild_mysql_database() {
 	if [ "$?" -eq 0 ]; then
 		database_created=1
 	fi
-	if ! prepare_mysql_group_quota_dir "$user" "$DB"; then
-		if [ "$database_created" -eq 1 ]; then
-			mysql_query "DROP DATABASE \`$DB\`" > /dev/null 2>&1
+	if is_iharc_managed_user "$user"; then
+		if ! prepare_mysql_group_quota_dir "$user" "$DB"; then
+			if [ "$database_created" -eq 1 ]; then
+				mysql_query "DROP DATABASE \`$DB\`" > /dev/null 2>&1
+			fi
+			check_result "$E_DISK" "Unable to prepare pooled quota directory for $DB"
 		fi
-		check_result "$E_DISK" "Unable to prepare pooled quota directory for $DB"
 	fi
 	if [ "$mysql_fork" = "mysql" ]; then
 		# mysql
@@ -873,7 +882,7 @@ rebuild_mysql_database() {
 rebuild_pgsql_database() {
 
 	unset PORT
-	host_str=$(grep "HOST='$HOST'" $HESTIA/conf/pgsql.conf)
+	host_str=$(grep "HOST='$HOST'" $CEASAR/conf/pgsql.conf)
 	parse_object_kv_list "$host_str"
 	export PGPASSWORD="$PASSWORD"
 
@@ -935,7 +944,7 @@ import_mysql_database() {
 import_pgsql_database() {
 
 	unset PORT
-	host_str=$(grep "HOST='$HOST'" $HESTIA/conf/pgsql.conf)
+	host_str=$(grep "HOST='$HOST'" $CEASAR/conf/pgsql.conf)
 	parse_object_kv_list "$host_str"
 	export PGPASSWORD="$PASSWORD"
 

@@ -26,7 +26,7 @@ KNOWN_MARKS = "iharc_account_marks"
 BLOCKED_MARKS = "iharc_blocked_marks"
 KNOWN_UIDS = "iharc_account_uids"
 # This set is deliberately independent of published transfer policies.  A
-# canonical Hestia account is created before its billing worker can publish a
+# canonical Ceasar account is created before its billing worker can publish a
 # policy, and it must not be able to obtain the node system identity during
 # that interval.
 CUSTOMER_IMDS_UIDS = "iharc_customer_imds_uids"

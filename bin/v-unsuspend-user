@@ -15,12 +15,12 @@ user=$1
 restart=$2
 
 # Includes
-# shellcheck source=/etc/hestiacp/hestia.conf
-source /etc/hestiacp/hestia.conf
-# shellcheck source=/usr/local/hestia/func/main.sh
-source $HESTIA/func/main.sh
+# shellcheck source=/etc/ceasar/ceasar.conf
+source /etc/ceasar/ceasar.conf
+# shellcheck source=/usr/local/ceasar/func/main.sh
+source $CEASAR/func/main.sh
 # load config file
-source_conf "$HESTIA/conf/hestia.conf"
+source_conf "$CEASAR/conf/ceasar.conf"
 
 #----------------------------------------------------------#
 #                    Verifications                         #
@@ -34,7 +34,7 @@ if [ "$user" = "$ROOT_USER" ]; then
 fi
 
 # Perform verification if read-only mode is enabled
-check_hestia_demo_mode
+check_ceasar_demo_mode
 
 #----------------------------------------------------------#
 #                       Action                             #
@@ -55,10 +55,10 @@ fi
 update_user_value "$user" '$SUSPENDED' 'no'
 decrease_user_value "$ROOT_USER" '$SUSPENDED_USERS'
 
-# The dedicated endpoint must be available before Hestia's native database
+# The dedicated endpoint must be available before Ceasar's native database
 # unsuspend runs. Retention deletion carries a marker and must not reopen it.
-if [[ "$user" =~ ^ih[0-9a-f]{14}$ && ! -e "/run/iharc-customer-isolation/delete/$user" ]]; then
-	"$HESTIA/bin/iharc-customer-isolation" resume-prep "$user" "$HESTIA" > /dev/null \
+if is_iharc_managed_user "$user" && [[ ! -e "/run/iharc-customer-isolation/delete/$user" ]]; then
+	"$CEASAR/bin/iharc-customer-isolation" resume-prep "$user" "$CEASAR" > /dev/null \
 		|| check_result "$E_DB" "customer database isolation could not prepare for unsuspend"
 fi
 
@@ -87,16 +87,16 @@ if [ -n "$CRON_SYSTEM" ] && [ "$CRON_SYSTEM" != 'no' ]; then
 	$BIN/v-unsuspend-cron-jobs "$user" "no"
 fi
 
-# Reconcile before Hestia reloads shared web/proxy services. v-delete-user
+# Reconcile before Ceasar reloads shared web/proxy services. v-delete-user
 # temporarily calls this command; its delete-prep marker keeps that internal
 # transition from reopening account services before final purge.
-if [[ "$user" =~ ^ih[0-9a-f]{14}$ && ! -e "/run/iharc-customer-isolation/delete/$user" ]]; then
-	"$HESTIA/bin/iharc-customer-isolation" reconcile "$user" "$HESTIA" > /dev/null \
+if is_iharc_managed_user "$user" && [[ ! -e "/run/iharc-customer-isolation/delete/$user" ]]; then
+	"$CEASAR/bin/iharc-customer-isolation" reconcile "$user" "$CEASAR" > /dev/null \
 		|| check_result "$E_INVALID" "customer resource isolation could not be reconciled"
 fi
 
 #----------------------------------------------------------#
-#                       Hestia                             #
+#                       Ceasar                             #
 #----------------------------------------------------------#
 
 # Restarting system services

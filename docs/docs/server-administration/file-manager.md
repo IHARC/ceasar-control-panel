@@ -22,10 +22,10 @@ This seems to occur specifically when the line `Subsystem sftp /usr/lib/openssh/
 
 Short answer: add `Subsystem sftp internal-sftp` to `/etc/ssh/sshd_config`.
 
-Long answer: Refer to the install script `./install/hst-install-{distro}.sh` for all the changes made to `/etc/ssh/sshd_config`. For Debian, the changes can be summarised as follows:
+Long answer: Refer to the install script `./install/ceasar-install-{distro}.sh` for all the changes made to `/etc/ssh/sshd_config`. For Debian, the changes can be summarised as follows:
 
 ```bash
-# HestiaCP Changes to the default /etc/ssh/sshd_config in Debian 10 Buster
+# Ceasar Changes to the default /etc/ssh/sshd_config in Debian 10 Buster
 
 # Forced default yes
 PasswordAuthentication yes
@@ -42,10 +42,10 @@ DebianBanner no
 
 Changing all of the other parameters to their defaults and also changing to `PasswordAuthentication no` did not reproduce the error, thus it would seem to be isolated to the `Subsystem sftp internal-sftp` parameter.
 
-For more information regarding debugging, inspect the Hestia Nginx log:
+For more information regarding debugging, inspect the Ceasar Nginx log:
 
 ```bash
-tail -f -s0.1 /var/log/hestia/nginx-error.log
+tail -f -s0.1 /var/log/ceasar/nginx-error.log
 ```
 
 ## I changed SSH port and I cannot use the file manager anymore

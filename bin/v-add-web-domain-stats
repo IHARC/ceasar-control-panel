@@ -20,14 +20,14 @@ domain_idn=$2
 type=$3
 
 # Includes
-# shellcheck source=/etc/hestiacp/hestia.conf
-source /etc/hestiacp/hestia.conf
-# shellcheck source=/usr/local/hestia/func/main.sh
-source $HESTIA/func/main.sh
-# shellcheck source=/usr/local/hestia/func/domain.sh
-source $HESTIA/func/domain.sh
+# shellcheck source=/etc/ceasar/ceasar.conf
+source /etc/ceasar/ceasar.conf
+# shellcheck source=/usr/local/ceasar/func/main.sh
+source $CEASAR/func/main.sh
+# shellcheck source=/usr/local/ceasar/func/domain.sh
+source $CEASAR/func/domain.sh
 # load config file
-source_conf "$HESTIA/conf/hestia.conf"
+source_conf "$CEASAR/conf/ceasar.conf"
 
 # Additional argument formatting
 format_domain
@@ -48,7 +48,7 @@ is_object_unsuspended 'web' 'DOMAIN' "$domain"
 is_object_value_empty 'web' 'DOMAIN' "$domain" '$STATS'
 
 # Perform verification if read-only mode is enabled
-check_hestia_demo_mode
+check_ceasar_demo_mode
 
 #----------------------------------------------------------#
 #                       Action                             #
@@ -90,11 +90,11 @@ if [ "$type" == 'awstats' ]; then
 fi
 
 #----------------------------------------------------------#
-#                       Hestia                             #
+#                       Ceasar                             #
 #----------------------------------------------------------#
 
 # Schedule statistic processing
-echo "$BIN/v-update-web-domain-stat $user $domain" >> $HESTIA/data/queue/webstats.pipe
+echo "$BIN/v-update-web-domain-stat $user $domain" >> $CEASAR/data/queue/webstats.pipe
 
 # Update config
 update_object_value 'web' 'DOMAIN' "$domain" '$STATS' "$type"

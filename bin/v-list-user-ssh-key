@@ -14,12 +14,12 @@ user=$1
 format=${2-shell}
 
 # Includes
-# shellcheck source=/etc/hestiacp/hestia.conf
-source /etc/hestiacp/hestia.conf
-# shellcheck source=/usr/local/hestia/func/main.sh
-source $HESTIA/func/main.sh
+# shellcheck source=/etc/ceasar/ceasar.conf
+source /etc/ceasar/ceasar.conf
+# shellcheck source=/usr/local/ceasar/func/main.sh
+source $CEASAR/func/main.sh
 # load config file
-source_conf "$HESTIA/conf/hestia.conf"
+source_conf "$CEASAR/conf/ceasar.conf"
 
 csv_escape() {
 	local value=$1
@@ -103,16 +103,19 @@ fi
 
 # Share the dedicated root-owned lock with add/delete. This inventory remains
 # available for a suspended account and cannot observe a torn rewrite.
-SSH_KEY_LOCK_DIRECTORY="/run/hestia/ssh-key-locks"
+SSH_KEY_LOCK_DIRECTORY="/run/ceasar/ssh-key-locks"
 install -d -o root -g root -m 0700 "$SSH_KEY_LOCK_DIRECTORY" || check_result $? "Unable to prepare SSH key lock" "$E_SYSTEM"
 SSH_KEY_LOCK_FILE="$SSH_KEY_LOCK_DIRECTORY/$user.lock"
-(umask 077; : >> "$SSH_KEY_LOCK_FILE") || check_result $? "Unable to prepare SSH key lock" "$E_SYSTEM"
-exec 9>>"$SSH_KEY_LOCK_FILE" || check_result $? "Unable to open SSH key lock" "$E_SYSTEM"
+(
+	umask 077
+	: >> "$SSH_KEY_LOCK_FILE"
+) || check_result $? "Unable to prepare SSH key lock" "$E_SYSTEM"
+exec 9>> "$SSH_KEY_LOCK_FILE" || check_result $? "Unable to open SSH key lock" "$E_SYSTEM"
 flock -s 9 || check_result $? "Unable to acquire SSH key lock" "$E_SYSTEM"
 
 first_loop=1
 while IFS= read -r l || [ -n "$l" ]; do
-	sshkey=$(printf '%s\n' "$l" | LC_ALL=C ssh-keygen -l -E sha256 -f - 2>/dev/null) || continue
+	sshkey=$(printf '%s\n' "$l" | LC_ALL=C ssh-keygen -l -E sha256 -f - 2> /dev/null) || continue
 	sshkey=${sshkey#* }
 	key_fingerprint=${sshkey%% *}
 	sshkey=${sshkey#* }
@@ -135,7 +138,7 @@ case $format in
 esac
 
 #----------------------------------------------------------#
-#                       Hestia                             #
+#                       Ceasar                             #
 #----------------------------------------------------------#
 
 # Logging

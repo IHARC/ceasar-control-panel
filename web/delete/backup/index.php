@@ -1,5 +1,5 @@
 <?php
-use function Hestiacp\quoteshellarg\quoteshellarg;
+use function Ceasar\Shell\quoteshellarg;
 
 ob_start();
 include $_SERVER["DOCUMENT_ROOT"] . "/inc/main.php";
@@ -18,7 +18,7 @@ if ($read_only === true) {
 
 if (!empty($_GET["backup"])) {
 	$v_backup = quoteshellarg($_GET["backup"]);
-	exec(HESTIA_CMD . "v-delete-user-backup " . $user . " " . $v_backup, $output, $return_var);
+	exec(CEASAR_CMD . "v-delete-user-backup " . $user . " " . $v_backup, $output, $return_var);
 }
 check_return_code($return_var, $output);
 unset($output);

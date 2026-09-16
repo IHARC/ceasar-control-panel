@@ -1,0 +1,6 @@
+# filename sha256 source
+nginx-1.30.4.tar.gz 4261dc90e9e47c1c4041276e9aaa3d48ebe2e664f728e14fa95ae6c67d57a08b https://nginx.org/download/nginx-1.30.4.tar.gz
+openssl-3.5.7.tar.gz a8c0d28a529ca480f9f36cf5792e2cd21984552a3c8e4aa11a24aa31aeac98e8 https://github.com/openssl/openssl/releases/download/openssl-3.5.7/openssl-3.5.7.tar.gz
+pcre2-10.47.tar.gz c08ae2388ef333e8403e670ad70c0a11f1eed021fd88308d7e02f596fcd9dc16 https://github.com/PCRE2Project/pcre2/releases/download/pcre2-10.47/pcre2-10.47.tar.gz
+php-8.5.9.tar.gz d735459c2cbaeb0673d416c33d372d9ff261d562f6b29da48f3e6aeaeca083af https://www.php.net/distributions/php-8.5.9.tar.gz
+v1.3.2.tar.gz b99a0b86c0ba9360ec7e78c4f1e43b1cbdf1e6936c8fa0f6835c0cd694a495a1 https://github.com/madler/zlib/archive/refs/tags/v1.3.2.tar.gz

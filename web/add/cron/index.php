@@ -1,5 +1,5 @@
 <?php
-use function Hestiacp\quoteshellarg\quoteshellarg;
+use function Ceasar\Shell\quoteshellarg;
 
 ob_start();
 $TAB = "CRON";
@@ -53,7 +53,7 @@ if (!empty($_POST["ok"]) && $read_only !== true) {
 	// Add cron job
 	if (empty($_SESSION["error_msg"])) {
 		exec(
-			HESTIA_CMD .
+			CEASAR_CMD .
 				"v-add-cron-job " .
 				$user .
 				" " .
@@ -108,7 +108,7 @@ if (empty($v_min)) {
 }
 
 // Get current system time
-exec(HESTIA_CMD . "v-get-sys-timezone", $output, $return_var);
+exec(CEASAR_CMD . "v-get-sys-timezone", $output, $return_var);
 date_default_timezone_set($output[0]);
 $current_timestamp = time();
 

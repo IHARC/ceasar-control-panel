@@ -19,16 +19,16 @@ aliases=$3
 restart="$4"
 
 # Includes
-# shellcheck source=/etc/hestiacp/hestia.conf
-source /etc/hestiacp/hestia.conf
-# shellcheck source=/usr/local/hestia/func/main.sh
-source $HESTIA/func/main.sh
-# shellcheck source=/usr/local/hestia/func/domain.sh
-source $HESTIA/func/domain.sh
-# shellcheck source=/usr/local/hestia/func/ip.sh
-source $HESTIA/func/ip.sh
+# shellcheck source=/etc/ceasar/ceasar.conf
+source /etc/ceasar/ceasar.conf
+# shellcheck source=/usr/local/ceasar/func/main.sh
+source $CEASAR/func/main.sh
+# shellcheck source=/usr/local/ceasar/func/domain.sh
+source $CEASAR/func/domain.sh
+# shellcheck source=/usr/local/ceasar/func/ip.sh
+source $CEASAR/func/ip.sh
 # load config file
-source_conf "$HESTIA/conf/hestia.conf"
+source_conf "$CEASAR/conf/ceasar.conf"
 
 # Additional argument formatting
 format_domain
@@ -55,7 +55,7 @@ is_domain_new 'web' "$aliases"
 is_base_domain_owner "$aliases"
 
 # Perform verification if read-only mode is enabled
-check_hestia_demo_mode
+check_ceasar_demo_mode
 
 #----------------------------------------------------------#
 #                       Action                             #
@@ -93,7 +93,7 @@ if [ -n "$PROXY_SYSTEM" ] && [ -n "$PROXY" ]; then
 fi
 
 #----------------------------------------------------------#
-#                       Hestia                             #
+#                       Ceasar                             #
 #----------------------------------------------------------#
 
 # Adding new alias
@@ -108,7 +108,7 @@ check_result $? "Web restart failed" > /dev/null
 $BIN/v-restart-proxy "$restart"
 check_result $? "Proxy restart failed" > /dev/null
 
-if [[ ("$user" =~ ^ih[0-9a-f]{14}$ || "$user" == "$ROOT_USER") && -x "$BIN/iharc-haproxy-cert-sync" ]]; then
+if is_iharc_managed_authority_user "$user" && [[ -x "$BIN/iharc-haproxy-cert-sync" ]]; then
 	"$BIN/iharc-haproxy-cert-sync" \
 		|| check_result "$E_RESTART" "HAProxy authority synchronization could not complete"
 fi

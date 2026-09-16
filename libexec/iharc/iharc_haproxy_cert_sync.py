@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
-"""Generate the private HAProxy edge from native Hestia web state.
+"""Generate the private HAProxy edge from native Ceasar web state.
 
-The transfer policy binds a permanent native account identity. Hestia remains
+The transfer policy binds a permanent native account identity. Ceasar remains
 the authority for web domains, aliases, and certificates: this helper reads
 ``data/users/<user>/web.conf`` and its issued ``ssl/<domain>.pem`` plus
 ``.key`` files, then writes the only HAProxy input consumed by the account
@@ -60,7 +60,7 @@ class AuthoritySynchronizer:
     def __init__(self, root: pathlib.Path = pathlib.Path("/")) -> None:
         self.root = pathlib.Path(root)
         self.runtime = self.root == pathlib.Path("/")
-        self.hestia = self.path("/usr/local/hestia")
+        self.ceasar = self.path("/usr/local/ceasar")
         self.output = self.path("/etc/haproxy/iharc")
         self.certificates = self.output / "certs"
         self.fragment = self.path("/etc/haproxy/conf.d/iharc-account-traffic.cfg")
@@ -107,16 +107,16 @@ class AuthoritySynchronizer:
     @staticmethod
     def _authority(value: object) -> str:
         if not isinstance(value, str) or value != value.lower() or not AUTHORITY.fullmatch(value):
-            raise SyncError("native Hestia authority is invalid")
+            raise SyncError("native Ceasar authority is invalid")
         return value
 
     def _parse_web_conf(self, username: str, *, operator: bool = False) -> tuple[NativeDomain, ...]:
-        path = self.hestia / "data" / "users" / username / "web.conf"
+        path = self.ceasar / "data" / "users" / username / "web.conf"
         raw = self._read(path, maximum=MAX_NATIVE_FILE_BYTES)
         try:
             lines = raw.decode("utf-8").splitlines()
         except UnicodeDecodeError as error:
-            raise SyncError("native Hestia web state is invalid") from error
+            raise SyncError("native Ceasar web state is invalid") from error
         domains: list[NativeDomain] = []
         seen: set[str] = set()
         for line in lines:
@@ -125,41 +125,41 @@ class AuthoritySynchronizer:
             try:
                 words = shlex.split(line, comments=False, posix=True)
             except ValueError as error:
-                raise SyncError("native Hestia web state is invalid") from error
+                raise SyncError("native Ceasar web state is invalid") from error
             fields: dict[str, str] = {}
             for word in words:
                 key, separator, value = word.partition("=")
                 if not separator or not key or key in fields:
-                    raise SyncError("native Hestia web state is invalid")
+                    raise SyncError("native Ceasar web state is invalid")
                 fields[key] = value
             domain = self._authority(fields.get("DOMAIN"))
             if domain in seen:
-                raise SyncError("native Hestia domain is duplicated")
+                raise SyncError("native Ceasar domain is duplicated")
             seen.add(domain)
             aliases = fields.get("ALIAS", "")
             if not isinstance(aliases, str):
-                raise SyncError("native Hestia aliases are invalid")
+                raise SyncError("native Ceasar aliases are invalid")
             names = [domain]
             if aliases:
                 names.extend(self._authority(alias) for alias in aliases.split(","))
             if len(set(names)) != len(names):
-                raise SyncError("native Hestia aliases are duplicated")
+                raise SyncError("native Ceasar aliases are duplicated")
             ssl = fields.get("SSL")
             if ssl not in {"yes", "no"}:
-                raise SyncError("native Hestia SSL state is invalid")
+                raise SyncError("native Ceasar SSL state is invalid")
             domains.append(NativeDomain(username, domain, tuple(names), ssl == "yes", operator))
         return tuple(domains)
 
     def _native_domains(self) -> tuple[NativeDomain, ...]:
-        users = self.hestia / "data" / "users"
+        users = self.ceasar / "data" / "users"
         try:
             entries = sorted(path.name for path in users.iterdir()
                              if path.is_dir() and not path.is_symlink() and is_canonical_username(path.name))
         except OSError as error:
-            raise SyncError("native Hestia account inventory is unavailable") from error
+            raise SyncError("native Ceasar account inventory is unavailable") from error
         result: list[NativeDomain] = []
         for username in entries:
-            # A stale certificate or malformed web.conf belongs to one Hestia
+            # A stale certificate or malformed web.conf belongs to one Ceasar
             # account. It must never prevent healthy neighbours from receiving
             # their renewed certificate and hostname map.
             try:
@@ -168,7 +168,7 @@ class AuthoritySynchronizer:
                 continue
         # The native root account owns administrator routes independently of
         # paid/trial accounts. Read that existing authority, never a second map.
-        config = self._read(self.hestia / "conf/hestia.conf", maximum=MAX_NATIVE_FILE_BYTES).decode("utf-8")
+        config = self._read(self.ceasar / "conf/ceasar.conf", maximum=MAX_NATIVE_FILE_BYTES).decode("utf-8")
         roots = re.findall(r"^ROOT_USER='([a-z_][a-z0-9_-]{0,31})'$", config, re.M)
         if len(roots) != 1 or is_canonical_username(roots[0]):
             raise SyncError("native operator identity is invalid")
@@ -176,11 +176,11 @@ class AuthoritySynchronizer:
         return tuple(result)
 
     def _bundle(self, domain: NativeDomain) -> CertificateBundle:
-        directory = self.hestia / "data" / "users" / domain.username / "ssl"
+        directory = self.ceasar / "data" / "users" / domain.username / "ssl"
         certificate = self._read(directory / f"{domain.domain}.pem", maximum=MAX_NATIVE_FILE_BYTES)
         key = self._read(directory / f"{domain.domain}.key", maximum=MAX_NATIVE_FILE_BYTES)
         if b"-----BEGIN CERTIFICATE-----" not in certificate or b"PRIVATE KEY-----" not in key:
-            raise SyncError("native Hestia certificate bundle is incomplete")
+            raise SyncError("native Ceasar certificate bundle is incomplete")
         if not certificate.endswith(b"\n"):
             certificate += b"\n"
         if not key.endswith(b"\n"):
@@ -278,7 +278,7 @@ class AuthoritySynchronizer:
     def render_fragment(owners: dict[str, str], marks: dict[str, int], certificates: tuple[pathlib.Path, ...]) -> str:
         if not owners:
             return (
-                "# Generated by iharc_haproxy_cert_sync.py from native Hestia state.\n"
+                "# Generated by iharc_haproxy_cert_sync.py from native Ceasar state.\n"
                 "# No canonical customer web authorities are currently published.\n"
                 "# Native/operator management listeners remain owned by the existing HAProxy configuration.\n"
             )
@@ -355,7 +355,7 @@ class AuthoritySynchronizer:
                 "",
                 "backend iharc_private_nginx",
                 "    mode http",
-                "    # The Hestia templates bind this origin only to loopback; forwarded headers originate at this edge.",
+                "    # The Ceasar templates bind this origin only to loopback; forwarded headers originate at this edge.",
                 "    server nginx_origin 127.0.0.1:9080 check",
                 "",
             ]

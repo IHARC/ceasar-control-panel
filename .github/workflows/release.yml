@@ -1,0 +1,156 @@
+name: Ceasar release
+
+on:
+  workflow_dispatch:
+  push:
+    tags:
+      - "v1.0.0"
+
+concurrency:
+  group: ceasar-release
+  cancel-in-progress: false
+
+permissions:
+  attestations: write
+  contents: write
+  id-token: write
+  pages: write
+
+jobs:
+  packages:
+    name: Build and verify Ubuntu 24.04 amd64 packages
+    runs-on: ubuntu-24.04
+    timeout-minutes: 180
+    outputs:
+      version: ${{ steps.identity.outputs.version }}
+    steps:
+      - name: Checkout exact release source
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+
+      - name: Validate release identity
+        id: identity
+        shell: bash
+        run: |
+          set -euo pipefail
+          version="$(awk '$1 == "Version:" {print $2}' src/deb/ceasar/control)"
+          test "$version" = "1.0.0"
+          if [[ "${GITHUB_REF_TYPE}" == "tag" ]]; then
+            test "${GITHUB_REF_NAME}" = "v${version}"
+          fi
+          printf 'version=%s\n' "$version" >> "$GITHUB_OUTPUT"
+
+      - name: Build pinned package environment
+        run: docker build --pull=false -f .github/docker/ceasar-package.Dockerfile -t ceasar-release-builder:${{ github.sha }} .
+
+      - name: Build four packages
+        run: |
+          mkdir -p dist/debs
+          docker run --rm \
+            --name "ceasar-release-build-${GITHUB_RUN_ID}" \
+            -e GITHUB_SHA="${GITHUB_SHA}" \
+            -e BUILD_DIR=/tmp/ceasar-build \
+            -e DEB_DIR=/out \
+            -v "${GITHUB_WORKSPACE}:/src:ro" \
+            -v "${GITHUB_WORKSPACE}/dist/debs:/out" \
+            ceasar-release-builder:${{ github.sha }} \
+            bash -lc 'cd /src/src && bash ./ceasar_autocompile.sh --all --noinstall "~localsrc"'
+
+      - name: Verify package contents and target PHP platform
+        run: |
+          docker run --rm \
+            --name "ceasar-release-verify-${GITHUB_RUN_ID}" \
+            -v "${GITHUB_WORKSPACE}:/src:ro" \
+            -v "${GITHUB_WORKSPACE}/dist/debs:/out:ro" \
+            ceasar-release-builder:${{ github.sha }} \
+            bash /src/release/verify-packages.sh /out "${GITHUB_SHA}"
+
+      - name: Build immutable release bundle
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq zstd
+          mkdir -p dist/release
+          bash release/build-release.sh \
+            --version "${{ steps.identity.outputs.version }}" \
+            --commit "${GITHUB_SHA}" \
+            --deb-dir dist/debs \
+            --output-dir dist/release
+
+      - name: Attest release bundle provenance
+        uses: actions/attest-build-provenance@43d14bc2b83dec42d39ecae14e916627a18bb661 # v3
+        with:
+          subject-path: dist/release/*.tar.zst
+
+      - name: Upload release inputs
+        uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6
+        with:
+          name: ceasar-release-${{ github.sha }}
+          path: |
+            dist/debs/*.deb
+            dist/release/*
+          if-no-files-found: error
+          retention-days: 30
+
+      - name: Publish immutable GitHub release
+        if: github.ref_type == 'tag'
+        uses: softprops/action-gh-release@3bb12739c298aeb8a4eeaf626c5b8d85266b0e65 # v2
+        with:
+          draft: true
+          fail_on_unmatched_files: true
+          generate_release_notes: true
+          files: |
+            dist/release/*
+
+  apt:
+    name: Sign and verify APT repository
+    needs: packages
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - name: Checkout release source
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+
+      - name: Download verified packages
+        uses: actions/download-artifact@37930b1c2abaa49bbe596cd826c3c89aef350131 # v7
+        with:
+          name: ceasar-release-${{ github.sha }}
+          path: dist
+
+      - name: Import APT signing key
+        env:
+          CEASAR_APT_SIGNING_PRIVATE_KEY: ${{ secrets.CEASAR_APT_SIGNING_PRIVATE_KEY }}
+        run: |
+          set -euo pipefail
+          test -n "$CEASAR_APT_SIGNING_PRIVATE_KEY"
+          printf '%s' "$CEASAR_APT_SIGNING_PRIVATE_KEY" | gpg --batch --import
+
+      - name: Build signed reprepro repository
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq reprepro
+          bash release/build-apt-repository.sh dist/debs site
+
+      - name: Verify signed repository in clean Noble
+        run: |
+          docker run --rm \
+            --name "ceasar-apt-verify-${GITHUB_RUN_ID}" \
+            -v "${GITHUB_WORKSPACE}/site/apt:/repo:ro" \
+            ubuntu:24.04@sha256:224a1869083a311ef3f13648a154ba79832fbef6364d31493642ca03082da254 \
+            bash -ceu '
+              install -D -m 0644 /repo/ceasar-archive-keyring.gpg /usr/share/keyrings/ceasar-archive-keyring.gpg
+              printf "%s\n" "deb [arch=amd64 signed-by=/usr/share/keyrings/ceasar-archive-keyring.gpg] file:/repo noble main" >/etc/apt/sources.list
+              rm -f /etc/apt/sources.list.d/ubuntu.sources
+              apt-get update
+              apt-cache policy ceasar ceasar-nginx ceasar-php ceasar-web-terminal
+            '
+
+      - name: Upload Pages artifact
+        uses: actions/upload-pages-artifact@7b1f4a764d45c48632c6b24a0339c27f5614fb0b # v4
+        with:
+          path: site
+
+      - name: Deploy signed APT repository
+        id: deployment
+        uses: actions/deploy-pages@d6db90164ac5ed86f2b6aed7e0febac5b3c0c03e # v4

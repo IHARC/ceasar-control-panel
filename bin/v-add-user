@@ -25,12 +25,12 @@ fi
 FROM_V_ADD_USER=true
 
 # Includes
-# shellcheck source=/etc/hestiacp/hestia.conf
-source /etc/hestiacp/hestia.conf
-# shellcheck source=/usr/local/hestia/func/main.sh
-source $HESTIA/func/main.sh
+# shellcheck source=/etc/ceasar/ceasar.conf
+source /etc/ceasar/ceasar.conf
+# shellcheck source=/usr/local/ceasar/func/main.sh
+source $CEASAR/func/main.sh
 # load config file
-source_conf "$HESTIA/conf/hestia.conf"
+source_conf "$CEASAR/conf/ceasar.conf"
 
 is_user_free() {
 	# these names may cause issues with MariaDB/MySQL database names and should be reserved:
@@ -64,18 +64,18 @@ is_password_valid
 is_package_valid
 
 # Perform verification if read-only mode is enabled
-check_hestia_demo_mode
+check_ceasar_demo_mode
 
 #----------------------------------------------------------#
 #                       Action                             #
 #----------------------------------------------------------#
 
 # Parsing package data
-pkg_data=$(cat $HESTIA/data/packages/$package.pkg | egrep -v "TIME|DATE")
+pkg_data=$(cat $CEASAR/data/packages/$package.pkg | egrep -v "TIME|DATE")
 
 # Checking shell
 shell_conf=$(echo "$pkg_data" | grep -m1 'SHELL' | cut -f 2 -d \')
-resource_enabled=$(grep -m1 'RESOURCES_LIMIT' "$HESTIA"/conf/hestia.conf | cut -f 2 -d \')
+resource_enabled=$(grep -m1 'RESOURCES_LIMIT' "$CEASAR"/conf/ceasar.conf | cut -f 2 -d \')
 disk_quota_status=$(echo "$pkg_data" | grep -m1 'DISK_QUOTA' | cut -f 2 -d \')
 if [[ "$disk_quota_status" =~ ^[0-9]+$ ]]; then
 	disk_quota_enabled="yes"
@@ -86,7 +86,7 @@ shell=$(grep -w "$shell_conf" /etc/shells | head -n1)
 
 # Adding user
 uid_floor_options=()
-if [[ "$user" =~ ^ih[0-9a-f]{14}$ ]]; then
+if is_iharc_managed_user "$user"; then
 	uid_floor=$("$BIN/iharc-transfer-uid-floor") || check_result $? "unable to establish retained transfer UID floor" "$E_INVALID"
 	if ! [[ "$uid_floor" =~ ^[1-9][0-9]*$ ]]; then
 		# An initialized ledger without a retained account has no historical
@@ -100,7 +100,7 @@ if [[ "$user" =~ ^ih[0-9a-f]{14}$ ]]; then
 fi
 
 quota_useradd_options=()
-if [ "$disk_quota_enabled" = 'yes' ]; then
+if [ "$disk_quota_enabled" = 'yes' ] && is_iharc_managed_user "$user"; then
 	quota_useradd_options=(-e 1)
 fi
 /usr/sbin/useradd "$user" -s "$shell" -c "$email" -m -d "$HOMEDIR/$user" -U "${uid_floor_options[@]}" "${quota_useradd_options[@]}"
@@ -109,7 +109,7 @@ check_result $? "user creation failed" "$E_INVALID"
 # Establish the pooled primary-group quota before setting a password. A split
 # /home and MariaDB filesystem or any quota failure must not admit a usable
 # account; the account is retained only in a locked, fail-closed state.
-if [ "$disk_quota_enabled" = 'yes' ]; then
+if [ "$disk_quota_enabled" = 'yes' ] && is_iharc_managed_user "$user"; then
 	if ! update_user_group_quota "$user" "$disk_quota_status"; then
 		# Do not recursively remove the home: useradd -m accepts an existing
 		# directory, and that directory may contain retained customer data.
@@ -129,26 +129,23 @@ if [ $? -ne 0 ]; then
 	exit 2
 fi
 
-# Add a general group for normal users created by Hestia
-if [ -z "$(grep ^hestia-users: /etc/group)" ]; then
-	groupadd --system "hestia-users"
+# Add a general group for normal users created by Ceasar
+if [ -z "$(grep ^ceasar-users: /etc/group)" ]; then
+	groupadd --system "ceasar-users"
 fi
 
-# Keep the shared group and deny ACL for service identities; customer accounts
-# remain primary-group-only so a group quota cannot be escaped via chgrp.
+# Managed customer accounts remain primary-group-only so their pooled group
+# quota cannot be escaped via a supplementary group. Standalone accounts keep
+# Ceasar's native shared-group membership.
 if [ "$user" = "$ROOT_USER" ]; then
 	setfacl -m "g:$ROOT_USER:r-x" "$HOMEDIR/$user"
+elif is_iharc_managed_user "$user"; then
+	setfacl -m "u:$user:r-x" "$HOMEDIR/$user"
 else
+	usermod -a -G "ceasar-users" "$user"
 	setfacl -m "u:$user:r-x" "$HOMEDIR/$user"
 fi
-setfacl -m "g:hestia-users:---" "$HOMEDIR/$user"
-# The bootstrap enables only the web stack, whose Nginx/Apache and PHP-FPM
-# service identity is www-data. Keep traversal without exposing directory
-# listing or granting other customer UIDs access to the home.
-chmod o-rwx "$HOMEDIR/$user"
-if id www-data > /dev/null 2>&1; then
-	setfacl -m "u:www-data:--x" "$HOMEDIR/$user"
-fi
+setfacl -m "g:ceasar-users:---" "$HOMEDIR/$user"
 
 # Building directory tree
 mkdir $HOMEDIR/$user/conf
@@ -199,7 +196,16 @@ chown $user:$user \
 	$HOMEDIR/$user/.wp-cli
 
 # Set permissions
-chmod u+x,g+x $HOMEDIR/$user
+if is_iharc_managed_user "$user"; then
+	# Managed nodes use www-data for their web stack. Keep service traversal
+	# without granting other customer UIDs access to the home.
+	chmod u+x,g+x "$HOMEDIR/$user"
+	if id www-data > /dev/null 2>&1; then
+		setfacl -m "u:www-data:--x" "$HOMEDIR/$user"
+	fi
+else
+	chmod a+x "$HOMEDIR/$user"
+fi
 chattr +i $HOMEDIR/$user/conf > /dev/null 2>&1
 
 # Adding user dir
@@ -230,18 +236,18 @@ chmod 660 $USER_DATA/backup.conf \
 	$USER_DATA/cron.conf
 
 # Updating queue pipes
-echo "$BIN/v-update-user-disk $user" >> $HESTIA/data/queue/disk.pipe
+echo "$BIN/v-update-user-disk $user" >> $CEASAR/data/queue/disk.pipe
 if [ -n "$WEB_SYSTEM" ]; then
 	echo "$BIN/v-update-web-domains-traff $user" \
-		>> $HESTIA/data/queue/traffic.pipe
-	echo "$BIN/v-update-web-domains-disk $user" >> $HESTIA/data/queue/disk.pipe
+		>> $CEASAR/data/queue/traffic.pipe
+	echo "$BIN/v-update-web-domains-disk $user" >> $CEASAR/data/queue/disk.pipe
 fi
 if [ -n "$MAIL_SYSTEM" ]; then
-	echo "$BIN/v-update-mail-domains-disk $user" >> $HESTIA/data/queue/disk.pipe
+	echo "$BIN/v-update-mail-domains-disk $user" >> $CEASAR/data/queue/disk.pipe
 fi
 
 if [ -n "$DB_SYSTEM" ]; then
-	echo "$BIN/v-update-databases-disk $user" >> $HESTIA/data/queue/disk.pipe
+	echo "$BIN/v-update-databases-disk $user" >> $CEASAR/data/queue/disk.pipe
 fi
 
 # Generating timestamp
@@ -310,11 +316,15 @@ chmod 660 $USER_DATA/user.conf
 
 # Updating quota
 if [ "$disk_quota_enabled" = 'yes' ]; then
-	if ! $BIN/v-update-user-quota "$user"; then
-		/usr/bin/passwd -l "$user" > /dev/null 2>&1 || true
-		check_result "$E_DISK" "quota update failed"
+	if is_iharc_managed_user "$user"; then
+		if ! $BIN/v-update-user-quota "$user"; then
+			/usr/bin/passwd -l "$user" > /dev/null 2>&1 || true
+			check_result "$E_DISK" "quota update failed"
+		fi
+		/usr/sbin/usermod -e '' "$user" || check_result "$E_DISK" "quota account activation failed"
+	else
+		$BIN/v-update-user-quota "$user"
 	fi
-	/usr/sbin/usermod -e '' "$user" || check_result "$E_DISK" "quota account activation failed"
 fi
 
 # Update resource limitation (cgroup)
@@ -328,23 +338,23 @@ if [ "$user" != "$ROOT_USER" ]; then
 fi
 
 # Run template trigger
-if [ -x "$HESTIA/data/packages/$package.sh" ]; then
-	$HESTIA/data/packages/$package.sh "$user" "$email" "$name"
+if [ -x "$CEASAR/data/packages/$package.sh" ]; then
+	$CEASAR/data/packages/$package.sh "$user" "$email" "$name"
 fi
 
 # Adding jailed sftp env
 $BIN/v-add-user-sftp-jail $user
 
 # Canonical IHARC accounts receive their fixed cgroup boundary only after
-# Hestia has recorded the native account and SFTP shape. Any failure is fatal:
+# Ceasar has recorded the native account and SFTP shape. Any failure is fatal:
 # a usable account without its aggregate boundary is not admitted.
-if [[ "$user" =~ ^ih[0-9a-f]{14}$ ]]; then
-	"$HESTIA/bin/iharc-customer-isolation" reconcile "$user" "$HESTIA" > /dev/null \
+if is_iharc_managed_user "$user"; then
+	"$CEASAR/bin/iharc-customer-isolation" reconcile "$user" "$CEASAR" > /dev/null \
 		|| check_result "$E_INVALID" "customer resource isolation could not be reconciled"
 fi
 
 #----------------------------------------------------------#
-#                       Hestia                             #
+#                       Ceasar                             #
 #----------------------------------------------------------#
 
 # Logging

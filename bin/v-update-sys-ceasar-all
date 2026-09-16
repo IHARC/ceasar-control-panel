@@ -1,0 +1,14 @@
+#!/bin/bash
+# info: update the complete installed Ceasar runtime in one APT transaction
+# options: NONE
+
+set -e
+
+# shellcheck source=/etc/ceasar/ceasar.conf
+source /etc/ceasar/ceasar.conf
+# shellcheck source=/usr/local/ceasar/func/main.sh
+source "$CEASAR/func/main.sh"
+source_conf "$CEASAR/conf/ceasar.conf"
+
+check_ceasar_demo_mode
+"$BIN/v-update-sys-ceasar" ceasar

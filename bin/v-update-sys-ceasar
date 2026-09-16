@@ -1,0 +1,60 @@
+#!/bin/bash
+# info: update ceasar package/configs
+# options: PACKAGE
+#
+# example: v-update-sys-ceasar ceasar-php
+#
+# All installed Ceasar packages are updated in one APT transaction so the
+# runtime cannot be left with mixed core, Nginx, and PHP package versions.
+
+#----------------------------------------------------------#
+#                Variables & Functions                     #
+#----------------------------------------------------------#
+
+# Argument definition. The package name is retained for ordinary callers; the
+# transaction always updates the complete installed runtime.
+package=$1
+
+# Includes
+# shellcheck source=/etc/ceasar/ceasar.conf
+source /etc/ceasar/ceasar.conf
+# shellcheck source=/usr/local/ceasar/func/main.sh
+source $CEASAR/func/main.sh
+# load config file
+source_conf "$CEASAR/conf/ceasar.conf"
+
+#----------------------------------------------------------#
+#                    Verifications                         #
+#----------------------------------------------------------#
+
+# Checking arg number
+check_args '1' "$#" 'PACKAGE'
+is_ceasar_package "ceasar ceasar-nginx ceasar-php ceasar-web-terminal" "$package"
+
+# Perform verification if read-only mode is enabled
+check_ceasar_demo_mode
+
+#----------------------------------------------------------#
+#                       Action                             #
+#----------------------------------------------------------#
+
+# Update repo
+apt-get update -o Dir::Etc::sourcelist="sources.list.d/ceasar.list" \
+	-o Dir::Etc::sourceparts="-" -o APT::Get::List-Cleanup="0" -qq
+
+packages=(ceasar ceasar-nginx ceasar-php)
+if dpkg-query -W -f='${Status}' ceasar-web-terminal 2> /dev/null | grep -q 'install ok installed'; then
+	packages+=(ceasar-web-terminal)
+fi
+
+apt-get install --only-upgrade -qq -- "${packages[@]}" > /dev/null 2>&1
+check_result $? "Ceasar package update failed" "$E_UPDATE"
+
+#----------------------------------------------------------#
+#                       Ceasar                             #
+#----------------------------------------------------------#
+
+# Logging
+log_event "$OK" "$ARGUMENTS"
+
+exit

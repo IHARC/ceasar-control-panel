@@ -1,5 +1,5 @@
 # TLS terminates at the HAProxy public edge. This is a second private origin
-# listener retained only for Hestia's paired-template rebuild contract.
+# listener retained only for Ceasar's paired-template rebuild contract.
 server {
     listen 127.0.0.1:%proxy_ssl_port%;
     listen [::1]:%proxy_ssl_port%;

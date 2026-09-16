@@ -28,14 +28,14 @@ charset=${7-UTF8MB4}
 charset=$(echo "$charset" | tr '[:lower:]' '[:upper:]')
 
 # Includes
-# shellcheck source=/etc/hestiacp/hestia.conf
-source /etc/hestiacp/hestia.conf
-# shellcheck source=/usr/local/hestia/func/main.sh
-source $HESTIA/func/main.sh
-# shellcheck source=/usr/local/hestia/func/db.sh
-source $HESTIA/func/db.sh
+# shellcheck source=/etc/ceasar/ceasar.conf
+source /etc/ceasar/ceasar.conf
+# shellcheck source=/usr/local/ceasar/func/main.sh
+source $CEASAR/func/main.sh
+# shellcheck source=/usr/local/ceasar/func/db.sh
+source $CEASAR/func/db.sh
 # load config file
-source_conf "$HESTIA/conf/hestia.conf"
+source_conf "$CEASAR/conf/ceasar.conf"
 
 if [ "$type" = "pgsql" ]; then
 	database=$(echo "$user"_"$2" | tr '[:upper:]' '[:lower:]')
@@ -55,11 +55,11 @@ is_object_unsuspended 'user' 'USER' "$user"
 is_object_new 'db' 'DB' "$database"
 is_object_new 'db' 'DBUSER' "$dbuser"
 get_next_dbhost
-# The native helper creates and records one Hestia database host/port per
+# The native helper creates and records one Ceasar database host/port per
 # canonical account. It replaces only the internal selected host; the API
 # caller cannot select an endpoint and backups/restores retain DB HOST.
-if [[ "$user" =~ ^ih[0-9a-f]{14}$ && "$type" = mysql ]]; then
-	host=$("$HESTIA/bin/iharc-customer-isolation" database-host "$user" "$HESTIA") \
+if is_iharc_managed_user "$user" && [[ "$type" == mysql ]]; then
+	host=$("$CEASAR/bin/iharc-customer-isolation" database-host "$user" "$CEASAR") \
 		|| check_result "$E_DB" "customer database isolation endpoint is unavailable"
 fi
 is_object_valid "../../../conf/$type" 'HOST' "$host"
@@ -81,7 +81,7 @@ fi
 dbpass="$password"
 
 # Perform verification if read-only mode is enabled
-check_hestia_demo_mode
+check_ceasar_demo_mode
 
 #----------------------------------------------------------#
 #                       Action                             #
@@ -94,7 +94,7 @@ case $type in
 esac
 
 #----------------------------------------------------------#
-#                       Hestia                             #
+#                       Ceasar                             #
 #----------------------------------------------------------#
 
 # Generating timestamp

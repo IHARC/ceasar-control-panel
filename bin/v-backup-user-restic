@@ -14,18 +14,18 @@
 user=$1
 notify=${2-no}
 # Includes
-# shellcheck source=/etc/hestiacp/hestia.conf
-source /etc/hestiacp/hestia.conf
-# shellcheck source=/usr/local/hestia/func/main.sh
-source $HESTIA/func/main.sh
-# shellcheck source=/usr/local/hestia/func/domain.sh
-source $HESTIA/func/domain.sh
-# shellcheck source=/usr/local/hestia/func/db.sh
-source $HESTIA/func/db.sh
-# shellcheck source=/usr/local/hestia/func/backup.sh
-source $HESTIA/func/backup.sh
+# shellcheck source=/etc/ceasar/ceasar.conf
+source /etc/ceasar/ceasar.conf
+# shellcheck source=/usr/local/ceasar/func/main.sh
+source $CEASAR/func/main.sh
+# shellcheck source=/usr/local/ceasar/func/domain.sh
+source $CEASAR/func/domain.sh
+# shellcheck source=/usr/local/ceasar/func/db.sh
+source $CEASAR/func/db.sh
+# shellcheck source=/usr/local/ceasar/func/backup.sh
+source $CEASAR/func/backup.sh
 # load config file
-source_conf "$HESTIA/conf/hestia.conf"
+source_conf "$CEASAR/conf/ceasar.conf"
 
 #----------------------------------------------------------#
 #                    Verifications                         #
@@ -39,7 +39,7 @@ is_object_unsuspended 'user' 'USER' "$user"
 is_incremental_backup_enabled
 
 # Perform verification if read-only mode is enabled
-check_hestia_demo_mode
+check_ceasar_demo_mode
 
 #----------------------------------------------------------#
 #                       Action                             #
@@ -47,17 +47,32 @@ check_hestia_demo_mode
 
 # Set notification email and subject
 subj="$user → backup failed"
-email=$(grep CONTACT "$HESTIA/data/users/$ROOT_USER/user.conf" | cut -f 2 -d \')
+email=$(grep CONTACT "$CEASAR/data/users/$ROOT_USER/user.conf" | cut -f 2 -d \')
 
-source_conf $HESTIA/conf/restic.conf
+source_conf $CEASAR/conf/restic.conf
 
 if [ ! -f "$USER_DATA/restic.conf" ]; then
 	password=$(generate_password '' '32')
 	temporary=$(mktemp "$USER_DATA/.restic.conf.XXXXXX") || check_result $E_SYSTEM "Unable to stage restic key"
-	(umask 077; printf '%s\n' "$password" > "$temporary") || { rm -f -- "$temporary"; check_result $E_SYSTEM "Unable to write restic key"; }
-	chown root:root "$temporary" && chmod 0600 "$temporary" || { rm -f -- "$temporary"; check_result $E_SYSTEM "Unable to protect restic key"; }
-	[ "$(stat -c '%U:%G:%a' "$temporary")" = root:root:600 ] || { rm -f -- "$temporary"; check_result $E_SYSTEM "Restic key protection is invalid"; }
-	mv -f -- "$temporary" "$USER_DATA/restic.conf" || { rm -f -- "$temporary"; check_result $E_SYSTEM "Unable to publish restic key"; }
+	(
+		umask 077
+		printf '%s\n' "$password" > "$temporary"
+	) || {
+		rm -f -- "$temporary"
+		check_result $E_SYSTEM "Unable to write restic key"
+	}
+	chown root:root "$temporary" && chmod 0600 "$temporary" || {
+		rm -f -- "$temporary"
+		check_result $E_SYSTEM "Unable to protect restic key"
+	}
+	[ "$(stat -c '%U:%G:%a' "$temporary")" = root:root:600 ] || {
+		rm -f -- "$temporary"
+		check_result $E_SYSTEM "Restic key protection is invalid"
+	}
+	mv -f -- "$temporary" "$USER_DATA/restic.conf" || {
+		rm -f -- "$temporary"
+		check_result $E_SYSTEM "Unable to publish restic key"
+	}
 fi
 # Earlier native runs created this root-owned key 0644. Tighten that exact
 # known state in place so the same key remains usable; reject every other
@@ -119,7 +134,7 @@ if [ -e "$BACKUP/$user.log" ] && [ "$notify" = "yes" ]; then
 fi
 
 # Deleting task from queue
-sed -i "/v-backup-user-restic $user /d" $HESTIA/data/queue/backup.pipe
+sed -i "/v-backup-user-restic $user /d" $CEASAR/data/queue/backup.pipe
 
 # Logging
 $BIN/v-log-action "$user" "Info" "Backup" "Backup created."

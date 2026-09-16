@@ -5,6 +5,7 @@
 *.gz
 *.bz2
 *.deb
+!vendor/phppgadmin/phppgadmin-7.14.6.tar.gz
 
 # Editors
 .vs/

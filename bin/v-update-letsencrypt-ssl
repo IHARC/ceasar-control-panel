@@ -11,17 +11,17 @@
 #----------------------------------------------------------#
 
 # Includes
-# shellcheck source=/etc/hestiacp/hestia.conf
-source /etc/hestiacp/hestia.conf
-# shellcheck source=/usr/local/hestia/func/main.sh
-source $HESTIA/func/main.sh
-# shellcheck source=/usr/local/hestia/func/syshealth.sh
-source $HESTIA/func/syshealth.sh
+# shellcheck source=/etc/ceasar/ceasar.conf
+source /etc/ceasar/ceasar.conf
+# shellcheck source=/usr/local/ceasar/func/main.sh
+source $CEASAR/func/main.sh
+# shellcheck source=/usr/local/ceasar/func/syshealth.sh
+source $CEASAR/func/syshealth.sh
 # load config file
-source_conf "$HESTIA/conf/hestia.conf"
+source_conf "$CEASAR/conf/ceasar.conf"
 
 # Perform verification if read-only mode is enabled
-check_hestia_demo_mode
+check_ceasar_demo_mode
 
 #----------------------------------------------------------#
 #                       Action                             #
@@ -38,7 +38,7 @@ fi
 
 # Checking user certificates
 for user in $("$BIN/v-list-users" list); do
-	USER_DATA=$HESTIA/data/users/$user
+	USER_DATA=$CEASAR/data/users/$user
 
 	for domain in $(search_objects 'web' 'LETSENCRYPT' 'yes' 'DOMAIN'); do
 		# Clear any keys related to web domains
@@ -167,7 +167,7 @@ if [ -n "$PROXY_SYSTEM" ]; then
 fi
 
 #----------------------------------------------------------#
-#                        Hestia                            #
+#                        Ceasar                            #
 #----------------------------------------------------------#
 
 log_event "$OK" "$EVENT"

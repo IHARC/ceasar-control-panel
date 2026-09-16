@@ -1,5 +1,5 @@
 <?php
-use function Hestiacp\quoteshellarg\quoteshellarg;
+use function Ceasar\Shell\quoteshellarg;
 
 ob_start();
 $TAB = "LOG";
@@ -23,7 +23,7 @@ if ($_SESSION["userContext"] === "admin" && $_SESSION["look"] != "") {
 	$user = quoteshellarg($_GET["user"]);
 }
 
-exec(HESTIA_CMD . "v-list-user-auth-log " . $user . " json", $output, $return_var);
+exec(CEASAR_CMD . "v-list-user-auth-log " . $user . " json", $output, $return_var);
 check_return_code_redirect($return_var, $output, "/");
 
 $data = json_decode(implode("", $output), true);

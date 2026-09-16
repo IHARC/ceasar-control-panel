@@ -1,14 +1,11 @@
-Source: hestia-nginx
-Package: hestia-nginx
+Source: ceasar-nginx
+Package: ceasar-nginx
 Priority: optional
 Version: 1.30.4
 Section: admin
-Maintainer: HestiaCP <info@hestiacp.com>
-Homepage: https://www.hestiacp.com
+Maintainer: IHARC Labs <support@iharc.ca>
+Homepage: https://github.com/iharc-jordan/ceasar-control-panel
 Architecture: amd64
-Depends: hestia
-Description: hestia Nginx
- hestia is an open source hosting control panel.
- hestia has a clean and focused interface without the clutter.
- hestia has the latest of very innovative technologies.
- hestia is a fork from VestaCP, special thanks to vestacp.com and Serghey Rodin.
+Depends: ceasar (>= 1.0.0)
+Description: Ceasar internal Nginx server
+ Nginx built and configured for the Ceasar control panel listener.

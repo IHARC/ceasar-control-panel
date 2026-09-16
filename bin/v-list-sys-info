@@ -4,7 +4,7 @@
 #
 # example: v-list-sys-info
 #
-# This function checks available updates for hestia packages.
+# This function checks available updates for ceasar packages.
 
 #----------------------------------------------------------#
 #                Variables & Functions                     #
@@ -14,16 +14,16 @@
 format=${1-shell}
 
 # Includes
-# shellcheck source=/etc/hestiacp/hestia.conf
-source /etc/hestiacp/hestia.conf
-# shellcheck source=/usr/local/hestia/func/main.sh
-source $HESTIA/func/main.sh
+# shellcheck source=/etc/ceasar/ceasar.conf
+source /etc/ceasar/ceasar.conf
+# shellcheck source=/usr/local/ceasar/func/main.sh
+source $CEASAR/func/main.sh
 # load config file
-source_conf "$HESTIA/conf/hestia.conf"
+source_conf "$CEASAR/conf/ceasar.conf"
 
-# Retrieve Hestia Control Panel version number
-HESTIA_VERSION=$(grep VERSION $HESTIA/conf/hestia.conf | cut -d '=' -f2 | sed "s|'||g")
-HESTIA_RELEASE=$(grep RELEASE_BRANCH $HESTIA/conf/hestia.conf | cut -d '=' -f2 | sed "s|'||g")
+# Retrieve Ceasar Control Panel version number
+CEASAR_VERSION=$(grep VERSION $CEASAR/conf/ceasar.conf | cut -d '=' -f2 | sed "s|'||g")
+CEASAR_SOURCE='apt'
 
 # JSON list function
 json_list() {
@@ -33,8 +33,8 @@ json_list() {
         "OS": "'$OS'",
         "VERSION": "'$VERSION'",
         "ARCH": "'$ARCH'",
-        "HESTIA": "'$HESTIA_VERSION'",
-        "RELEASE": "'$HESTIA_RELEASE'",
+        "CEASAR": "'$CEASAR_VERSION'",
+        "SOURCE": "'$CEASAR_SOURCE'",
         "UPTIME": "'$UPTIME'",
         "LOADAVERAGE": "'$LOADAVERAGE'"
         }'
@@ -43,20 +43,20 @@ json_list() {
 
 # SHELL list function
 shell_list() {
-	echo "HOSTNAME   OS   VER   ARCH  HESTIA  RELEASE  UPTIME   LA"
-	echo "--------   --   ---   ----  ------  -------  ------   --"
-	echo "$HOSTNAME $OS $VERSION $ARCH $HESTIA_VERSION $HESTIA_RELEASE $UPTIME $LOADAVERAGE"
+	echo "HOSTNAME   OS   VER   ARCH  CEASAR  SOURCE  UPTIME   LA"
+	echo "--------   --   ---   ----  ------  ------  ------   --"
+	echo "$HOSTNAME $OS $VERSION $ARCH $CEASAR_VERSION $CEASAR_SOURCE $UPTIME $LOADAVERAGE"
 }
 
 # PLAIN list function
 plain_list() {
-	echo -e "$HOSTNAME\t$OS\t$VERSION\t$ARCH\t$HESTIA_VERSION\t$HESTIA_RELEASE\t$UPTIME\t$LOADAVERAGE"
+	echo -e "$HOSTNAME\t$OS\t$VERSION\t$ARCH\t$CEASAR_VERSION\t$CEASAR_SOURCE\t$UPTIME\t$LOADAVERAGE"
 }
 
 # CSV list function
 csv_list() {
-	echo "HOSTNAME,OS,VERSION,ARCH,HESTIA,RELEASE,UPTIME,LOADAVERAGE"
-	echo "$HOSTNAME,$OS,$VERSION,$ARCH,$HESTIA_VERSION,$HESTIA_RELEASE,$UPTIME,$LOADAVERAGE"
+	echo "HOSTNAME,OS,VERSION,ARCH,CEASAR,SOURCE,UPTIME,LOADAVERAGE"
+	echo "$HOSTNAME,$OS,$VERSION,$ARCH,$CEASAR_VERSION,$CEASAR_SOURCE,$UPTIME,$LOADAVERAGE"
 }
 
 #----------------------------------------------------------#
@@ -110,7 +110,7 @@ case $format in
 esac
 
 #----------------------------------------------------------#
-#                       Hestia                             #
+#                       Ceasar                             #
 #----------------------------------------------------------#
 
 exit

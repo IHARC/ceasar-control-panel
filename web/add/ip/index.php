@@ -1,5 +1,5 @@
 <?php
-use function Hestiacp\quoteshellarg\quoteshellarg;
+use function Ceasar\Shell\quoteshellarg;
 
 ob_start();
 $TAB = "IP";
@@ -62,7 +62,7 @@ if (!empty($_POST["ok"])) {
 	// Add IP
 	if (empty($_SESSION["error_msg"])) {
 		exec(
-			HESTIA_CMD .
+			CEASAR_CMD .
 				"v-add-sys-ip " .
 				$v_ip .
 				" " .
@@ -104,12 +104,12 @@ if (!empty($_POST["ok"])) {
 }
 
 // List network interfaces
-exec(HESTIA_CMD . "v-list-sys-interfaces 'json'", $output, $return_var);
+exec(CEASAR_CMD . "v-list-sys-interfaces 'json'", $output, $return_var);
 $interfaces = json_decode(implode("", $output), true);
 unset($output);
 
 // List users
-exec(HESTIA_CMD . "v-list-sys-users 'json'", $output, $return_var);
+exec(CEASAR_CMD . "v-list-sys-users 'json'", $output, $return_var);
 $users = json_decode(implode("", $output), true);
 unset($output);
 

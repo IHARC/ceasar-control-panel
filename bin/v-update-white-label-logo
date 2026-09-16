@@ -4,7 +4,7 @@
 #
 # example: v-update-white-label-logo
 #
-# Replace Hestia logos with User created logo's
+# Replace Ceasar logos with User created logo's
 
 #----------------------------------------------------------#
 #                Variables & Functions                     #
@@ -15,53 +15,53 @@ download=${1-no}
 reset=${2-no}
 
 # Includes
-# shellcheck source=/etc/hestiacp/hestia.conf
-source /etc/hestiacp/hestia.conf
-# shellcheck source=/usr/local/hestia/func/main.sh
-source "$HESTIA/func/main.sh"
+# shellcheck source=/etc/ceasar/ceasar.conf
+source /etc/ceasar/ceasar.conf
+# shellcheck source=/usr/local/ceasar/func/main.sh
+source "$CEASAR/func/main.sh"
 # load config file
-source_conf "$HESTIA/conf/hestia.conf"
+source_conf "$CEASAR/conf/ceasar.conf"
 
 #----------------------------------------------------------#
 #                       Action                             #
 #----------------------------------------------------------#
 
 if [ "$reset" = "yes" ]; then
-	rm -rf "$HESTIA/web/images/custom/"
+	rm -rf "$CEASAR/web/images/custom/"
 fi
 
-if [ -f "$HESTIA/web/images/custom/logo.svg" ]; then
-	cp -f "$HESTIA/web/images/custom/logo.svg" "$HESTIA/web/images/logo.svg"
-elif [ ! -f "$HESTIA/web/images/custom/logo.svg" ] && [ "$download" = "yes" ]; then
-	download_file "https://raw.githubusercontent.com/hestiacp/hestiacp/release/web/images/logo.svg" "$HESTIA/web/images/logo.svg"
+if [ -f "$CEASAR/web/images/custom/logo.svg" ]; then
+	cp -f "$CEASAR/web/images/custom/logo.svg" "$CEASAR/web/images/logo.svg"
+elif [ ! -f "$CEASAR/web/images/custom/logo.svg" ] && [ "$download" = "yes" ]; then
+	download_file "https://raw.githubusercontent.com/iharc-jordan/ceasar-control-panel/release/web/images/logo.svg" "$CEASAR/web/images/logo.svg"
 fi
 
-if [ -f "$HESTIA/web/images/custom/logo.png" ]; then
-	cp -f "$HESTIA/web/images/custom/logo.png" "$HESTIA/web/images/logo.png"
-elif [ ! -f "$HESTIA/web/images/custom/logo.png" ] && [ "$download" = "yes" ]; then
-	download_file "https://raw.githubusercontent.com/hestiacp/hestiacp/release/web/images/logo.png" "$HESTIA/web/images/logo.png"
+if [ -f "$CEASAR/web/images/custom/logo.png" ]; then
+	cp -f "$CEASAR/web/images/custom/logo.png" "$CEASAR/web/images/logo.png"
+elif [ ! -f "$CEASAR/web/images/custom/logo.png" ] && [ "$download" = "yes" ]; then
+	download_file "https://raw.githubusercontent.com/iharc-jordan/ceasar-control-panel/release/web/images/logo.png" "$CEASAR/web/images/logo.png"
 fi
 
-if [ -f "$HESTIA/web/images/custom/logo-header.svg" ]; then
-	cp -f "$HESTIA/web/images/custom/logo-header.svg" "$HESTIA/web/images/logo-header.svg"
-elif [ ! -f "$HESTIA/web/images/custom/logo-header.svg" ] && [ "$download" = "yes" ]; then
-	download_file "https://raw.githubusercontent.com/hestiacp/hestiacp/release/web/images/logo-header.svg" "$HESTIA/web/images/logo-header.svg"
+if [ -f "$CEASAR/web/images/custom/logo-header.svg" ]; then
+	cp -f "$CEASAR/web/images/custom/logo-header.svg" "$CEASAR/web/images/logo-header.svg"
+elif [ ! -f "$CEASAR/web/images/custom/logo-header.svg" ] && [ "$download" = "yes" ]; then
+	download_file "https://raw.githubusercontent.com/iharc-jordan/ceasar-control-panel/release/web/images/logo-header.svg" "$CEASAR/web/images/logo-header.svg"
 fi
 
-if [ -f "$HESTIA/web/images/custom/favicon.png" ]; then
-	cp -f "$HESTIA/web/images/custom/favicon.png" "$HESTIA/web/images/favicon.png"
-elif [ ! -f "$HESTIA/web/images/custom/favicon.png" ] && [ "$download" = "yes" ]; then
-	download_file "https://raw.githubusercontent.com/hestiacp/hestiacp/release/web/images/favicon.png" "$HESTIA/web/images/favicon.png"
+if [ -f "$CEASAR/web/images/custom/favicon.png" ]; then
+	cp -f "$CEASAR/web/images/custom/favicon.png" "$CEASAR/web/images/favicon.png"
+elif [ ! -f "$CEASAR/web/images/custom/favicon.png" ] && [ "$download" = "yes" ]; then
+	download_file "https://raw.githubusercontent.com/iharc-jordan/ceasar-control-panel/release/web/images/favicon.png" "$CEASAR/web/images/favicon.png"
 fi
 
-if [ -f "$HESTIA/web/images/custom/favicon.ico" ]; then
-	cp -f "$HESTIA/web/images/custom/favicon.ico" "$HESTIA/web/favicon.ico"
-elif [ ! -f "$HESTIA/web/images/custom/favicon.ico" ] && [ "$download" = "yes" ]; then
-	download_file "https://raw.githubusercontent.com/hestiacp/hestiacp/release/web/favicon.ico" "$HESTIA/web/favicon.ico"
+if [ -f "$CEASAR/web/images/custom/favicon.ico" ]; then
+	cp -f "$CEASAR/web/images/custom/favicon.ico" "$CEASAR/web/favicon.ico"
+elif [ ! -f "$CEASAR/web/images/custom/favicon.ico" ] && [ "$download" = "yes" ]; then
+	download_file "https://raw.githubusercontent.com/iharc-jordan/ceasar-control-panel/release/web/favicon.ico" "$CEASAR/web/favicon.ico"
 fi
 
 #----------------------------------------------------------#
-#                       Hestia                             #
+#                       Ceasar                             #
 #----------------------------------------------------------#
 
 exit

@@ -11,15 +11,15 @@
 #----------------------------------------------------------#
 
 # Includes
-# shellcheck source=/etc/hestiacp/hestia.conf
-source /etc/hestiacp/hestia.conf
-# shellcheck source=/usr/local/hestia/func/main.sh
-source $HESTIA/func/main.sh
+# shellcheck source=/etc/ceasar/ceasar.conf
+source /etc/ceasar/ceasar.conf
+# shellcheck source=/usr/local/ceasar/func/main.sh
+source $CEASAR/func/main.sh
 # load config file
-source_conf "$HESTIA/conf/hestia.conf"
+source_conf "$CEASAR/conf/ceasar.conf"
 
 # Perform verification if read-only mode is enabled
-check_hestia_demo_mode
+check_ceasar_demo_mode
 
 #----------------------------------------------------------#
 #                       Action                             #
@@ -34,18 +34,18 @@ fi
 
 backup_status=0
 for user in $($BIN/v-list-sys-users plain); do
-	check_suspend=$(grep "SUSPENDED='no'" $HESTIA/data/users/$user/user.conf)
-	log=$HESTIA/log/backup.log
-	if [ ! -f "$HESTIA/data/users/$user/user.conf" ]; then
+	check_suspend=$(grep "SUSPENDED='no'" $CEASAR/data/users/$user/user.conf)
+	log=$CEASAR/log/backup.log
+	if [ ! -f "$CEASAR/data/users/$user/user.conf" ]; then
 		continue
 	fi
 	check_backup_conditions
-	backup_incremental=$(grep -E "^BACKUPS_INCREMENTAL=" "$HESTIA/data/users/$user/user.conf")
+	backup_incremental=$(grep -E "^BACKUPS_INCREMENTAL=" "$CEASAR/data/users/$user/user.conf")
 	if [ "$backup_incremental" != "BACKUPS_INCREMENTAL='yes'" ]; then
 		continue
 	fi
-	check_suspend=$(grep "SUSPENDED='no'" $HESTIA/data/users/$user/user.conf)
-	log=$HESTIA/log/backup.log
+	check_suspend=$(grep "SUSPENDED='no'" $CEASAR/data/users/$user/user.conf)
+	log=$CEASAR/log/backup.log
 	if [ -n "$check_suspend" ]; then
 		echo -e "================================" >> $log
 		echo -e "$user" >> $log
@@ -58,7 +58,7 @@ for user in $($BIN/v-list-sys-users plain); do
 done
 
 #----------------------------------------------------------#
-#                       Hestia                             #
+#                       Ceasar                             #
 #----------------------------------------------------------#
 
 exit "$backup_status"

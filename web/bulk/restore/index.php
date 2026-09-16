@@ -1,5 +1,5 @@
 <?php
-use function Hestiacp\quoteshellarg\quoteshellarg;
+use function Ceasar\Shell\quoteshellarg;
 
 ob_start();
 
@@ -53,7 +53,7 @@ if (!empty($_POST["udir"])) {
 
 if ($action == "restore") {
 	exec(
-		HESTIA_CMD .
+		CEASAR_CMD .
 			"v-schedule-user-restore " .
 			$user .
 			" " .
@@ -80,7 +80,7 @@ if ($action == "restore") {
 	} else {
 		$_SESSION["error_msg"] = implode("<br>", $output);
 		if (empty($_SESSION["error_msg"])) {
-			$_SESSION["error_msg"] = _("Error: Hestia did not return any output.");
+			$_SESSION["error_msg"] = _("Error: Ceasar did not return any output.");
 		}
 		if ($return_var == 4) {
 			$_SESSION["error_msg"] = _(

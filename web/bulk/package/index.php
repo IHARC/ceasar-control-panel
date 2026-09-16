@@ -1,5 +1,5 @@
 <?php
-use function Hestiacp\quoteshellarg\quoteshellarg;
+use function Ceasar\Shell\quoteshellarg;
 
 ob_start();
 
@@ -36,7 +36,7 @@ if ($_SESSION["userContext"] === "admin") {
 
 foreach ($package as $value) {
 	$value = quoteshellarg($value);
-	exec(HESTIA_CMD . $cmd . " " . $value, $output, $return_var);
+	exec(CEASAR_CMD . $cmd . " " . $value, $output, $return_var);
 	$restart = "yes";
 }
 

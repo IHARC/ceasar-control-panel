@@ -1,7 +1,7 @@
 # Operating system upgrades
 
 ::: danger
-Before upgrading your operating system make sure to make a backup! We do not provide support for broken operating system installations. We only provide this page for information about Hestia issues that may come up while upgrading.
+Before upgrading your operating system make sure to make a backup! We do not provide support for broken operating system installations. We only provide this page for information about Ceasar issues that may come up while upgrading.
 :::
 
 ## General
@@ -10,7 +10,7 @@ Before upgrading your operating system make sure to make a backup! We do not pro
 Make sure to verify that MariaDB is running on a supported version for the new operating system. If that is not the case, update MariaDB version to a supported version before upgrading your OS!
 :::
 
-Once a backup has been made, update Hestia to the last supported version:
+Once a backup has been made, update Ceasar to the last supported version:
 
 ```bash
 apt update && apt upgrade
@@ -76,7 +76,7 @@ DEBIAN_FRONTEND=noninteractive UCF_FORCE_CONFFOLD=1 apt-get -y full-upgrade -o D
 Some services, such as Dovecot or BIND, may fail to start because they are still using configuration files that are no longer compatible. Even if no services appear to be failing, you should run the following script. It will automatically detect whether any configuration changes are required and apply them if necessary.
 
 ```bash
-/usr/local/hestia/install/upgrade/manual/migrate_conf_to_debian_13.sh
+/usr/local/ceasar/install/upgrade/manual/migrate_conf_to_debian_13.sh
 ```
 
 ### Review new configuration files
@@ -87,7 +87,7 @@ At this point, you can run the following command again to check for new configur
 find / -path /root -prune -o -type f -cmin -120 -regex '.*\.\(dpkg\|ucf\)-dist$' -print
 ```
 
-You may see a few files listed, but you should ignore most of them. Configuration files managed or modified by Hestia (such as `sshd`, `dovecot`, `bind`, `exim4`, etc.) should always be ignored. If you are unsure whether a file needs to be reviewed or merged, it is safest to leave it unchanged.
+You may see a few files listed, but you should ignore most of them. Configuration files managed or modified by Ceasar (such as `sshd`, `dovecot`, `bind`, `exim4`, etc.) should always be ignored. If you are unsure whether a file needs to be reviewed or merged, it is safest to leave it unchanged.
 
 ### Reboot the system
 
@@ -116,7 +116,7 @@ The upgrade is now complete.
 
 ```bash
 rm -f /etc/exim4/exim4.conf.template
-cp -f /usr/local/hestia/install/deb/exim/exim4.conf.4.95.template /etc/exim4/exim4.conf.template
+cp -f /usr/local/ceasar/install/deb/exim/exim4.conf.4.95.template /etc/exim4/exim4.conf.template
 ```
 
 ## Debian 10 Buster to Debian 11 Bullseye
@@ -131,12 +131,12 @@ sed -i "s/obscure yescrypt/obscure sha512/g" /etc/pam.d/common-password
 
 ```bash
 rm -f /etc/exim4/exim4.conf.template
-cp -f /usr/local/hestia/install/deb/exim/exim4.conf.4.94.template /etc/exim4/exim4.conf.template
+cp -f /usr/local/ceasar/install/deb/exim/exim4.conf.4.94.template /etc/exim4/exim4.conf.template
 ```
 
 ### ProFTPD
 
-Comment out [line 29](https://github.com/hestiacp/hestiacp/blob/1ff8a4e5207aae1e241954a83b7e8070bcdca788/install/deb/proftpd/proftpd.conf#L29) in `/etc/profpd/prodtpd.conf`.
+Comment out [line 29](https://github.com/iharc-jordan/ceasar-control-panel/blob/1ff8a4e5207aae1e241954a83b7e8070bcdca788/install/deb/proftpd/proftpd.conf#L29) in `/etc/profpd/prodtpd.conf`.
 
 ## Debian 9 Stretch to Debian 10 Buster
 
@@ -210,7 +210,7 @@ DEBIAN_FRONTEND=noninteractive UCF_FORCE_CONFFOLD=1 apt-get -y full-upgrade -o D
 Some services, such as Dovecot or BIND, may fail to start because they are still using configuration files that are no longer compatible. Even if no services appear to be failing, you should run the following script. It will automatically detect whether any configuration changes are required and apply them if necessary.
 
 ```bash
-/usr/local/hestia/install/upgrade/manual/migrate_conf_to_ubuntu_26.04.sh
+/usr/local/ceasar/install/upgrade/manual/migrate_conf_to_ubuntu_26.04.sh
 ```
 
 ### Review new configuration files
@@ -221,7 +221,7 @@ At this point, you can run the following command again to check for new configur
 find / -path /root -prune -o -type f -cmin -120 -regex '.*\.\(dpkg\|ucf\)-dist$' -print
 ```
 
-You may see a few files listed, but you should ignore most of them. Configuration files managed or modified by Hestia (such as `sshd`, `dovecot`, `bind`, `exim4`, etc.) should always be ignored. If you are unsure whether a file needs to be reviewed or merged, it is safest to leave it unchanged.
+You may see a few files listed, but you should ignore most of them. Configuration files managed or modified by Ceasar (such as `sshd`, `dovecot`, `bind`, `exim4`, etc.) should always be ignored. If you are unsure whether a file needs to be reviewed or merged, it is safest to leave it unchanged.
 
 ### Reboot the system
 
@@ -254,7 +254,7 @@ Verify that MariaDB is running at least version 11.4. If not, first upgrade to t
 
 ```bash
 rm -f /etc/exim4/exim4.conf.template
-cp -f /usr/local/hestia/install/deb/exim/exim4.conf.4.95.template /etc/exim4/exim4.conf.template
+cp -f /usr/local/ceasar/install/deb/exim/exim4.conf.4.95.template /etc/exim4/exim4.conf.template
 ```
 
 ## Ubuntu 20.04 Focal to Ubuntu 22.04 Jammy
@@ -273,12 +273,12 @@ sed -i "s/obscure yescrypt/obscure sha512/g" /etc/pam.d/common-password
 
 ```bash
 rm -f /etc/exim4/exim4.conf.template
-cp -f /usr/local/hestia/install/deb/exim/exim4.conf.4.94.template /etc/exim4/exim4.conf.template
+cp -f /usr/local/ceasar/install/deb/exim/exim4.conf.4.94.template /etc/exim4/exim4.conf.template
 ```
 
 ### ProFTPD
 
-Comment out [line 29](https://github.com/hestiacp/hestiacp/blob/1ff8a4e5207aae1e241954a83b7e8070bcdca788/install/deb/proftpd/proftpd.conf#L29) in `/etc/profpd/prodtpd.conf`.
+Comment out [line 29](https://github.com/iharc-jordan/ceasar-control-panel/blob/1ff8a4e5207aae1e241954a83b7e8070bcdca788/install/deb/proftpd/proftpd.conf#L29) in `/etc/profpd/prodtpd.conf`.
 
 ## Ubuntu 18.04 Bionic to Ubuntu 20.04 Focal
 

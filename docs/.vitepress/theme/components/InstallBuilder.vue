@@ -104,9 +104,9 @@ const toggleOption = (option) => {
 };
 
 // Build the install command
-const installCommand = ref("bash hst-install.sh");
+const installCommand = ref("bash ceasar-install.sh");
 watchEffect(() => {
-	let cmd = "bash hst-install.sh";
+	let cmd = "bash ceasar-install.sh";
 	const quoteshellarg = (str) => {
 		if (!str) return "''";
 		return `'${str.replace(/'/g, "'\\''")}'`;

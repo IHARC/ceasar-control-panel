@@ -2,10 +2,10 @@
 
 declare(strict_types=1);
 
-namespace Hestia\WebApp\Installers\osTicket;
+namespace Ceasar\WebApp\Installers\osTicket;
 
-use Hestia\WebApp\BaseSetup;
-use Hestia\WebApp\InstallationTarget\InstallationTarget;
+use Ceasar\WebApp\BaseSetup;
+use Ceasar\WebApp\InstallationTarget\InstallationTarget;
 
 class osTicketSetup extends BaseSetup {
     protected array $info = [

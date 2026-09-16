@@ -1,0 +1,33 @@
+#!/bin/bash
+
+set -e
+
+if [ "$1" != "configure" ] || [ ! -e "/usr/local/ceasar/data/users/" ]; then
+	exit 0
+fi
+
+# shellcheck source=/etc/ceasar/ceasar.conf
+source /etc/ceasar/ceasar.conf
+# shellcheck source=/usr/local/ceasar/func/main.sh
+source "$CEASAR/func/main.sh"
+source_conf "$CEASAR/conf/ceasar.conf"
+
+if [ -x "/etc/ceasar/hooks/pre_install.sh" ]; then
+	/etc/ceasar/hooks/pre_install.sh
+fi
+
+new_version="$(dpkg-query -W -f='${Version}' ceasar | sed -E 's/-[0-9]+\+[^~]+//')"
+"$BIN/v-change-sys-config-value" VERSION "$new_version"
+
+# Composer dependency trees are shipped in the package. This command verifies
+# them and their ownership without contacting an external update service.
+"$BIN/v-add-sys-dependencies" verify
+
+systemctl daemon-reload
+systemctl try-restart ceasar.service > /dev/null 2>&1 || true
+
+if [ -x "/etc/ceasar/hooks/post_install.sh" ]; then
+	/etc/ceasar/hooks/post_install.sh
+fi
+
+exit 0

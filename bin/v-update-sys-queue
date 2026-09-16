@@ -17,12 +17,12 @@
 queue=$1
 
 # Includes
-# shellcheck source=/etc/hestiacp/hestia.conf
-source /etc/hestiacp/hestia.conf
-# shellcheck source=/usr/local/hestia/func/main.sh
-source $HESTIA/func/main.sh
+# shellcheck source=/etc/ceasar/ceasar.conf
+source /etc/ceasar/ceasar.conf
+# shellcheck source=/usr/local/ceasar/func/main.sh
+source $CEASAR/func/main.sh
 # load config file
-source_conf "$HESTIA/conf/hestia.conf"
+source_conf "$CEASAR/conf/ceasar.conf"
 
 #----------------------------------------------------------#
 #                    Verifications                         #
@@ -44,19 +44,19 @@ fi
 
 # Defining pipe functions
 case $queue in
-	restart) bash $HESTIA/data/queue/$queue.pipe > /dev/null 2>&1 ;;
-	webstats) bash $HESTIA/data/queue/$queue.pipe > /dev/null 2>&1 ;;
-	backup) bash $HESTIA/data/queue/$queue.pipe > /dev/null 2>&1 ;;
-	disk) bash $HESTIA/data/queue/$queue.pipe > /dev/null 2>&1 ;;
-	daily) bash $HESTIA/data/queue/$queue.pipe > /dev/null 2>&1 ;;
-	traffic) bash $HESTIA/data/queue/$queue.pipe > /dev/null 2>&1 ;;
-	dns-cluster) bash $HESTIA/data/queue/$queue.pipe > /dev/null 2>&1 ;;
-	letsencrypt) bash $HESTIA/data/queue/$queue.pipe > /dev/null 2>&1 ;;
+	restart) bash $CEASAR/data/queue/$queue.pipe > /dev/null 2>&1 ;;
+	webstats) bash $CEASAR/data/queue/$queue.pipe > /dev/null 2>&1 ;;
+	backup) bash $CEASAR/data/queue/$queue.pipe > /dev/null 2>&1 ;;
+	disk) bash $CEASAR/data/queue/$queue.pipe > /dev/null 2>&1 ;;
+	daily) bash $CEASAR/data/queue/$queue.pipe > /dev/null 2>&1 ;;
+	traffic) bash $CEASAR/data/queue/$queue.pipe > /dev/null 2>&1 ;;
+	dns-cluster) bash $CEASAR/data/queue/$queue.pipe > /dev/null 2>&1 ;;
+	letsencrypt) bash $CEASAR/data/queue/$queue.pipe > /dev/null 2>&1 ;;
 	*) check_args '1' '0' 'QUEUE' ;;
 esac
 
 #----------------------------------------------------------#
-#                       Hestia                             #
+#                       Ceasar                             #
 #----------------------------------------------------------#
 
 exit

@@ -1,0 +1,29 @@
+{
+	"schema": 1,
+	"installer": {
+		"hostname": "app.example.com",
+		"email": "admin@example.com",
+		"username": "admin",
+		"interactive": false,
+		"public_address": "203.0.113.10",
+		"webterminal": false
+	},
+	"managed_services": {
+		"enabled": true
+	},
+	"customer": {
+		"schema": 1,
+		"enabled": true,
+		"brand_name": "Example",
+		"supabase_url": "https://example.supabase.co",
+		"supabase_publishable_key": "sb_publishable_replace_me",
+		"terms_url": "https://example.com/terms",
+		"privacy_url": "https://example.com/privacy",
+		"passkeys_enabled": true,
+		"passkey_rp_id": "app.example.com",
+		"login_url": "https://app.example.com/customer/login",
+		"callback_url": "https://app.example.com/auth/callback",
+		"account_url": "https://app.example.com/customer/account",
+		"worker_api_base": "/api/iharc/v1/customer"
+	}
+}

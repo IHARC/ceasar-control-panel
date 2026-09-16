@@ -2,7 +2,7 @@
 
 #===========================================================================#
 #                                                                           #
-# Hestia Control Panel - Domain Function Library                            #
+# Ceasar Control Panel - Domain Function Library                            #
 #                                                                           #
 #===========================================================================#
 
@@ -37,7 +37,7 @@ database_set_default_ports() {
 # MySQL
 mysql_connect() {
 	unset PORT
-	host_str=$(grep "HOST='$1'" $HESTIA/conf/mysql.conf)
+	host_str=$(grep "HOST='$1'" $CEASAR/conf/mysql.conf)
 	parse_object_kv_list "$host_str"
 	if [ -z $PORT ]; then PORT=3306; fi
 	if [ -z $HOST ] || [ -z $USER ] || [ -z $PASSWORD ]; then
@@ -45,7 +45,7 @@ mysql_connect() {
 		log_event "$E_PARSING" "$ARGUMENTS"
 		exit $E_PARSING
 	fi
-	mycnf="$HESTIA/conf/.mysql.$HOST"
+	mycnf="$CEASAR/conf/.mysql.$HOST"
 	if [ ! -e "$mycnf" ]; then
 		echo "[client]" > $mycnf
 		echo "host='$HOST'" >> $mycnf
@@ -72,7 +72,7 @@ mysql_connect() {
 	fi
 	if [ '0' -ne "$?" ]; then
 		if [ "$notify" != 'no' ]; then
-			email=$(grep CONTACT "$HESTIA/data/users/$ROOT_USER/user.conf" | cut -f 2 -d \')
+			email=$(grep CONTACT "$CEASAR/data/users/$ROOT_USER/user.conf" | cut -f 2 -d \')
 			subj="MySQL connection error on $(hostname)"
 			echo -e "Can't connect to MySQL $HOST:$PORT\n$(cat $mysql_out)" \
 				| $SENDMAIL -s "$subj" $email
@@ -152,7 +152,7 @@ mysql_dump() {
 		if [ '0' -ne "$?" ]; then
 			rm -rf $tmpdir
 			if [ "$notify" != 'no' ]; then
-				email=$(grep CONTACT "$HESTIA/data/users/$ROOT_USER/user.conf" | cut -f 2 -d \')
+				email=$(grep CONTACT "$CEASAR/data/users/$ROOT_USER/user.conf" | cut -f 2 -d \')
 				subj="MySQL error on $(hostname)"
 				echo -e "Can't dump database $database\n$(cat $err)" \
 					| $SENDMAIL -s "$subj" $email
@@ -167,7 +167,7 @@ mysql_dump() {
 # PostgreSQL
 psql_connect() {
 	unset PORT
-	host_str=$(grep "HOST='$1'" $HESTIA/conf/pgsql.conf)
+	host_str=$(grep "HOST='$1'" $CEASAR/conf/pgsql.conf)
 	parse_object_kv_list "$host_str"
 	export PGPASSWORD="$PASSWORD"
 	if [ -z $PORT ]; then PORT=5432; fi
@@ -180,7 +180,7 @@ psql_connect() {
 	psql -h $HOST -U $USER -p $PORT -c "SELECT VERSION()" > /dev/null 2> /tmp/e.psql
 	if [ '0' -ne "$?" ]; then
 		if [ "$notify" != 'no' ]; then
-			email=$(grep CONTACT "$HESTIA/data/users/$ROOT_USER/user.conf" | cut -f 2 -d \')
+			email=$(grep CONTACT "$CEASAR/data/users/$ROOT_USER/user.conf" | cut -f 2 -d \')
 			subj="PostgreSQL connection error on $(hostname)"
 			echo -e "Can't connect to PostgreSQL $HOST:$PORT\n$(cat /tmp/e.psql)" \
 				| $SENDMAIL -s "$subj" $email
@@ -203,7 +203,7 @@ psql_dump() {
 	if [ '0' -ne "$?" ]; then
 		rm -rf $tmpdir
 		if [ "$notify" != 'no' ]; then
-			email=$(grep CONTACT "$HESTIA/data/users/$ROOT_USER/user.conf" | cut -f 2 -d \')
+			email=$(grep CONTACT "$CEASAR/data/users/$ROOT_USER/user.conf" | cut -f 2 -d \')
 			subj="PostgreSQL error on $(hostname)"
 			echo -e "Can't dump database $database\n$(cat /tmp/e.psql)" \
 				| $SENDMAIL -s "$subj" $email
@@ -219,7 +219,7 @@ get_next_dbhost() {
 	if [ -z "$host" ] || [ "$host" == 'default' ]; then
 		IFS=$'\n'
 		host='EMPTY_DB_HOST'
-		config="$HESTIA/conf/$type.conf"
+		config="$CEASAR/conf/$type.conf"
 		host_str=$(grep "SUSPENDED='no'" $config)
 		check_row=$(echo "$host_str" | wc -l)
 
@@ -248,7 +248,7 @@ get_next_dbhost() {
 
 # Database charset validation
 is_charset_valid() {
-	host_str=$(grep "HOST='$host'" $HESTIA/conf/$type.conf)
+	host_str=$(grep "HOST='$host'" $CEASAR/conf/$type.conf)
 	parse_object_kv_list "$host_str"
 
 	if [ -z "$(echo $CHARSETS | grep -wi $charset)" ]; then
@@ -259,22 +259,25 @@ is_charset_valid() {
 }
 
 # Serialize each complete native database-host inventory update and rewrite only
-# the active host row. Hestia's stock broad substitutions can alter equal
+# the active host row. Ceasar's stock broad substitutions can alter equal
 # counters on unrelated hosts. The lock is scoped to this subshell so it never
 # collides with a caller's operation locks or leaks into child commands.
-iharc_update_database_host_values() (
+ceasar_update_database_host_values() (
 	local type_name=$1 target_host=$2 change=$3 account=$4 lock conf temporary host_str new_dbbases new_users
-	lock="$HESTIA/data/iharc-database-hosts.lock"
+	lock="$CEASAR/data/database-hosts.lock"
 	if [ -e "$lock" ] || [ -L "$lock" ]; then
 		[ -f "$lock" ] && [ ! -L "$lock" ] && [ "$(stat -c '%U:%G:%a' "$lock")" = 'root:root:600' ] || exit 1
 	else
-		(umask 077; : > "$lock") || exit 1
+		(
+			umask 077
+			: > "$lock"
+		) || exit 1
 		chown root:root "$lock" && chmod 0600 "$lock" || exit 1
 	fi
-	exec 9>>"$lock" || exit 1
+	exec 9>> "$lock" || exit 1
 	flock -x 9 || exit 1
 
-	conf="$HESTIA/conf/$type_name.conf"
+	conf="$CEASAR/conf/$type_name.conf"
 	[ -f "$conf" ] && [ ! -L "$conf" ] || exit 1
 	host_str=$(grep "HOST='$target_host'" "$conf") || exit 1
 	parse_object_kv_list "$host_str"
@@ -311,19 +314,28 @@ iharc_update_database_host_values() (
 		}
 		{ print }
 		END { if (matches != 1) exit 2 }
-	' "$conf" > "$temporary" || { rm -f -- "$temporary"; exit 1; }
-	chown --reference="$conf" "$temporary" && chmod --reference="$conf" "$temporary" || { rm -f -- "$temporary"; exit 1; }
-	mv -f -- "$temporary" "$conf" || { rm -f -- "$temporary"; exit 1; }
+	' "$conf" > "$temporary" || {
+		rm -f -- "$temporary"
+		exit 1
+	}
+	chown --reference="$conf" "$temporary" && chmod --reference="$conf" "$temporary" || {
+		rm -f -- "$temporary"
+		exit 1
+	}
+	mv -f -- "$temporary" "$conf" || {
+		rm -f -- "$temporary"
+		exit 1
+	}
 )
 
 # Increase database host value
 increase_dbhost_values() {
-	iharc_update_database_host_values "$type" "$host" increase "$user"
+	ceasar_update_database_host_values "$type" "$host" increase "$user"
 }
 
 # Decrease database host value
 decrease_dbhost_values() {
-	iharc_update_database_host_values "$TYPE" "$HOST" decrease "$user"
+	ceasar_update_database_host_values "$TYPE" "$HOST" decrease "$user"
 }
 # Prepare a newly-created schema for pooled primary-group accounting. MariaDB
 # owns the files, while the customer's primary group is inherited by tables
@@ -374,9 +386,11 @@ add_mysql_database() {
 	mysql_query "$query"
 	check_result $? "Unable to create database $database"
 
-	if ! prepare_mysql_group_quota_dir "$user" "$database"; then
-		mysql_query "DROP DATABASE \`$database\`" > /dev/null 2>&1
-		check_result "$E_DISK" "Unable to prepare pooled quota directory for $database"
+	if is_iharc_managed_user "$user"; then
+		if ! prepare_mysql_group_quota_dir "$user" "$database"; then
+			mysql_query "DROP DATABASE \`$database\`" > /dev/null 2>&1
+			check_result "$E_DISK" "Unable to prepare pooled quota directory for $database"
+		fi
 	fi
 
 	if [ "$mysql_fork" = "mysql" ] && [ "$mysql_ver_sub" -ge 8 ]; then
@@ -494,8 +508,8 @@ delete_mysql_database_temp_user() {
 
 # Check if database host do not exist in config
 is_dbhost_new() {
-	if [ -e "$HESTIA/conf/$type.conf" ]; then
-		check_host=$(grep "HOST='$host'" $HESTIA/conf/$type.conf)
+	if [ -e "$CEASAR/conf/$type.conf" ]; then
+		check_host=$(grep "HOST='$host'" $CEASAR/conf/$type.conf)
 		if [ "$check_host" ]; then
 			echo "Error: db host exist"
 			log_event "$E_EXISTS" "$ARGUMENTS"
@@ -659,7 +673,7 @@ dump_pgsql_database() {
 
 # Check if database server is in use
 is_dbhost_free() {
-	host_str=$(grep "HOST='$host'" $HESTIA/conf/$type.conf)
+	host_str=$(grep "HOST='$host'" $CEASAR/conf/$type.conf)
 	parse_object_kv_list "$host_str"
 	if [ 0 -ne "$U_DB_BASES" ]; then
 		echo "Error: host $HOST is used"

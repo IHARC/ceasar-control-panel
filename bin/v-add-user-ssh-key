@@ -16,12 +16,12 @@ user=$1
 key=$2
 
 # Includes
-# shellcheck source=/etc/hestiacp/hestia.conf
-source /etc/hestiacp/hestia.conf
-# shellcheck source=/usr/local/hestia/func/main.sh
-source $HESTIA/func/main.sh
+# shellcheck source=/etc/ceasar/ceasar.conf
+source /etc/ceasar/ceasar.conf
+# shellcheck source=/usr/local/ceasar/func/main.sh
+source $CEASAR/func/main.sh
 # load config file
-source_conf "$HESTIA/conf/hestia.conf"
+source_conf "$CEASAR/conf/ceasar.conf"
 
 #----------------------------------------------------------#
 #                    Verifications                         #
@@ -33,7 +33,7 @@ is_object_valid 'user' 'USER' "$user"
 is_object_unsuspended 'user' 'USER' "$user"
 
 # Perform verification if read-only mode is enabled
-check_hestia_demo_mode
+check_ceasar_demo_mode
 
 #----------------------------------------------------------#
 #                       Action                             #
@@ -44,11 +44,14 @@ source $USER_DATA/user.conf
 
 # Serialize native key adds and exact-key revokes on a dedicated root-owned
 # lock. authorized_keys itself may be atomically replaced by revoke.
-SSH_KEY_LOCK_DIRECTORY="/run/hestia/ssh-key-locks"
+SSH_KEY_LOCK_DIRECTORY="/run/ceasar/ssh-key-locks"
 install -d -o root -g root -m 0700 "$SSH_KEY_LOCK_DIRECTORY" || check_result $? "Unable to prepare SSH key lock" "$E_SYSTEM"
 SSH_KEY_LOCK_FILE="$SSH_KEY_LOCK_DIRECTORY/$user.lock"
-(umask 077; : >> "$SSH_KEY_LOCK_FILE") || check_result $? "Unable to prepare SSH key lock" "$E_SYSTEM"
-exec 9>>"$SSH_KEY_LOCK_FILE" || check_result $? "Unable to open SSH key lock" "$E_SYSTEM"
+(
+	umask 077
+	: >> "$SSH_KEY_LOCK_FILE"
+) || check_result $? "Unable to prepare SSH key lock" "$E_SYSTEM"
+exec 9>> "$SSH_KEY_LOCK_FILE" || check_result $? "Unable to open SSH key lock" "$E_SYSTEM"
 flock -x 9 || check_result $? "Unable to acquire SSH key lock" "$E_SYSTEM"
 
 AUTHKEY_FILE="$HOMEDIR/$user/.ssh/authorized_keys"
@@ -74,7 +77,7 @@ fi
 printf '%s\n' "$key" >> "$AUTHKEY_FILE" || check_result $? "Unable to add SSH key" "$E_SYSTEM"
 
 #----------------------------------------------------------#
-#                       Hestia                             #
+#                       Ceasar                             #
 #----------------------------------------------------------#
 
 # Logging

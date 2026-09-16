@@ -2,11 +2,11 @@
 
 declare(strict_types=1);
 
-namespace Hestia\WebApp\Installers\ClassicPress;
+namespace Ceasar\WebApp\Installers\ClassicPress;
 
-use Hestia\System\Util;
-use Hestia\WebApp\BaseSetup;
-use Hestia\WebApp\InstallationTarget\InstallationTarget;
+use Ceasar\System\Util;
+use Ceasar\WebApp\BaseSetup;
+use Ceasar\WebApp\InstallationTarget\InstallationTarget;
 
 class ClassicPressSetup extends BaseSetup {
     protected array $info = [

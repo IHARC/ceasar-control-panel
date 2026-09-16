@@ -63,7 +63,7 @@ if (!function_exists("display_title")) {
 }
 
 function renderNativeLogin(string $appName, string $repositoryRoot): string {
-	$_SERVER["HESTIA"] = $repositoryRoot;
+	$_SERVER["CEASAR"] = $repositoryRoot;
 	$_SERVER["DOCUMENT_ROOT"] = $repositoryRoot . "/web";
 	$_SERVER["REMOTE_ADDR"] = "127.0.0.1";
 	$_SERVER["HTTP_HOST"] = "preview.local";
@@ -75,7 +75,6 @@ function renderNativeLogin(string $appName, string $repositoryRoot): string {
 		"TITLE" => "{{page}} - {{appname}}",
 		"THEME" => "default",
 		"userTheme" => "default",
-		"RELEASE_BRANCH" => "release",
 		"DEBUG_MODE" => "false",
 		"HIDE_DOCS" => "yes",
 		"token" => "ceasar-preview-token",

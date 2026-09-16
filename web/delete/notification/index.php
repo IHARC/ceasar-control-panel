@@ -1,5 +1,5 @@
 <?php
-use function Hestiacp\quoteshellarg\quoteshellarg;
+use function Ceasar\Shell\quoteshellarg;
 
 include $_SERVER["DOCUMENT_ROOT"] . "/inc/main.php";
 
@@ -12,11 +12,11 @@ if ($read_only === true) {
 
 if ($_GET["delete"] == 1) {
 	if (empty($_GET["notification_id"])) {
-		exec(HESTIA_CMD . "v-delete-user-notification " . $user . " all", $output, $return_var);
+		exec(CEASAR_CMD . "v-delete-user-notification " . $user . " all", $output, $return_var);
 	} else {
 		$v_id = quoteshellarg((int) $_GET["notification_id"]);
 		exec(
-			HESTIA_CMD . "v-delete-user-notification " . $user . " " . $v_id,
+			CEASAR_CMD . "v-delete-user-notification " . $user . " " . $v_id,
 			$output,
 			$return_var,
 		);
@@ -26,14 +26,14 @@ if ($_GET["delete"] == 1) {
 } else {
 	if (empty($_GET["notification_id"])) {
 		exec(
-			HESTIA_CMD . "v-acknowledge-user-notification " . $user . " all",
+			CEASAR_CMD . "v-acknowledge-user-notification " . $user . " all",
 			$output,
 			$return_var,
 		);
 	} else {
 		$v_id = quoteshellarg((int) $_GET["notification_id"]);
 		exec(
-			HESTIA_CMD . "v-acknowledge-user-notification " . $user . " " . $v_id,
+			CEASAR_CMD . "v-acknowledge-user-notification " . $user . " " . $v_id,
 			$output,
 			$return_var,
 		);

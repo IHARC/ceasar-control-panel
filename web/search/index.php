@@ -1,5 +1,5 @@
 <?php
-use function Hestiacp\quoteshellarg\quoteshellarg;
+use function Ceasar\Shell\quoteshellarg;
 
 $TAB = "SEARCH";
 
@@ -26,16 +26,16 @@ if ($_SESSION["userContext"] === "admin" && $_SESSION["look"] == "") {
 	if (!empty($_GET["u"])) {
 		$user = $u;
 		exec(
-			HESTIA_CMD . "v-search-user-object " . $user . " " . $q . " json",
+			CEASAR_CMD . "v-search-user-object " . $user . " " . $q . " json",
 			$output,
 			$return_var,
 		);
 	} else {
-		exec(HESTIA_CMD . "v-search-object " . $q . " json", $output, $return_var);
+		exec(CEASAR_CMD . "v-search-object " . $q . " json", $output, $return_var);
 	}
 } else {
 	$user = quoteshellarg($_SESSION["user"]);
-	exec(HESTIA_CMD . "v-search-user-object " . $user . " " . $q . " json", $output, $return_var);
+	exec(CEASAR_CMD . "v-search-user-object " . $user . " " . $q . " json", $output, $return_var);
 }
 
 check_return_code($return_var, $output);

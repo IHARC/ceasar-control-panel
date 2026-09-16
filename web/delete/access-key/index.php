@@ -1,5 +1,5 @@
 <?php
-use function Hestiacp\quoteshellarg\quoteshellarg;
+use function Ceasar\Shell\quoteshellarg;
 
 ob_start();
 
@@ -35,7 +35,7 @@ if (!empty($_GET["key"])) {
 	$v_key = quoteshellarg(trim($_GET["key"]));
 
 	// Key data
-	exec(HESTIA_CMD . "v-list-access-key " . $v_key . " json", $output, $return_var);
+	exec(CEASAR_CMD . "v-list-access-key " . $v_key . " json", $output, $return_var);
 	$key_data = json_decode(implode("", $output), true);
 	unset($output);
 
@@ -44,7 +44,7 @@ if (!empty($_GET["key"])) {
 		exit();
 	}
 
-	exec(HESTIA_CMD . "v-delete-access-key " . $v_key, $output, $return_var);
+	exec(CEASAR_CMD . "v-delete-access-key " . $v_key, $output, $return_var);
 	check_return_code($return_var, $output);
 	unset($output);
 }

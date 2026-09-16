@@ -1,7 +1,7 @@
 #!/usr/bin/env bats
 
-if [ "${PATH#*/usr/local/hestia/bin*}" = "$PATH" ]; then
-    . /etc/profile.d/hestia.sh
+if [ "${PATH#*/usr/local/ceasar/bin*}" = "$PATH" ]; then
+    . /etc/profile.d/ceasar.sh
 fi
 
 load 'test_helper/bats-support/load'
@@ -15,24 +15,24 @@ head /dev/urandom | tr -dc 0-9 | head -c$1
 function setup() {
     # echo "# Setup_file" > &3
     if [ $BATS_TEST_NUMBER = 1 ]; then
-        echo 'user=test-5285' > /tmp/hestia-test-env.sh
-        echo 'user2=test-5286' >> /tmp/hestia-test-env.sh
-        echo 'userbk=testbk-5285' >> /tmp/hestia-test-env.sh
-        echo 'userpass1=test-5285' >> /tmp/hestia-test-env.sh
-        echo 'userpass2=t3st-p4ssw0rd' >> /tmp/hestia-test-env.sh
-        echo 'HESTIA=/usr/local/hestia' >> /tmp/hestia-test-env.sh
-        echo 'domain=test-5285.hestiacp.com' >> /tmp/hestia-test-env.sh
-        echo 'domainuk=test-5285.hestiacp.com.uk' >> /tmp/hestia-test-env.sh
-        echo 'rootdomain=testhestiacp.com' >> /tmp/hestia-test-env.sh
-        echo 'subdomain=cdn.testhestiacp.com' >> /tmp/hestia-test-env.sh
-        echo 'database=test-5285_database' >> /tmp/hestia-test-env.sh
-        echo 'dbuser=test-5285_dbuser' >> /tmp/hestia-test-env.sh
+        echo 'user=test-5285' > /tmp/ceasar-test-env.sh
+        echo 'user2=test-5286' >> /tmp/ceasar-test-env.sh
+        echo 'userbk=testbk-5285' >> /tmp/ceasar-test-env.sh
+        echo 'userpass1=test-5285' >> /tmp/ceasar-test-env.sh
+        echo 'userpass2=t3st-p4ssw0rd' >> /tmp/ceasar-test-env.sh
+        echo 'CEASAR=/usr/local/ceasar' >> /tmp/ceasar-test-env.sh
+        echo 'domain=test-5285.ceasar.com' >> /tmp/ceasar-test-env.sh
+        echo 'domainuk=test-5285.ceasar.com.uk' >> /tmp/ceasar-test-env.sh
+        echo 'rootdomain=testceasar.com' >> /tmp/ceasar-test-env.sh
+        echo 'subdomain=cdn.testceasar.com' >> /tmp/ceasar-test-env.sh
+        echo 'database=test-5285_database' >> /tmp/ceasar-test-env.sh
+        echo 'dbuser=test-5285_dbuser' >> /tmp/ceasar-test-env.sh
     fi
 
-    source /tmp/hestia-test-env.sh
-    source $HESTIA/func/main.sh
-    source $HESTIA/conf/hestia.conf
-    source $HESTIA/func/ip.sh
+    source /tmp/ceasar-test-env.sh
+    source $CEASAR/func/main.sh
+    source $CEASAR/conf/ceasar.conf
+    source $CEASAR/func/ip.sh
 }
 
 @test "is_hash_format_valid accesskey:secret valid" {
@@ -136,7 +136,7 @@ r' "key"
 
 
 @test "is_domain_format_valid success" {
-     run is_domain_format_valid 'hestiacp.com' "key"
+     run is_domain_format_valid 'ceasar.com' "key"
     assert_success
 }
 
@@ -154,8 +154,8 @@ r' "key"
     assert_failure $E_INVALID
 }
 
-@test "is_domain_format_valid hestiacp.com." {
-     run is_domain_format_valid 'mx.hestiacp.com.' "key"
+@test "is_domain_format_valid ceasar.com." {
+     run is_domain_format_valid 'mx.ceasar.com.' "key"
     assert_success
 }
 
@@ -169,28 +169,28 @@ r' "key"
 @test "is_dns_record_format_valid" {
 	rtype='MX'
 	priority=1;
-	run is_dns_record_format_valid 'mx.hestiacp.com.'
+	run is_dns_record_format_valid 'mx.ceasar.com.'
 	assert_success
 }
 
 @test "is_dns_record_format_valid MX missing priority" {
 	rtype='MX'
 	priority=''
-	run is_dns_record_format_valid 'mx.hestiacp.com.'
+	run is_dns_record_format_valid 'mx.ceasar.com.'
 	assert_failure $E_INVALID
 }
 
 @test "is_dns_record_format_valid SRV 4-field" {
 	rtype='SRV'
 	priority=''
-	run is_dns_record_format_valid '10 20 5060 srv.hestiacp.com.'
+	run is_dns_record_format_valid '10 20 5060 srv.ceasar.com.'
 	assert_success
 }
 
 @test "is_dns_record_format_valid SRV invalid priority" {
 	rtype='SRV'
 	priority=''
-	run is_dns_record_format_valid 'abc 20 5060 srv.hestiacp.com.'
+	run is_dns_record_format_valid 'abc 20 5060 srv.ceasar.com.'
 	assert_failure $E_INVALID
 }
 
@@ -345,26 +345,26 @@ r'
 }
 
 @test "is_alias_format_valid success" {
-     run is_alias_format_valid 'hestiacp.com' "key"
+     run is_alias_format_valid 'ceasar.com' "key"
     assert_success
 }
 
 @test "is_alias_format_valid success www.domain.com" {
-     run is_alias_format_valid 'www.hestiacp.com' "key"
+     run is_alias_format_valid 'www.ceasar.com' "key"
     assert_success
 }
-@test "is_alias_format_valid success hestiacp.com,www.hestiacp.com" {
-     run is_alias_format_valid 'hestiacp.com,www.hestiacp.com' "key"
-    assert_success
-}
-
-@test "is_alias_format_valid success *.hestiacp.com" {
-     run is_alias_format_valid '*.hestiacp.com' "key"
+@test "is_alias_format_valid success ceasar.com,www.ceasar.com" {
+     run is_alias_format_valid 'ceasar.com,www.ceasar.com' "key"
     assert_success
 }
 
-@test "is_alias_format_valid success www.hestiacp.com,*.hestiacp.com" {
-     run is_alias_format_valid 'www.hestiacp.com,*.hestiacp.com' "key"
+@test "is_alias_format_valid success *.ceasar.com" {
+     run is_alias_format_valid '*.ceasar.com' "key"
+    assert_success
+}
+
+@test "is_alias_format_valid success www.ceasar.com,*.ceasar.com" {
+     run is_alias_format_valid 'www.ceasar.com,*.ceasar.com' "key"
     assert_success
 }
 
