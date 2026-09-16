@@ -65,6 +65,10 @@ function customer_config(): array
             'brand_name' => 'Ceasar',
             'passkeys_enabled' => false,
             'passkey_rp_id' => '',
+            'login_url' => '',
+            'callback_url' => '',
+            'account_url' => '',
+            'worker_api_base' => '/api/iharc/v1/customer',
             'fixture' => $fixture,
         ];
 
@@ -76,12 +80,21 @@ function customer_config(): array
     $terms = $data['terms_url'] ?? 'https://iharclabs.ca/terms';
     $privacy = $data['privacy_url'] ?? 'https://iharclabs.ca/privacy';
     $rpId = $data['passkey_rp_id'] ?? '';
+    $requestOrigin = customer_request_origin();
+    $loginUrl = $data['login_url'] ?? $requestOrigin . '/customer/login';
+    $callbackUrl = $data['callback_url'] ?? $requestOrigin . '/auth/callback';
+    $accountUrl = $data['account_url'] ?? $requestOrigin . '/customer/account';
+    $workerApiBase = $data['worker_api_base'] ?? '/api/iharc/v1/customer';
     if (
         !is_string($supabaseUrl)
         || !is_string($publishableKey)
         || !is_string($terms)
         || !is_string($privacy)
         || !is_string($rpId)
+        || !is_string($loginUrl)
+        || !is_string($callbackUrl)
+        || !is_string($accountUrl)
+        || $workerApiBase !== '/api/iharc/v1/customer'
     ) {
         throw new RuntimeException('Customer module configuration is invalid.');
     }
@@ -95,6 +108,18 @@ function customer_config(): array
     customer_require_public_https_url($terms, 'terms_url');
     customer_require_public_https_url($privacy, 'privacy_url');
     customer_require_rp_id($rpId, $fixture);
+    $login = customer_require_customer_url($loginUrl, '/customer/login', $fixture);
+    $callback = customer_require_customer_url($callbackUrl, '/auth/callback', $fixture);
+    $account = customer_require_customer_url($accountUrl, '/customer/account', $fixture);
+    if (customer_url_origin($login) !== customer_url_origin($account)) {
+        throw new RuntimeException('Customer login and account URLs must share one origin.');
+    }
+    foreach ([$login, $callback, $account] as $customerUrl) {
+        $host = strtolower((string) $customerUrl['host']);
+        if (!$fixture && $host !== strtolower($rpId) && !str_ends_with($host, '.' . strtolower($rpId))) {
+            throw new RuntimeException('Customer URLs must be covered by the passkey relying-party ID.');
+        }
+    }
 
     $config = [
         'schema' => $data['schema'] ?? 1,
@@ -106,6 +131,10 @@ function customer_config(): array
         'brand_name' => is_string($data['brand_name'] ?? null) ? $data['brand_name'] : 'Ceasar',
         'passkeys_enabled' => ($data['passkeys_enabled'] ?? false) === true,
         'passkey_rp_id' => strtolower($rpId),
+        'login_url' => rtrim($loginUrl, '/'),
+        'callback_url' => rtrim($callbackUrl, '/'),
+        'account_url' => rtrim($accountUrl, '/'),
+        'worker_api_base' => $workerApiBase,
         'fixture' => $fixture,
     ];
     if ($config['schema'] !== 1) {
@@ -154,8 +183,10 @@ function customer_config_json(array $config): string
         'passkeysEnabled' => $config['passkeys_enabled'],
         'passkeyRpId' => $config['passkey_rp_id'],
         'fixture' => $config['fixture'],
-        'callbackUrl' => customer_request_origin() . '/auth/callback/',
-        'accountUrl' => customer_request_origin() . '/customer/account/',
+        'loginUrl' => $config['login_url'],
+        'callbackUrl' => $config['callback_url'],
+        'accountUrl' => $config['account_url'],
+        'workerApiBase' => $config['worker_api_base'],
     ];
 
     return htmlspecialchars(
@@ -206,6 +237,36 @@ function customer_require_public_https_url(string $url, string $field): void
     if (!is_array($parts) || ($parts['scheme'] ?? null) !== 'https' || empty($parts['host'])) {
         throw new RuntimeException("Customer {$field} must be a public HTTPS URL.");
     }
+}
+
+/** @return array<string, mixed> */
+function customer_require_customer_url(string $url, string $expectedPath, bool $fixture): array
+{
+    $parts = parse_url($url);
+    $allowedSchemes = $fixture ? ['http', 'https'] : ['https'];
+    if (
+        !is_array($parts)
+        || !in_array($parts['scheme'] ?? null, $allowedSchemes, true)
+        || empty($parts['host'])
+        || isset($parts['user'])
+        || isset($parts['pass'])
+        || isset($parts['query'])
+        || isset($parts['fragment'])
+        || rtrim((string) ($parts['path'] ?? ''), '/') !== $expectedPath
+    ) {
+        throw new RuntimeException("Customer URL must use {$expectedPath}.");
+    }
+
+    return $parts;
+}
+
+/** @param array<string, mixed> $parts */
+function customer_url_origin(array $parts): string
+{
+    return strtolower((string) $parts['scheme'])
+        . '://'
+        . strtolower((string) $parts['host'])
+        . (isset($parts['port']) ? ':' . (int) $parts['port'] : '');
 }
 
 function customer_require_rp_id(string $rpId, bool $fixture): void

@@ -11,14 +11,14 @@ if (configNode) {
 async function boot(config, identity, backend) {
 	document.querySelector('[data-customer-sign-out]')?.addEventListener('click', async () => {
 		await identity.signOut();
-		location.assign('/customer/login/');
+		location.assign(config.loginUrl);
 	});
 
 	const page = document.body.dataset.customerPage;
 	if (page === 'login') {
 		bindLogin(config, identity);
 	} else if (page === 'callback') {
-		await handleCallback(identity);
+		await handleCallback(config, identity);
 	} else if (page === 'account') {
 		await bindAccount(config, identity, backend);
 	}
@@ -36,7 +36,7 @@ function bindLogin(config, identity) {
 			try {
 				if (form.dataset.customerAuthForm === 'sign-in') {
 					await identity.signIn(String(data.get('email')), String(data.get('password')));
-					if (!(await beginMfaChallenge(identity))) location.assign('/customer/account/');
+					if (!(await beginMfaChallenge(identity))) location.assign(config.accountUrl);
 				} else if (form.dataset.customerAuthForm === 'sign-up') {
 					await identity.signUp(
 						String(data.get('email')),
@@ -64,7 +64,7 @@ function bindLogin(config, identity) {
 		const data = new FormData(event.currentTarget);
 		try {
 			await identity.verifyTotp(String(data.get('factor_id')), String(data.get('code')));
-			location.assign('/customer/account/');
+			location.assign(config.accountUrl);
 		} catch (error) {
 			showError(error);
 		}
@@ -76,7 +76,7 @@ function bindLogin(config, identity) {
 		passkey.addEventListener('click', async () => {
 			try {
 				await identity.signInWithPasskey();
-				location.assign('/customer/account/');
+				location.assign(config.accountUrl);
 			} catch (error) {
 				showError(error);
 			}
@@ -109,20 +109,20 @@ async function beginMfaChallenge(identity) {
 	return true;
 }
 
-async function handleCallback(identity) {
+async function handleCallback(config, identity) {
 	const parameters = new URLSearchParams(location.search);
 	const code = parameters.get('code');
 	if (!code) throw new Error('The confirmation link is incomplete.');
 	await identity.exchangeConfirmation(code);
-	location.replace(
-		parameters.get('mode') === 'recovery' ? '/customer/account/#profile' : '/customer/account/',
-	);
+	const destination = new URL(config.accountUrl);
+	if (parameters.get('mode') === 'recovery') destination.hash = 'profile';
+	location.replace(destination.toString());
 }
 
 async function bindAccount(config, identity, backend) {
 	const session = await identity.session();
 	if (!session) {
-		location.replace('/customer/login/');
+		location.replace(config.loginUrl);
 		return;
 	}
 
