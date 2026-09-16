@@ -129,6 +129,26 @@ jobs:
             bats test/test.bats
           '
 
+      - name: Verify installed customer route as the PHP service user
+        run: |
+          docker exec ceasar-ci bash -lc '
+            set -euxo pipefail
+            cat >/tmp/customer.json <<"JSON"
+            {"schema":1,"enabled":true,"brand_name":"Ceasar","supabase_url":"https://fixture.supabase.co","supabase_publishable_key":"sb_publishable_fixture","terms_url":"https://example.com/terms","privacy_url":"https://example.com/privacy","passkeys_enabled":false,"passkey_rp_id":"example.com","login_url":"https://app.example.com/customer/login","callback_url":"https://login.example.com/auth/callback","account_url":"https://app.example.com/customer/account","worker_api_base":"/api/customer/v1"}
+            JSON
+            install -o root -g ceasarweb -m 0640 /tmp/customer.json /usr/local/ceasar/conf/customer.json
+            sudo -u ceasarweb test -r /usr/local/ceasar/conf/customer.json
+            curl --insecure --silent --show-error \
+              --resolve app.example.com:8083:127.0.0.1 \
+              --dump-header /tmp/customer-login.headers --output /dev/null \
+              https://app.example.com:8083/customer/login
+            tr -d "\r" </tmp/customer-login.headers | grep -Fx "Location: /customer/login/"
+            curl --fail --insecure --silent --show-error --location \
+              --resolve app.example.com:8083:127.0.0.1 \
+              https://app.example.com:8083/customer/login \
+              | grep -Fq "data-customer-auth-form=\"sign-in\""
+          '
+
       - name: Collect logs on failure
         if: failure()
         run: |
