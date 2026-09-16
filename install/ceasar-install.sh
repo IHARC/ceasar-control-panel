@@ -787,6 +787,16 @@ check_result $? "Package installation failed, check log file for more details."
 wget --quiet "$CEASAR_APT_URL/dists/noble/Release" -O /dev/null
 check_result $? "Unable to connect to the Ceasar APT repository"
 
+# Canonical and Azure Ubuntu 24.04 images include an inactive UFW package.
+# Unattended installs replace it with Ceasar's iptables firewall before the
+# ordinary clean-server conflict check. Interactive installs retain the
+# existing prompt so an operator can inspect a non-default firewall first.
+if [ "$interactive" = 'no' ] \
+	&& dpkg-query -W -f='${Status}\n' ufw 2> /dev/null | grep -Fxq 'install ok installed'; then
+	apt-get -qq purge ufw -y >> $LOG
+	check_result $? 'Unable to replace the default Ubuntu UFW package.'
+fi
+
 # Check installed packages
 tmpfile=$(mktemp -p /tmp)
 dpkg --get-selections > $tmpfile
