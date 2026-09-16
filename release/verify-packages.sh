@@ -46,7 +46,11 @@ fi
 root="$(mktemp -d)"
 trap 'rm -rf "$root"' EXIT
 dpkg-deb -x "${package_files[ceasar]}" "$root"
+dpkg-deb -x "${package_files["ceasar-nginx"]}" "$root"
 dpkg-deb -x "${package_files["ceasar-php"]}" "$root"
+
+grep -Eq '^[[:space:]]*absolute_redirect[[:space:]]+off;' \
+	"$root/usr/local/ceasar/nginx/conf/nginx.conf"
 
 python3 - "$root/usr/local/ceasar/share/build-info.json" "$expected_commit" << 'PY'
 import json
@@ -56,7 +60,7 @@ import sys
 data = json.loads(pathlib.Path(sys.argv[1]).read_text(encoding="utf-8"))
 expected = {
     "schema": 1,
-    "version": "1.0.1",
+    "version": "1.0.2",
     "commit": sys.argv[2],
     "platform": "ubuntu24.04",
     "architecture": "amd64",

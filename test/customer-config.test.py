@@ -73,17 +73,16 @@ class CustomerConfigTests(unittest.TestCase):
         self.assertEqual(public["accountUrl"], "https://app.iharclabs.ca/customer/account")
         self.assertEqual(public["workerApiBase"], "/api/iharc/v1/customer")
 
-    def test_production_module_reads_the_installed_ceasar_config(self):
+    def test_customer_configuration_is_the_single_module_gate(self):
         script = r'''
             set -eu
             install -d /usr/local/ceasar/conf
             cat > /usr/local/ceasar/conf/customer.json
-            printf "%s\n" "CUSTOMER_MODULE='yes'" > /usr/local/ceasar/conf/ceasar.conf
             php -r '
                 $_SERVER["HTTP_HOST"] = "app.iharclabs.ca";
                 $_SERVER["HTTPS"] = "on";
                 require "/source/web/inc/customer.php";
-                echo customer_module_enabled(customer_config()) ? "enabled" : "disabled";
+                echo customer_config()["enabled"] === true ? "enabled" : "disabled";
             '
         '''
         result = subprocess.run(

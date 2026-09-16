@@ -3,7 +3,6 @@
 declare(strict_types=1);
 
 const CEASAR_CUSTOMER_CONFIG = "/usr/local/ceasar/conf/customer.json";
-const CEASAR_SYSTEM_CONFIG = "/usr/local/ceasar/conf/ceasar.conf";
 
 function customer_bootstrap(): void {
 	$config = customer_config();
@@ -25,7 +24,7 @@ function customer_bootstrap(): void {
 	header("X-Content-Type-Options: nosniff");
 	header("X-Frame-Options: DENY");
 
-	if (!customer_module_enabled($config)) {
+	if (($config["enabled"] ?? false) !== true) {
 		http_response_code(404);
 		customer_render("Customer access unavailable", "customer-disabled", ["config" => $config]);
 		exit();
@@ -152,17 +151,6 @@ function customer_require_worker_api_base(mixed $value): string {
 	}
 
 	return $normalized;
-}
-
-/** @param array<string, mixed> $config */
-function customer_module_enabled(array $config): bool {
-	if (!is_file(CEASAR_SYSTEM_CONFIG)) {
-		return false;
-	}
-	$systemConfig = (string) file_get_contents(CEASAR_SYSTEM_CONFIG);
-
-	return $config["enabled"] === true &&
-		preg_match('/^CUSTOMER_MODULE=[\'\"]?yes[\'\"]?\s*$/m', $systemConfig) === 1;
 }
 
 /** @param array<string, mixed> $context */
