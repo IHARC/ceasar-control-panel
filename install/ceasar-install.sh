@@ -116,8 +116,9 @@ help() {
   -u, --username          Set admin user
   -p, --password          Set admin password
   -P, --public-address    Explicit public IPv4 address for NAT
-      --config FILE      Validated JSON install profile
-  -D, --with-debs         Path to Ceasar debs
+      --non-interactive   Run without interactive prompts
+      --managed-profile   Validated managed-hosting JSON profile
+  -D, --packages          Directory containing the four Ceasar debs
   -V, --validate-only     Validate platform and inputs without mutation
   -f, --force             Force installation
   -h, --help              Print this help
@@ -195,15 +196,12 @@ validate_public_address() {
 validate_local_packages() {
 	[ -z "$withdebs" ] && return 0
 	if [ ! -d "$withdebs" ]; then
-		check_result 1 "The --with-debs path is not a directory: $withdebs"
+		check_result 1 "The --packages path is not a directory: $withdebs"
 	fi
 
 	local package
 	local package_file
-	local required_packages=(ceasar ceasar-nginx ceasar-php)
-	if [ "$webterminal" = 'yes' ]; then
-		required_packages+=(ceasar-web-terminal)
-	fi
+	local required_packages=(ceasar ceasar-nginx ceasar-php ceasar-web-terminal)
 
 	for package in "${required_packages[@]}"; do
 		package_file="$(find "$withdebs" -maxdepth 1 -type f -name "${package}_*.deb" -print -quit)"
@@ -223,7 +221,7 @@ validate_release_bundle() {
 	local manifest="$SCRIPT_DIR/ceasar-release.json"
 	[ -f "$manifest" ] || return 0
 	command -v python3 > /dev/null 2>&1 || check_result 1 "python3 is required to verify the Ceasar release bundle."
-	python3 - "$manifest" "$SCRIPT_DIR" << 'PY'
+	python3 - "$manifest" "$SCRIPT_DIR/packages" << 'PY'
 import hashlib
 import json
 import pathlib
@@ -231,32 +229,46 @@ import re
 import sys
 
 manifest_path = pathlib.Path(sys.argv[1])
-bundle_dir = pathlib.Path(sys.argv[2])
+package_dir = pathlib.Path(sys.argv[2])
 data = json.loads(manifest_path.read_text(encoding="utf-8"))
-if data.get("schema") != 1 or data.get("version") != "1.0.0":
+if set(data) != {"schemaVersion", "version", "commit", "platform", "packages"}:
+    raise SystemExit("release manifest fields do not match schema v1")
+if data.get("schemaVersion") != 1 or data.get("version") != "1.0.0":
     raise SystemExit("unsupported Ceasar release manifest")
-if data.get("platform") != "ubuntu24.04" or data.get("architecture") != "amd64":
+if data.get("platform") != {"os": "ubuntu", "version": "24.04", "architecture": "amd64"}:
     raise SystemExit("release bundle does not target Ubuntu 24.04 amd64")
 if not re.fullmatch(r"[0-9a-f]{40}", str(data.get("commit", ""))):
     raise SystemExit("release manifest commit must be an exact 40-character Git commit")
 packages = data.get("packages")
-if not isinstance(packages, list) or {item.get("name") for item in packages} != {
-    "ceasar", "ceasar-nginx", "ceasar-php", "ceasar-web-terminal"
-}:
+if not isinstance(packages, list) or len(packages) != 4:
     raise SystemExit("release manifest must contain the four Ceasar packages")
+filenames = set()
 for item in packages:
+    if not isinstance(item, dict) or set(item) != {"filename", "sha256"}:
+        raise SystemExit("release package fields do not match schema v1")
     filename = item.get("filename")
     digest = item.get("sha256")
-    if not isinstance(filename, str) or pathlib.Path(filename).name != filename:
+    if (
+        not isinstance(filename, str)
+        or pathlib.Path(filename).name != filename
+        or not filename.endswith("_amd64.deb")
+    ):
         raise SystemExit("invalid package filename in release manifest")
+    filenames.add(filename)
     if not isinstance(digest, str) or not re.fullmatch(r"[0-9a-f]{64}", digest):
         raise SystemExit("invalid package digest in release manifest")
-    package = bundle_dir / filename
+    package = package_dir / filename
     if not package.is_file() or hashlib.sha256(package.read_bytes()).hexdigest() != digest:
         raise SystemExit(f"release package digest mismatch: {filename}")
+actual = {path.name for path in package_dir.iterdir() if path.is_file()}
+if filenames != actual:
+    raise SystemExit("release package directory does not match the manifest")
 PY
 	check_result $? "Ceasar release bundle verification failed."
-	[ -n "$withdebs" ] || withdebs="$SCRIPT_DIR"
+	if [ -n "$withdebs" ] && [ "$(readlink -f "$withdebs")" != "$(readlink -f "$SCRIPT_DIR/packages")" ]; then
+		check_result 1 "The release bundle must use its verified packages directory."
+	fi
+	withdebs="$SCRIPT_DIR/packages"
 }
 
 load_install_profile() {
@@ -509,7 +521,7 @@ version_ge() { test "$(printf '%s\n' "$@" | sort -V | head -n 1)" != "$1" -o -n 
 #                    Verifications                         #
 #----------------------------------------------------------#
 
-# Extract and validate an optional JSON install profile before translating the
+# Extract and validate an optional managed-hosting profile before translating the
 # remaining command line. Explicit command-line flags are appended after the
 # profile and therefore take precedence.
 original_args=("$@")
@@ -519,16 +531,12 @@ index=0
 while [ "$index" -lt "${#original_args[@]}" ]; do
 	arg="${original_args[$index]}"
 	case "$arg" in
-		--config)
+		--managed-profile)
 			index=$((index + 1))
-			[ "$index" -lt "${#original_args[@]}" ] || check_result 1 "--config requires a JSON file."
+			[ "$index" -lt "${#original_args[@]}" ] || check_result 1 "--managed-profile requires a JSON file."
 			profile_file="${original_args[$index]}"
 			;;
-		--config=*) profile_file="${arg#--config=}" ;;
-		*.json)
-			[ -z "$profile_file" ] || check_result 1 "Only one Ceasar install profile may be supplied."
-			profile_file="$arg"
-			;;
+		--managed-profile=*) profile_file="${arg#--managed-profile=}" ;;
 		*) filtered_args+=("$arg") ;;
 	esac
 	index=$((index + 1))
@@ -567,6 +575,7 @@ for arg; do
 		--port) args="${args}-r " ;;
 		--lang) args="${args}-l " ;;
 		--interactive) args="${args}-y " ;;
+		--non-interactive) args="${args}-y no " ;;
 		--api) args="${args}-d " ;;
 		--hostname) args="${args}-s " ;;
 		--email) args="${args}-e " ;;
@@ -574,7 +583,7 @@ for arg; do
 		--password) args="${args}-p " ;;
 		--public-address | --public-ip) args="${args}-P " ;;
 		--force) args="${args}-f " ;;
-		--with-debs) args="${args}-D " ;;
+		--packages) args="${args}-D " ;;
 		--validate-only) args="${args}-V " ;;
 		--help) args="${args}-h " ;;
 		*)
@@ -616,7 +625,7 @@ while getopts "a:w:v:j:k:m:M:g:d:x:z:Z:c:t:i:b:r:o:q:L:l:y:s:u:e:p:P:W:D:Vfh" Op
 		u) username=$OPTARG ;;       # Admin username
 		p) vpass=$OPTARG ;;          # Admin password
 		P) public_address=$OPTARG ;; # Explicit public IPv4 address
-		D) withdebs=$OPTARG ;;       # Ceasar debs path
+		D) withdebs=$OPTARG ;;       # Directory containing Ceasar debs
 		V) validate_only='yes' ;;    # Read-only validation
 		f) force='yes' ;;            # Force install
 		h) help ;;                   # Help
@@ -1134,7 +1143,7 @@ echo "[ * ] Ceasar Control Panel"
 echo "deb [arch=amd64 signed-by=/usr/share/keyrings/ceasar-archive-keyring.gpg] $CEASAR_APT_URL noble main" > $apt/ceasar.list
 curl --fail --silent --show-error "$CEASAR_APT_KEY_URL" -o /usr/share/keyrings/ceasar-archive-keyring.gpg
 check_result $? "Unable to install the Ceasar APT signing key"
-ceasar_key_fingerprint="$(gpg --batch --show-keys --with-colons /usr/share/keyrings/ceasar-archive-keyring.gpg + | awk -F: '$1 == "fpr" {print $10; exit}')"
+ceasar_key_fingerprint="$(gpg --batch --show-keys --with-colons /usr/share/keyrings/ceasar-archive-keyring.gpg | awk -F: '$1 == "fpr" {print $10; exit}')"
 if [ "$ceasar_key_fingerprint" != "$CEASAR_APT_KEY_FINGERPRINT" ]; then
 	rm -f /usr/share/keyrings/ceasar-archive-keyring.gpg
 	check_result 1 "Ceasar APT signing key fingerprint verification failed"

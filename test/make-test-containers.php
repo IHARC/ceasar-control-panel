@@ -226,8 +226,8 @@ array_walk($containers, function (&$element) {
 	$element["lxc_name"] = $lxc_name;
 	$element["hostname"] = $lxc_name . "." . DOMAIN;
 
-	// $ceasar_args .= ' --with-debs /home/ubuntu/source/ceasar/src/pkgs/develop/' . $element['os'];
-	$ceasar_args .= " --with-debs /tmp/ceasar-src/debs";
+	// $ceasar_args .= ' --packages /home/ubuntu/source/ceasar/src/pkgs/develop/' . $element['os'];
+	$ceasar_args .= " --packages /tmp/ceasar-src/debs";
 	$ceasar_args .= " --hostname " . $element["hostname"];
 	$element["ceasar_args"] = $ceasar_args;
 });

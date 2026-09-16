@@ -90,7 +90,7 @@ jobs:
               --password Password123 \
               --interactive no \
               --force \
-              --with-debs "${DEB_PATH}" \
+              --packages "${DEB_PATH}" \
               --clamav no \
               --spamassassin no
           '

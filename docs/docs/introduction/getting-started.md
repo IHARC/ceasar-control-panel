@@ -108,7 +108,9 @@ To choose what software gets installed, you can provide flags to the installatio
 -e, --email Set admin email
 -u, --username Set admin user
 -p, --password Set admin password
--D, --with-debs Path to control panel debs
+-D, --packages Path to the directory containing the four Ceasar debs
+--non-interactive Run without interactive prompts
+--managed-profile Validated managed-hosting JSON profile
 -f, --force Force installation
 -h, --help Print this help
 ```

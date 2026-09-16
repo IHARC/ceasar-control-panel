@@ -17,10 +17,13 @@ jobs:
       - name: Install focused test dependencies
         run: |
           sudo apt-get update -qq
-          sudo apt-get install -y -qq bats
+          sudo apt-get install -y -qq bats zstd
 
       - name: Validate installer platform and profile gates
         run: sudo bash tests/release/test-installer-validation.sh
+
+      - name: Verify release producer-consumer contract
+        run: sudo bash tests/release/test-consumer-contract.sh
 
       - name: Verify Debian version ordering
         run: bats test/version-order.bats

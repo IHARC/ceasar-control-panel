@@ -1,11 +1,11 @@
 {
-  "schema": 1,
-  "enabled": true,
-  "brand_name": "Ceasar customer preview",
-  "supabase_url": "http://127.0.0.1:18081",
-  "supabase_publishable_key": "sb_publishable_fixture",
-  "terms_url": "https://iharclabs.ca/terms",
-  "privacy_url": "https://iharclabs.ca/privacy",
-  "passkeys_enabled": false,
-  "passkey_rp_id": "localhost"
+	"schema": 1,
+	"enabled": true,
+	"brand_name": "Ceasar customer preview",
+	"supabase_url": "http://127.0.0.1:18081",
+	"supabase_publishable_key": "sb_publishable_fixture",
+	"terms_url": "https://iharclabs.ca/terms",
+	"privacy_url": "https://iharclabs.ca/privacy",
+	"passkeys_enabled": false,
+	"passkey_rp_id": "localhost"
 }

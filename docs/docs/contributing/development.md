@@ -56,7 +56,7 @@ These instructions use [Multipass](https://multipass.run/) to create an Ubuntu V
 
    ```bash
    cd ../install
-   bash ceasar-install-ubuntu.sh --hostname demo.ceasar.com --email admin@example.com --username admin --password Password123 --with-debs /tmp/ceasar-src/deb/ --interactive no --force
+   bash ceasar-install-ubuntu.sh --hostname demo.ceasar.com --email admin@example.com --username admin --password Password123 --packages /tmp/ceasar-src/deb/ --non-interactive --force
    ```
 
 1. Reboot the VM (and exit SSH session)

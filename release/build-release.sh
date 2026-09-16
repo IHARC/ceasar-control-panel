@@ -55,6 +55,7 @@ output_dir="$(cd "$output_dir" && pwd)"
 deb_dir="$(cd "$deb_dir" && pwd)"
 stage="$(mktemp -d)"
 trap 'rm -rf "$stage"' EXIT
+mkdir -p "$stage/packages"
 
 packages=(ceasar ceasar-nginx ceasar-php ceasar-web-terminal)
 for package in "${packages[@]}"; do
@@ -73,7 +74,7 @@ for package in "${packages[@]}"; do
 		echo "Unexpected package architecture: ${matches[0]}" >&2
 		exit 1
 	}
-	cp "${matches[0]}" "$stage/"
+	cp "${matches[0]}" "$stage/packages/"
 done
 
 cp "$(cd "$(dirname "$0")/.." && pwd)/install/ceasar-install.sh" "$stage/install.sh"
@@ -83,30 +84,28 @@ python3 - "$stage" "$version" "$commit" << 'PY'
 import hashlib
 import json
 import pathlib
-import subprocess
 import sys
 
 stage = pathlib.Path(sys.argv[1])
 version = sys.argv[2]
 commit = sys.argv[3]
 packages = []
-for path in sorted(stage.glob("*.deb")):
-    name = subprocess.check_output(["dpkg-deb", "-f", path, "Package"], text=True).strip()
-    package_version = subprocess.check_output(["dpkg-deb", "-f", path, "Version"], text=True).strip()
+for path in sorted((stage / "packages").glob("*.deb")):
     packages.append(
         {
-            "name": name,
-            "version": package_version,
             "filename": path.name,
             "sha256": hashlib.sha256(path.read_bytes()).hexdigest(),
         }
     )
 manifest = {
-    "schema": 1,
+    "schemaVersion": 1,
     "version": version,
     "commit": commit,
-    "platform": "ubuntu24.04",
-    "architecture": "amd64",
+    "platform": {
+        "os": "ubuntu",
+        "version": "24.04",
+        "architecture": "amd64",
+    },
     "packages": packages,
 }
 (stage / "ceasar-release.json").write_text(

@@ -27,7 +27,7 @@ cd ./src/
 
 cd ../install
 
-bash ceasar-install-{os}.sh --with-debs /tmp/ceasar-src/deb/
+bash ceasar-install-{os}.sh --packages /tmp/ceasar-src/deb/
 ```
 
 Any option can be appended to the installer command. [See the complete list](../introduction/getting-started#list-of-installation-options).
