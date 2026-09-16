@@ -356,14 +356,16 @@ if customer_enabled:
     login = https_url(customer["login_url"], "login_url", "/customer/login")
     callback = https_url(customer["callback_url"], "callback_url", "/auth/callback")
     account = https_url(customer["account_url"], "account_url", "/customer/account")
-    origins = {(item.scheme, item.hostname, item.port) for item in (login, callback, account)}
-    if len(origins) != 1:
-        raise SystemExit("customer login, callback, and account URLs must share one origin")
+    login_origin = (login.scheme, login.hostname, login.port or 443)
+    account_origin = (account.scheme, account.hostname, account.port or 443)
+    if login_origin != account_origin:
+        raise SystemExit("customer login and account URLs must share one origin")
     rp_id = customer["passkey_rp_id"]
     if not isinstance(rp_id, str) or not re.fullmatch(r"[a-z0-9](?:[a-z0-9.-]{0,251}[a-z0-9])?", rp_id):
         raise SystemExit("customer.passkey_rp_id is invalid")
-    if login.hostname != rp_id and not login.hostname.endswith("." + rp_id):
-        raise SystemExit("customer.passkey_rp_id must cover the customer hostname")
+    rp_hosts = {login.hostname, callback.hostname}
+    if any(host != rp_id and not host.endswith("." + rp_id) for host in rp_hosts):
+        raise SystemExit("customer.passkey_rp_id must cover the login, account, and callback hostnames")
     if customer["worker_api_base"] != "/api/iharc/v1/customer":
         raise SystemExit("customer.worker_api_base must be /api/iharc/v1/customer")
     if not isinstance(customer["passkeys_enabled"], bool):

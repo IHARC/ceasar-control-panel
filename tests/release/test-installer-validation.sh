@@ -56,6 +56,55 @@ run_installer "$tmp_dir/noble" amd64 --config "$repo_root/release/install-profil
 run_installer "$tmp_dir/noble" amd64 --config "$repo_root/release/iharc-profile.example.json" \
 	| grep -Fq 'Ceasar platform validation passed: Ubuntu 24.04 amd64.'
 
+python3 - "$repo_root/release/iharc-profile.example.json" "$tmp_dir/customer-callback-host.json" << 'PY'
+import json
+import pathlib
+import sys
+
+profile = json.loads(pathlib.Path(sys.argv[1]).read_text(encoding="utf-8"))
+profile["customer"]["passkey_rp_id"] = "example.com"
+profile["customer"]["callback_url"] = "https://login.example.com/auth/callback"
+pathlib.Path(sys.argv[2]).write_text(json.dumps(profile), encoding="utf-8")
+PY
+run_installer "$tmp_dir/noble" amd64 --config "$tmp_dir/customer-callback-host.json" \
+	| grep -Fq 'Ceasar platform validation passed: Ubuntu 24.04 amd64.'
+
+python3 - "$tmp_dir/customer-callback-host.json" "$tmp_dir/customer-account-origin-invalid.json" << 'PY'
+import json
+import pathlib
+import sys
+
+profile = json.loads(pathlib.Path(sys.argv[1]).read_text(encoding="utf-8"))
+profile["customer"]["account_url"] = "https://account.example.com/customer/account"
+pathlib.Path(sys.argv[2]).write_text(json.dumps(profile), encoding="utf-8")
+PY
+expect_failure 'customer login and account URLs must share one origin' \
+	run_installer "$tmp_dir/noble" amd64 --config "$tmp_dir/customer-account-origin-invalid.json"
+
+python3 - "$tmp_dir/customer-callback-host.json" "$tmp_dir/customer-callback-rp-invalid.json" << 'PY'
+import json
+import pathlib
+import sys
+
+profile = json.loads(pathlib.Path(sys.argv[1]).read_text(encoding="utf-8"))
+profile["customer"]["callback_url"] = "https://login.other.example/auth/callback"
+pathlib.Path(sys.argv[2]).write_text(json.dumps(profile), encoding="utf-8")
+PY
+expect_failure 'customer.passkey_rp_id must cover the login, account, and callback hostnames' \
+	run_installer "$tmp_dir/noble" amd64 --config "$tmp_dir/customer-callback-rp-invalid.json"
+
+python3 - "$tmp_dir/customer-callback-host.json" "$tmp_dir/customer-callback-scheme-invalid.json" << 'PY'
+import json
+import pathlib
+import sys
+
+profile = json.loads(pathlib.Path(sys.argv[1]).read_text(encoding="utf-8"))
+profile["customer"]["callback_url"] = "http://login.example.com/auth/callback"
+pathlib.Path(sys.argv[2]).write_text(json.dumps(profile), encoding="utf-8")
+PY
+expect_failure 'customer.callback_url must be an HTTPS URL without credentials' \
+	run_installer "$tmp_dir/noble" amd64 --config "$tmp_dir/customer-callback-scheme-invalid.json"
+
 expect_failure 'supports only Ubuntu 24.04 LTS' \
 	run_installer "$tmp_dir/jammy" amd64
 expect_failure 'supports only amd64 systems' \
