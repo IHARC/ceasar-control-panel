@@ -1464,8 +1464,10 @@ if [ -n "$withdebs" ]; then
 		"$withdebs"/ceasar-php_*.deb
 		"$withdebs"/ceasar-nginx_*.deb
 	)
+	local_ceasar_package_names=(ceasar ceasar-php ceasar-nginx)
 	if [ "$webterminal" = "yes" ]; then
 		local_ceasar_packages+=("$withdebs"/ceasar-web-terminal_*.deb)
+		local_ceasar_package_names+=(ceasar-web-terminal)
 	fi
 	apt-get -y install "${local_ceasar_packages[@]}" >> "$LOG"
 	check_result $? "Local Ceasar package installation failed"
@@ -2740,8 +2742,22 @@ $CEASAR/bin/v-update-sys-defaults
 # Update remaining packages since repositories have changed
 echo -ne "[ * ] Installing remaining software updates..."
 apt-get -qq update
-apt-get -y upgrade >> $LOG &
-BACK_PID=$!
+local_ceasar_packages_held=no
+if [ -n "$withdebs" ]; then
+	apt-mark hold "${local_ceasar_package_names[@]}" >> "$LOG"
+	check_result $? "Unable to hold local Ceasar packages during system updates"
+	local_ceasar_packages_held=yes
+fi
+apt-get -y upgrade >> "$LOG"
+remaining_upgrade_result=$?
+if [ "$local_ceasar_packages_held" = 'yes' ]; then
+	apt-mark unhold "${local_ceasar_package_names[@]}" >> "$LOG"
+	local_ceasar_unhold_result=$?
+else
+	local_ceasar_unhold_result=0
+fi
+check_result $remaining_upgrade_result "apt-get upgrade failed"
+check_result $local_ceasar_unhold_result "Unable to unhold local Ceasar packages after system updates"
 echo
 
 # Starting Ceasar service

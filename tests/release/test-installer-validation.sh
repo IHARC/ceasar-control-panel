@@ -17,6 +17,12 @@ cleanup() {
 trap cleanup EXIT
 
 grep -Fxq 'umask 022' "$installer"
+grep -Fq 'apt-mark hold "${local_ceasar_package_names[@]}"' "$installer"
+grep -Fq 'apt-mark unhold "${local_ceasar_package_names[@]}"' "$installer"
+if grep -Fq 'apt-get -y upgrade >> "$LOG" &' "$installer"; then
+	echo 'Installer must not return while a background package upgrade is still running.' >&2
+	exit 1
+fi
 
 cat > "$tmp_dir/noble" << 'EOF'
 ID=ubuntu
