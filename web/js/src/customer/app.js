@@ -152,6 +152,11 @@ async function bindAccount(config, identity, backend) {
 					backend,
 				);
 				if (message) showNotice(message, 'success');
+				if (['support-open', 'support-reply'].includes(form.dataset.accountAction)) {
+					for (const field of form.querySelectorAll('input:not([type="hidden"]), textarea')) {
+						field.value = '';
+					}
+				}
 				if (!['admission-paid', 'billing-portal'].includes(form.dataset.accountAction)) {
 					await refreshSelectedAccount(backend, context);
 				}
