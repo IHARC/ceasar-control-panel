@@ -14,14 +14,14 @@ package=$2
 rewrite=$3
 
 # Includes
-# shellcheck source=/etc/hestiacp/hestia.conf
-source /etc/hestiacp/hestia.conf
-# shellcheck source=/usr/local/hestia/func/main.sh
-source $HESTIA/func/main.sh
-# shellcheck source=/usr/local/hestia/func/domain.sh
-source $HESTIA/func/domain.sh
+# shellcheck source=/etc/ceasar/ceasar.conf
+source /etc/ceasar/ceasar.conf
+# shellcheck source=/usr/local/ceasar/func/main.sh
+source $CEASAR/func/main.sh
+# shellcheck source=/usr/local/ceasar/func/domain.sh
+source $CEASAR/func/domain.sh
 # load config file
-source_conf "$HESTIA/conf/hestia.conf"
+source_conf "$CEASAR/conf/ceasar.conf"
 
 is_package_consistent() {
 	source_conf "$tmpfile"
@@ -116,7 +116,7 @@ fi
 is_package_consistent
 
 # Perform verification if read-only mode is enabled
-check_hestia_demo_mode
+check_ceasar_demo_mode
 
 #----------------------------------------------------------#
 #                       Action                             #
@@ -153,12 +153,12 @@ BACKUPS='$BACKUPS'
 BACKUPS_INCREMENTAL='$BACKUPS_INCREMENTAL'
 TIME='$time'
 DATE='$date'
-" > "$HESTIA/data/packages/$package.pkg"
+" > "$CEASAR/data/packages/$package.pkg"
 
-chmod 644 "$HESTIA/data/packages/$package.pkg"
+chmod 644 "$CEASAR/data/packages/$package.pkg"
 
 #----------------------------------------------------------#
-#                       Hestia                             #
+#                       Ceasar                             #
 #----------------------------------------------------------#
 
 # Logging

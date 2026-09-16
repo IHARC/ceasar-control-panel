@@ -17,20 +17,20 @@ snapshot=$2
 notify=${3-no}
 
 # Includes
-# shellcheck source=/etc/hestiacp/hestia.conf
-source /etc/hestiacp/hestia.conf
-# shellcheck source=/usr/local/hestia/func/main.sh
-source $HESTIA/func/main.sh
-# shellcheck source=/usr/local/hestia/func/domain.sh
-source $HESTIA/func/domain.sh
-# shellcheck source=/usr/local/hestia/func/ip.sh
-source $HESTIA/func/ip.sh
-# shellcheck source=/usr/local/hestia/func/rebuild.sh
-source $HESTIA/func/rebuild.sh
-# shellcheck source=/usr/local/hestia/func/syshealth.sh
-source $HESTIA/func/syshealth.sh
+# shellcheck source=/etc/ceasar/ceasar.conf
+source /etc/ceasar/ceasar.conf
+# shellcheck source=/usr/local/ceasar/func/main.sh
+source $CEASAR/func/main.sh
+# shellcheck source=/usr/local/ceasar/func/domain.sh
+source $CEASAR/func/domain.sh
+# shellcheck source=/usr/local/ceasar/func/ip.sh
+source $CEASAR/func/ip.sh
+# shellcheck source=/usr/local/ceasar/func/rebuild.sh
+source $CEASAR/func/rebuild.sh
+# shellcheck source=/usr/local/ceasar/func/syshealth.sh
+source $CEASAR/func/syshealth.sh
 # load config file
-source_conf "$HESTIA/conf/hestia.conf"
+source_conf "$CEASAR/conf/ceasar.conf"
 
 #----------------------------------------------------------#
 #                    Verifications                         #
@@ -41,7 +41,7 @@ check_args '2' "$#" "$args_usage"
 is_format_valid 'user'
 is_object_valid 'user' 'USER' "$user"
 
-source_conf $HESTIA/conf/restic.conf
+source_conf $CEASAR/conf/restic.conf
 
 #----------------------------------------------------------#
 #                       Action                             #
@@ -62,7 +62,7 @@ $BIN/v-restart-cron
 check_result $? "CRON restart failed"
 
 #----------------------------------------------------------#
-#                       Hestia                             #
+#                       Ceasar                             #
 #----------------------------------------------------------#
 
 rm -fr "$tmpdir"
@@ -72,7 +72,7 @@ $BIN/v-update-user-counters $user
 $BIN/v-update-user-counters "$ROOT_USER"
 $BIN/v-update-sys-ip-counters
 
-sed -i "/v-restore-cron-job-restic '$user' '$snapshot'/d" $HESTIA/data/queue/backup.pipe
+sed -i "/v-restore-cron-job-restic '$user' '$snapshot'/d" $CEASAR/data/queue/backup.pipe
 
 # Logging
 $BIN/v-log-action "system" "Info" "Backup" "Cron jobs successfully restored (User: $user, Snapshot: $snapshot)."

@@ -1,0 +1,76 @@
+#!/bin/bash
+# info: change ceasar ssl certificate
+# options: SSL_DIR [RESTART]
+#
+# example: v-change-sys-ceasar-ssl /home/new/dir/path yes
+#
+# This function changes ceasar SSL certificate and the key.
+
+#----------------------------------------------------------#
+#                Variables & Functions                     #
+#----------------------------------------------------------#
+
+# Argument definition
+domain='certificate'
+ssl_dir=$1
+restart=$2
+
+# Includes
+# shellcheck source=/etc/ceasar/ceasar.conf
+source /etc/ceasar/ceasar.conf
+# shellcheck source=/usr/local/ceasar/func/main.sh
+source $CEASAR/func/main.sh
+# shellcheck source=/usr/local/ceasar/func/domain.sh
+source $CEASAR/func/domain.sh
+# load config file
+source_conf "$CEASAR/conf/ceasar.conf"
+
+#----------------------------------------------------------#
+#                    Verifications                         #
+#----------------------------------------------------------#
+
+check_args '1' "$#" 'SSL_DIR [RESTART]'
+is_format_valid 'ssl_dir restart'
+
+# Perform verification if read-only mode is enabled
+check_ceasar_demo_mode
+
+#----------------------------------------------------------#
+#                       Action                             #
+#----------------------------------------------------------#
+
+# Checking new certificate
+certificate=$(cat $ssl_dir/$domain.crt | grep -n END)
+certificate_count=$(echo "$certificate" | wc -l)
+if [ "$certificate_count" -gt 1 ]; then
+	crt_end=$(echo "$certificate" | head -n1 | cut -f 1 -d :)
+	crt_lines=$(wc -l $ssl_dir/$domain.crt | cut -f1 -d ' ')
+	pem_begin=$((crt_lines - crt_end))
+	mv $ssl_dir/$domain.crt $ssl_dir/$domain.crt_full
+	head -n $crt_end $ssl_dir/$domain.crt_full > $ssl_dir/$domain.crt
+	tail -n $pem_begin $ssl_dir/$domain.crt_full > $ssl_dir/$domain.ca
+	is_web_domain_cert_valid
+	mv -f $ssl_dir/$domain.crt_full $ssl_dir/$domain.crt
+	rm -f $ssl_dir/$domain.ca
+else
+	is_web_domain_cert_valid
+fi
+
+# Adding new certificate
+cp -f $ssl_dir/certificate.crt $CEASAR/ssl/certificate.crt
+cp -f $ssl_dir/certificate.key $CEASAR/ssl/certificate.key
+
+#----------------------------------------------------------#
+#                       Ceasar                             #
+#----------------------------------------------------------#
+
+# Restarting web server
+if [ "$restart" != 'no' ]; then
+	kill -HUP $(cat /run/ceasar-nginx.pid)
+	$BIN/v-restart-mail "$restart"
+fi
+
+# Logging
+log_event "$OK" "$ARGUMENTS"
+
+exit

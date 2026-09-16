@@ -3,7 +3,7 @@
 # options: [RESTART]
 #
 # This function for changing the release branch for the
-# Hestia Control Panel. This allows the user to switch between
+# Ceasar Control Panel. This allows the user to switch between
 # stable and pre-release builds which will automatically update
 # based on the appropriate release schedule if auto-update is
 # turned on.
@@ -16,19 +16,19 @@
 branch=$1
 
 # Includes
-# shellcheck source=/etc/hestiacp/hestia.conf
-source /etc/hestiacp/hestia.conf
-# shellcheck source=/usr/local/hestia/func/main.sh
-source $HESTIA/func/main.sh
+# shellcheck source=/etc/ceasar/ceasar.conf
+source /etc/ceasar/ceasar.conf
+# shellcheck source=/usr/local/ceasar/func/main.sh
+source $CEASAR/func/main.sh
 # load config file
-source_conf "$HESTIA/conf/hestia.conf"
+source_conf "$CEASAR/conf/ceasar.conf"
 
 #----------------------------------------------------------#
 #                    Verifications                         #
 #----------------------------------------------------------#
 
 # Perform verification if read-only mode is enabled
-check_hestia_demo_mode
+check_ceasar_demo_mode
 
 #----------------------------------------------------------#
 #                       Action                             #
@@ -49,22 +49,22 @@ if [ -z "$branch" ]; then
 else
 	# Check that requested branch exists
 	echo "Checking for existence of $branch branch..."
-	branch_check=$(curl -s --head -w %{http_code} "https://raw.githubusercontent.com/hestiacp/hestiacp/$branch/src/deb/hestia/control" -o /dev/null)
+	branch_check=$(curl -s --head -w %{http_code} "https://raw.githubusercontent.com/iharc-jordan/ceasar-control-panel/$branch/src/deb/ceasar/control" -o /dev/null)
 	if [ "$branch_check" -ne "200" ]; then
 		echo "Error: invalid branch name specified."
 		exit 1
 	fi
 
 	# Remove old branch variable
-	sed -i "/RELEASE_BRANCH/d" $HESTIA/conf/hestia.conf
+	sed -i "/RELEASE_BRANCH/d" $CEASAR/conf/ceasar.conf
 
 	# Set new branch variable
-	echo "RELEASE_BRANCH='$branch'" >> $HESTIA/conf/hestia.conf
+	echo "RELEASE_BRANCH='$branch'" >> $CEASAR/conf/ceasar.conf
 	echo "Updated system to update from Git using branch: $branch"
 fi
 
 #----------------------------------------------------------#
-#                       Hestia                             #
+#                       Ceasar                             #
 #----------------------------------------------------------#
 
 $BIN/v-log-action "system" "Info" "System" "Update branch changed (Value: $branch)."

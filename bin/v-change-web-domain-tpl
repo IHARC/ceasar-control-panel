@@ -19,16 +19,16 @@ template=$3
 restart=$4
 
 # Includes
-# shellcheck source=/etc/hestiacp/hestia.conf
-source /etc/hestiacp/hestia.conf
-# shellcheck source=/usr/local/hestia/func/main.sh
-source $HESTIA/func/main.sh
-# shellcheck source=/usr/local/hestia/func/domain.sh
-source $HESTIA/func/domain.sh
-# shellcheck source=/usr/local/hestia/func/ip.sh
-source $HESTIA/func/ip.sh
+# shellcheck source=/etc/ceasar/ceasar.conf
+source /etc/ceasar/ceasar.conf
+# shellcheck source=/usr/local/ceasar/func/main.sh
+source $CEASAR/func/main.sh
+# shellcheck source=/usr/local/ceasar/func/domain.sh
+source $CEASAR/func/domain.sh
+# shellcheck source=/usr/local/ceasar/func/ip.sh
+source $CEASAR/func/ip.sh
 # load config file
-source_conf "$HESTIA/conf/hestia.conf"
+source_conf "$CEASAR/conf/ceasar.conf"
 
 # Additional argument formatting
 format_domain
@@ -53,7 +53,7 @@ fi
 is_web_template_valid "$template"
 
 # Perform verification if read-only mode is enabled
-check_hestia_demo_mode
+check_ceasar_demo_mode
 
 #----------------------------------------------------------#
 #                       Action                             #
@@ -78,14 +78,14 @@ if [ "$SSL" = 'yes' ]; then
 fi
 
 #----------------------------------------------------------#
-#                       Hestia                             #
+#                       Ceasar                             #
 #----------------------------------------------------------#
 
 # Changing tpl in config
 update_object_value 'web' 'DOMAIN' "$domain" '$TPL' "$template"
 
 if [[ "$user" =~ ^ih[0-9a-f]{14}$ ]]; then
-	"$HESTIA/bin/iharc-customer-isolation" reconcile "$user" "$HESTIA" > /dev/null \
+	"$CEASAR/bin/iharc-customer-isolation" reconcile "$user" "$CEASAR" > /dev/null \
 		|| check_result "$E_RESTART" "customer resource isolation could not be reconciled"
 fi
 

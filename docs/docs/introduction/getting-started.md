@@ -58,7 +58,7 @@ apt-get update && apt-get install ca-certificates
 To begin the installation process, simply run the script and follow the on-screen prompts:
 
 ```bash
-bash hst-install.sh
+bash ceasar-install.sh
 ```
 
 You will receive a welcome email at the address specified during installation (if applicable) and on-screen instructions after the installation is completed to log in and access your server.
@@ -70,7 +70,7 @@ If you want to customise which software gets installed, or want to run an unatte
 To view a list of available options, run
 
 ```bash
-bash hst-install.sh -h
+bash ceasar-install.sh -h
 ```
 
 ### List of installation options
@@ -120,7 +120,7 @@ Option --multiphp (Multi PHP) also accepts a comma separated list of PHP version
 #### Example
 
 ```bash
-bash hst-install.sh \
+bash ceasar-install.sh \
 	--interactive no \
 	--hostname host.domain.tld \
 	--email email@domain.tld \

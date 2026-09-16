@@ -19,7 +19,7 @@ fail() {
 mkdir -p "$fixture/source" "$fixture/staging" "$fixture/remote" "$fixture/restore"
 printf '[proof]\ntype = local\n' > "$fixture/rclone.conf"
 export RCLONE_CONFIG="$fixture/rclone.conf"
-HESTIA="$fixture"
+CEASAR="$fixture"
 HOST=proof
 BPATH="$fixture/remote"
 BACKUP="$fixture/staging"

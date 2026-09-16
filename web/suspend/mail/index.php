@@ -1,5 +1,5 @@
 <?php
-use function Hestiacp\quoteshellarg\quoteshellarg;
+use function Ceasar\Shell\quoteshellarg;
 
 ob_start();
 include $_SERVER["DOCUMENT_ROOT"] . "/inc/main.php";
@@ -15,7 +15,7 @@ if ($read_only === true) {
 // Mail domain
 if (!empty($_GET["domain"]) && empty($_GET["account"])) {
 	$v_domain = quoteshellarg($_GET["domain"]);
-	exec(HESTIA_CMD . "v-suspend-mail-domain " . $user . " " . $v_domain, $output, $return_var);
+	exec(CEASAR_CMD . "v-suspend-mail-domain " . $user . " " . $v_domain, $output, $return_var);
 	check_return_code($return_var, $output);
 	unset($output);
 	$back = getenv("HTTP_REFERER");
@@ -33,7 +33,7 @@ if (!empty($_GET["domain"]) && !empty($_GET["account"])) {
 	$v_domain = quoteshellarg($_GET["domain"]);
 	$v_account = quoteshellarg($_GET["account"]);
 	exec(
-		HESTIA_CMD . "v-suspend-mail-account " . $user . " " . $v_domain . " " . $v_account,
+		CEASAR_CMD . "v-suspend-mail-account " . $user . " " . $v_domain . " " . $v_account,
 		$output,
 		$return_var,
 	);

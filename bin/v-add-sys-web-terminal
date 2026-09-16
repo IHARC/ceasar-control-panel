@@ -11,12 +11,12 @@
 #----------------------------------------------------------#
 
 # Includes
-# shellcheck source=/etc/hestiacp/hestia.conf
-source /etc/hestiacp/hestia.conf
-# shellcheck source=/usr/local/hestia/func/main.sh
-source $HESTIA/func/main.sh
+# shellcheck source=/etc/ceasar/ceasar.conf
+source /etc/ceasar/ceasar.conf
+# shellcheck source=/usr/local/ceasar/func/main.sh
+source $CEASAR/func/main.sh
 # load config file
-source_conf "$HESTIA/conf/hestia.conf"
+source_conf "$CEASAR/conf/ceasar.conf"
 
 #----------------------------------------------------------#
 #                    Verifications                         #
@@ -27,7 +27,7 @@ if [ "$WEB_TERMINAL" = 'true' ]; then
 fi
 
 # Perform verification if read-only mode is enabled
-check_hestia_demo_mode
+check_ceasar_demo_mode
 
 #----------------------------------------------------------#
 #                       Action                             #
@@ -59,17 +59,17 @@ else
 	fi
 fi
 
-if [ ! -f "$HESTIA/web-terminal/server.js" ]; then
+if [ ! -f "$CEASAR/web-terminal/server.js" ]; then
 	apt-get -qq update
-	apt-get -qq install hestia-web-terminal -y
+	apt-get -qq install ceasar-web-terminal -y
 else
 	# Starting web terminal websocket server
-	$BIN/v-start-service "hestia-web-terminal"
-	systemctl enable hestia-web-terminal
+	$BIN/v-start-service "ceasar-web-terminal"
+	systemctl enable ceasar-web-terminal
 fi
 
 #----------------------------------------------------------#
-#                       Hestia                             #
+#                       Ceasar                             #
 #----------------------------------------------------------#
 
 # Logging

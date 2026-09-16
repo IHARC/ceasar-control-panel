@@ -95,7 +95,7 @@ function managed_service_request(array $request): array {
 	$payload = json_encode($request, JSON_THROW_ON_ERROR);
 	if (strlen($payload) > 32768) throw new RuntimeException(_("Managed-service request is too large."));
 	$pipes = [];
-	$process = proc_open(["/usr/bin/sudo", HESTIA_DIR_BIN . "v-managed-service", $_SESSION["user"]], [["pipe", "r"], ["pipe", "w"], ["pipe", "w"]], $pipes);
+	$process = proc_open(["/usr/bin/sudo", CEASAR_DIR_BIN . "v-managed-service", $_SESSION["user"]], [["pipe", "r"], ["pipe", "w"], ["pipe", "w"]], $pipes);
 	if (!is_resource($process)) throw new RuntimeException(_("Managed-service adapter is unavailable."));
 	fwrite($pipes[0], $payload);
 	fclose($pipes[0]);

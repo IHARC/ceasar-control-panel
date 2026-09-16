@@ -7,21 +7,21 @@
 #   echo "root:1000:1" | sudo tee -a /etc/subgid
 #
 # - container name will be generated depending on enabled features (os,proxy,webserver and php)
-# - 'SHARED_HOST_FOLDER' will be mounted in the (guest lxc) container at '/home/ubuntu/source/' and hestiacp src folder is expected to be there
+# - 'SHARED_HOST_FOLDER' will be mounted in the (guest lxc) container at '/home/ubuntu/source/' and ceasar src folder is expected to be there
 # - wildcard dns *.hst.domain.tld can be used to point to vm host
-# - watch install log ex:(host) tail -n 100 -f /tmp/hst_installer_hst-ub1604-a2-mphp
+# - watch install log ex:(host) tail -n 100 -f /tmp/ceasar_installer_ceasar-ub1604-a2-mphp
 #
 # CONFIG HOST STEPS:
 #   export SHARED_HOST_FOLDER="/home/myuser/projectfiles"
 #   mkdir -p $SHARED_HOST_FOLDER
-#   cd $SHARED_HOST_FOLDER && git clone https://github.com/hestiacp/hestiacp.git && cd hestiacp && git checkout ..branch..
+#   cd $SHARED_HOST_FOLDER && git clone https://github.com/iharc-jordan/ceasar-control-panel.git && cd ceasar && git checkout ..branch..
 #
 
 /*
-# Nginx reverse proxy config: /etc/nginx/conf.d/lxc-hestia.conf
+# Nginx reverse proxy config: /etc/nginx/conf.d/lxc-ceasar.conf
 server {
     listen 80;
-    server_name ~(?<lxcname>hst-.+)\.hst\.domain\.tld$;
+    server_name ~(?<lxcname>ceasar-.+)\.hst\.domain\.tld$;
     location / {
         set $backend_upstream "http://$lxcname:80";
         proxy_pass $backend_upstream;
@@ -31,7 +31,7 @@ server {
 }
 server {
     listen 8083;
-    server_name ~^(?<lxcname>hst-.+)\.hst\.domain\.tld$;
+    server_name ~^(?<lxcname>ceasar-.+)\.hst\.domain\.tld$;
     location / {
         set $backend_upstream "https://$lxcname:8083";
         proxy_pass $backend_upstream;
@@ -39,7 +39,7 @@ server {
 }
 
 # use lxc resolver /etc/nginx/nginx.conf
-# test resolver ip ex: dig +short @10.240.232.1 hst-ub1804-ngx-a2-mphp
+# test resolver ip ex: dig +short @10.240.232.1 ceasar-ub1804-ngx-a2-mphp
 http {
 ...
     resolver 10.240.232.1 ipv6=off valid=5s;
@@ -51,24 +51,24 @@ http {
 ##  Uncomment and configure the following vars
 # define('DOMAIN',     'hst.domain.tld');
 # define('SHARED_HOST_FOLDER', '/home/myuser/projectfiles');
-# define('HST_PASS',   ''); // <- # openssl rand -base64 12
-# define('HST_EMAIL',  'user@domain.tld');
-define("HST_BRANCH", "~localsrc");
-define("HST_ARGS", "--force --interactive no --clamav no -p " . HST_PASS . " --email " . HST_EMAIL);
+# define('CEASAR_PASS',   ''); // <- # openssl rand -base64 12
+# define('CEASAR_EMAIL',  'user@domain.tld');
+define("CEASAR_BRANCH", "~localsrc");
+define("CEASAR_ARGS", "--force --interactive no --clamav no -p " . CEASAR_PASS . " --email " . CEASAR_EMAIL);
 define("LXC_TIMEOUT", 30);
 
 if (
 	!defined("SHARED_HOST_FOLDER") ||
-	!defined("HST_PASS") ||
-	!defined("HST_EMAIL") ||
-	!defined("HST_BRANCH") ||
+	!defined("CEASAR_PASS") ||
+	!defined("CEASAR_EMAIL") ||
+	!defined("CEASAR_BRANCH") ||
 	!defined("DOMAIN")
 ) {
 	die("Error: missing variables" . PHP_EOL);
 }
 
 $containers = [
-	//    ['description'=>'hst-d9-ngx-a2-mphp',       'os'=>'debian9',     'nginx'=>true,  'apache2'=>true,    'php'=>'multiphp',  'dns'=>'auto', 'exim'=>'auto'],
+	//    ['description'=>'ceasar-d9-ngx-a2-mphp',       'os'=>'debian9',     'nginx'=>true,  'apache2'=>true,    'php'=>'multiphp',  'dns'=>'auto', 'exim'=>'auto'],
 	[
 		"description" => "ub1804 ngx mphp",
 		"os" => "ubuntu18.04",
@@ -152,10 +152,10 @@ $containers = [
 ];
 
 array_walk($containers, function (&$element) {
-	$lxc_name = "hst-"; // hostname and lxc name prefix. Update nginx reverse proxy config after altering this value
-	$hst_args = HST_ARGS;
+	$lxc_name = "ceasar-"; // hostname and lxc name prefix. Update nginx reverse proxy config after altering this value
+	$ceasar_args = CEASAR_ARGS;
 
-	$element["hst_installer"] = "hst-install-ubuntu.sh";
+	$element["ceasar_installer"] = "ceasar-install-ubuntu.sh";
 	$element["lxc_image"] = "ubuntu:18.04";
 
 	if ($element["os"] == "ubuntu16.04") {
@@ -163,11 +163,11 @@ array_walk($containers, function (&$element) {
 		$lxc_name .= "ub1604";
 	} elseif ($element["os"] == "debian8") {
 		$element["lxc_image"] = "images:debian/8";
-		$element["hst_installer"] = "hst-install-debian.sh";
+		$element["ceasar_installer"] = "ceasar-install-debian.sh";
 		$lxc_name .= "d8";
 	} elseif ($element["os"] == "debian9") {
 		$element["lxc_image"] = "images:debian/9";
-		$element["hst_installer"] = "hst-install-debian.sh";
+		$element["ceasar_installer"] = "ceasar-install-debian.sh";
 		$lxc_name .= "d9";
 	} else {
 		$lxc_name .= "ub1804";
@@ -176,57 +176,57 @@ array_walk($containers, function (&$element) {
 
 	if ($element["nginx"] === true) {
 		$lxc_name .= "-ngx";
-		$hst_args .= " --nginx yes";
+		$ceasar_args .= " --nginx yes";
 	} else {
-		$hst_args .= " --nginx no";
+		$ceasar_args .= " --nginx no";
 	}
 
 	if ($element["apache2"] === true) {
 		$lxc_name .= "-a2";
-		$hst_args .= " --apache yes";
+		$ceasar_args .= " --apache yes";
 	} else {
-		$hst_args .= " --apache no";
+		$ceasar_args .= " --apache no";
 	}
 
 	if ($element["php"] == "fpm") {
 		$lxc_name .= "-fpm";
-		$hst_args .= " --phpfpm yes";
+		$ceasar_args .= " --phpfpm yes";
 	} elseif ($element["php"] == "multiphp") {
 		$lxc_name .= "-mphp";
-		$hst_args .= " --multiphp yes";
+		$ceasar_args .= " --multiphp yes";
 	}
 
 	if (isset($element["dns"])) {
 		if ($element["dns"] === true || $element["dns"] == "auto") {
-			$hst_args .= " --named yes";
+			$ceasar_args .= " --named yes";
 		} else {
-			$hst_args .= " --named no";
+			$ceasar_args .= " --named no";
 		}
 	}
 
 	if (isset($element["exim"])) {
 		if ($element["exim"] === true || $element["exim"] == "auto") {
-			$hst_args .= " --exim yes";
+			$ceasar_args .= " --exim yes";
 		} else {
-			$hst_args .= " --exim no";
+			$ceasar_args .= " --exim no";
 		}
 	}
 
 	if (isset($element["webmail"])) {
 		if ($element["webmail"] === true || $element["webmail"] == "auto") {
-			$hst_args .= " --dovecot yes";
+			$ceasar_args .= " --dovecot yes";
 		} else {
-			$hst_args .= " --dovecot no";
+			$ceasar_args .= " --dovecot no";
 		}
 	}
 
 	$element["lxc_name"] = $lxc_name;
 	$element["hostname"] = $lxc_name . "." . DOMAIN;
 
-	// $hst_args .= ' --with-debs /home/ubuntu/source/hestiacp/src/pkgs/develop/' . $element['os'];
-	$hst_args .= " --with-debs /tmp/hestiacp-src/debs";
-	$hst_args .= " --hostname " . $element["hostname"];
-	$element["hst_args"] = $hst_args;
+	// $ceasar_args .= ' --with-debs /home/ubuntu/source/ceasar/src/pkgs/develop/' . $element['os'];
+	$ceasar_args .= " --with-debs /tmp/ceasar-src/debs";
+	$ceasar_args .= " --hostname " . $element["hostname"];
+	$element["ceasar_args"] = $ceasar_args;
 });
 
 function lxc_run($args, &$rc) {
@@ -253,13 +253,13 @@ function lxc_run($args, &$rc) {
 	return json_decode(implode(PHP_EOL, $cmdout), true);
 }
 
-function getHestiaVersion($branch) {
+function getCeasarVersion($branch) {
 	$control_file = "";
 	if ($branch === "~localsrc") {
-		$control_file = file_get_contents(SHARED_HOST_FOLDER . "/hestiacp/src/deb/hestia/control");
+		$control_file = file_get_contents(SHARED_HOST_FOLDER . "/ceasar/src/deb/ceasar/control");
 	} else {
 		$control_file = file_get_contents(
-			"https://raw.githubusercontent.com/hestiacp/hestiacp/${branch}/src/deb/hestia/control",
+			"https://raw.githubusercontent.com/iharc-jordan/ceasar-control-panel/${branch}/src/deb/ceasar/control",
 		);
 	}
 
@@ -274,7 +274,7 @@ function getHestiaVersion($branch) {
 		}
 	}
 
-	throw new Exception("Error reading Hestia version for branch: [${branch}]", 1);
+	throw new Exception("Error reading Ceasar version for branch: [${branch}]", 1);
 }
 
 function get_lxc_ip($name) {
@@ -321,7 +321,7 @@ function check_lxc_container($container) {
 	exec(
 		"lxc config device add " .
 			escapeshellarg($container["lxc_name"]) .
-			" hestiasrc disk path=/home/ubuntu/source source=" .
+			" ceasarsrc disk path=/home/ubuntu/source source=" .
 			SHARED_HOST_FOLDER .
 			" 2>/dev/null",
 		$devnull,
@@ -345,7 +345,7 @@ function check_lxc_container($container) {
 	exit(0);
 }
 
-function hst_installer_worker($container) {
+function ceasar_installer_worker($container) {
 	$pid = pcntl_fork();
 	if ($pid > 0) {
 		return $pid;
@@ -354,23 +354,23 @@ function hst_installer_worker($container) {
 	system(
 		"lxc exec " .
 			$container["lxc_name"] .
-			' -- bash -c "/home/ubuntu/source/hestiacp/src/hst_autocompile.sh --hestia \"' .
-			HST_BRANCH .
+			' -- bash -c "/home/ubuntu/source/ceasar/src/ceasar_autocompile.sh --ceasar \"' .
+			CEASAR_BRANCH .
 			'\" no"',
 	);
 
-	$hver = getHestiaVersion(HST_BRANCH);
-	echo "Install Hestia ${hver} on " . $container["lxc_name"] . PHP_EOL;
-	echo "Args: " . $container["hst_args"] . PHP_EOL;
+	$hver = getCeasarVersion(CEASAR_BRANCH);
+	echo "Install Ceasar ${hver} on " . $container["lxc_name"] . PHP_EOL;
+	echo "Args: " . $container["ceasar_args"] . PHP_EOL;
 
 	system(
 		"lxc exec " .
 			$container["lxc_name"] .
-			' -- bash -c "cd \"/home/ubuntu/source/hestiacp\"; install/' .
-			$container["hst_installer"] .
+			' -- bash -c "cd \"/home/ubuntu/source/ceasar\"; install/' .
+			$container["ceasar_installer"] .
 			" " .
-			$container["hst_args"] .
-			'" 2>&1 > /tmp/hst_installer_' .
+			$container["ceasar_args"] .
+			'" 2>&1 > /tmp/ceasar_installer_' .
 			$container["lxc_name"],
 	);
 
@@ -397,16 +397,16 @@ while (count($worker_pool)) {
 	}
 }
 
-// Install Hestia
+// Install Ceasar
 $worker_pool = [];
 foreach ($containers as $container) {
-	# Is hestia installed?
+	# Is ceasar installed?
 	lxc_run("exec " . $container["lxc_name"] . ' -- sudo --login "v-list-sys-config"', $rc);
 	if (isset($rc) && $rc === 0) {
 		continue;
 	}
 
-	$worker_pid = hst_installer_worker($container);
+	$worker_pid = ceasar_installer_worker($container);
 	if ($worker_pid > 0) {
 		$worker_pool[] = $worker_pid;
 	}
@@ -427,11 +427,11 @@ while (count($worker_pool)) {
 foreach ($containers as $container) {
 	echo "Apply custom config on: " . $container["lxc_name"] . PHP_EOL;
 
-	# Allow running a reverse proxy in front of Hestia
+	# Allow running a reverse proxy in front of Ceasar
 	system(
 		"lxc exec " .
 			$container["lxc_name"] .
-			' -- bash -c "sed -i \'s/session.cookie_secure] = on\$/session.cookie_secure] = off/\' /usr/local/hestia/php/etc/php-fpm.conf"',
+			' -- bash -c "sed -i \'s/session.cookie_secure] = on\$/session.cookie_secure] = off/\' /usr/local/ceasar/php/etc/php-fpm.conf"',
 	);
 
 	# get rid off "mesg: ttyname failed: No such device" error
@@ -445,16 +445,16 @@ foreach ($containers as $container) {
 	system(
 		"lxc exec " .
 			$container["lxc_name"] .
-			' -- bash -c "sed -i \'/LE_STAGING/d\' /usr/local/hestia/conf/hestia.conf"',
+			' -- bash -c "sed -i \'/LE_STAGING/d\' /usr/local/ceasar/conf/ceasar.conf"',
 	);
 	system(
 		"lxc exec " .
 			$container["lxc_name"] .
-			' -- bash -c "echo \'LE_STAGING=\"yes\"\' >> /usr/local/hestia/conf/hestia.conf"',
+			' -- bash -c "echo \'LE_STAGING=\"yes\"\' >> /usr/local/ceasar/conf/ceasar.conf"',
 	);
 
-	system("lxc exec " . $container["lxc_name"] . ' -- bash -c "service hestia restart"');
+	system("lxc exec " . $container["lxc_name"] . ' -- bash -c "service ceasar restart"');
 }
 
-echo "Hestia containers configured" . PHP_EOL;
+echo "Ceasar containers configured" . PHP_EOL;
 

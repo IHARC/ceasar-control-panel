@@ -2,9 +2,9 @@
 
 declare(strict_types=1);
 
-namespace Hestia\WebApp;
+namespace Ceasar\WebApp;
 
-use Hestia\WebApp\InstallationTarget\InstallationTarget;
+use Ceasar\WebApp\InstallationTarget\InstallationTarget;
 
 interface InstallerInterface
 {

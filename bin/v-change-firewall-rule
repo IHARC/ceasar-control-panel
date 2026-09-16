@@ -21,19 +21,19 @@ protocol=$(echo "$protocol" | tr '[:lower:]' '[:upper:]')
 comment=$6
 
 # Includes
-# shellcheck source=/etc/hestiacp/hestia.conf
-source /etc/hestiacp/hestia.conf
-# shellcheck source=/usr/local/hestia/func/main.sh
-source $HESTIA/func/main.sh
+# shellcheck source=/etc/ceasar/ceasar.conf
+source /etc/ceasar/ceasar.conf
+# shellcheck source=/usr/local/ceasar/func/main.sh
+source $CEASAR/func/main.sh
 # load config file
-source_conf "$HESTIA/conf/hestia.conf"
+source_conf "$CEASAR/conf/ceasar.conf"
 
 # Sort function
 sort_fw_rules() {
-	cat $HESTIA/data/firewall/rules.conf \
-		| sort -n -k 2 -t \' > $HESTIA/data/firewall/rules.conf.tmp
-	mv -f $HESTIA/data/firewall/rules.conf.tmp \
-		$HESTIA/data/firewall/rules.conf
+	cat $CEASAR/data/firewall/rules.conf \
+		| sort -n -k 2 -t \' > $CEASAR/data/firewall/rules.conf.tmp
+	mv -f $CEASAR/data/firewall/rules.conf.tmp \
+		$CEASAR/data/firewall/rules.conf
 }
 
 #----------------------------------------------------------#
@@ -57,7 +57,7 @@ else
 fi
 
 # Perform verification if read-only mode is enabled
-check_hestia_demo_mode
+check_ceasar_demo_mode
 
 #----------------------------------------------------------#
 #                       Action                             #
@@ -74,10 +74,10 @@ str="$str IP='$ipv4_cidr' COMMENT='$comment' SUSPENDED='no'"
 str="$str TIME='$time' DATE='$date'"
 
 # Deleting old rule
-sed -i "/RULE='$rule' /d" $HESTIA/data/firewall/rules.conf
+sed -i "/RULE='$rule' /d" $CEASAR/data/firewall/rules.conf
 
 # Adding new
-echo "$str" >> $HESTIA/data/firewall/rules.conf
+echo "$str" >> $CEASAR/data/firewall/rules.conf
 
 # Sorting firewall rules by id number
 sort_fw_rules
@@ -86,7 +86,7 @@ sort_fw_rules
 $BIN/v-update-firewall
 
 #----------------------------------------------------------#
-#                       Hestia                             #
+#                       Ceasar                             #
 #----------------------------------------------------------#
 
 # Logging

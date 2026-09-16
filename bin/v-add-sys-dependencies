@@ -1,5 +1,5 @@
 #!/bin/bash
-# Add php dependencies to Hestia
+# Add php dependencies to Ceasar
 # options: [MODE]
 #
 # This function install PHPMailer and quoteshellarg as via composer
@@ -9,20 +9,20 @@
 #----------------------------------------------------------#
 
 # Includes
-# shellcheck source=/etc/hestiacp/hestia.conf
-source /etc/hestiacp/hestia.conf
-# shellcheck source=/usr/local/hestia/func/main.sh
-source $HESTIA/func/main.sh
+# shellcheck source=/etc/ceasar/ceasar.conf
+source /etc/ceasar/ceasar.conf
+# shellcheck source=/usr/local/ceasar/func/main.sh
+source $CEASAR/func/main.sh
 # load config file
-source_conf "$HESTIA/conf/hestia.conf"
+source_conf "$CEASAR/conf/ceasar.conf"
 # upgrade config file
-source "$HESTIA/install/upgrade/upgrade.conf"
+source "$CEASAR/install/upgrade/upgrade.conf"
 
 MODE=$1
 user="$ROOT_USER"
 
-PM_INSTALL_DIR="$HESTIA/web/inc"
-QUICK_INSTALL_DIR="$HESTIA/web/src"
+PM_INSTALL_DIR="$CEASAR/web/inc"
+QUICK_INSTALL_DIR="$CEASAR/web/src"
 COMPOSER_BIN="$HOMEDIR/$user/.composer/composer"
 
 #----------------------------------------------------------#
@@ -35,12 +35,12 @@ if [ "x$(id -u)" != 'x0' ]; then
 	exit 10
 fi
 
-# Ensure that $HESTIA (/usr/local/hestia/) and other variables are valid.
-if [ -z "$HESTIA" ]; then
-	HESTIA="/usr/local/hestia"
+# Ensure that $CEASAR (/usr/local/ceasar/) and other variables are valid.
+if [ -z "$CEASAR" ]; then
+	CEASAR="/usr/local/ceasar"
 fi
 
-if [ -z "$HOMEDIR" ] || [ -z "$HESTIA_INSTALL_DIR" ]; then
+if [ -z "$HOMEDIR" ] || [ -z "$CEASAR_INSTALL_DIR" ]; then
 	echo "ERROR: Environment variables not present, installation aborted."
 	exit 2
 fi
@@ -49,13 +49,13 @@ fi
 if [ ! -f "$COMPOSER_BIN" ]; then
 	$BIN/v-add-user-composer "$user"
 	if [ $? -ne 0 ]; then
-		$BIN/v-add-user-notification "$ROOT_USER" 'Composer installation failed!' '<p class="u-text-bold">Hestia will not work without Composer.</p><p>Please try running the installer manually from a shell session:<br><code>v-add-sys-dependencies</code></p><p>If this continues, <a href="https://github.com/hestiacp/hestiacp/issues" target="_blank">open an issue on GitHub</a>.</p>'
+		$BIN/v-add-user-notification "$ROOT_USER" 'Composer installation failed!' '<p class="u-text-bold">Ceasar will not work without Composer.</p><p>Please try running the installer manually from a shell session:<br><code>v-add-sys-dependencies</code></p><p>If this continues, <a href="https://github.com/iharc-jordan/ceasar-control-panel/issues" target="_blank">open an issue on GitHub</a>.</p>'
 		exit 1
 	fi
 fi
 
 # Perform verification if read-only mode is enabled
-check_hestia_demo_mode
+check_ceasar_demo_mode
 
 #----------------------------------------------------------#
 #                       Action                             #
@@ -66,19 +66,19 @@ rm --recursive --force ${PM_INSTALL_DIR}/vendor
 mkdir -p ${PM_INSTALL_DIR}/vendor
 chown $user: -R ${PM_INSTALL_DIR}/vendor
 
-openssl_installed=$(/usr/local/hestia/php/bin/php -m | grep openssl)
+openssl_installed=$(/usr/local/ceasar/php/bin/php -m | grep openssl)
 if [ -z "$openssl_installed" ]; then
 	COMPOSER_HOME="$HOMEDIR/$user/.config/composer" user_exec /usr/bin/php $COMPOSER_BIN --quiet --no-dev install
 else
-	COMPOSER_HOME="$HOMEDIR/$user/.config/composer" user_exec $HESTIA_PHP $COMPOSER_BIN --quiet --no-dev install
+	COMPOSER_HOME="$HOMEDIR/$user/.config/composer" user_exec $CEASAR_PHP $COMPOSER_BIN --quiet --no-dev install
 fi
 
 # Check if installation was successful, if not abort script and throw error message notification and clean-up
 if [ $? -ne 0 ]; then
 	echo "ERROR: PHPMailer installation failed!"
 	echo "Please report this to our development team:"
-	echo "https://github.com/hestiacp/hestiacp/issues"
-	$BIN/v-add-user-notification "$ROOT_USER" 'Hestia PHP dependencies installation failed!' '<p>Please <a href="https://github.com/hestiacp/hestiacp/issues" target="_blank">open an issue on GitHub</a> to report this to our development team.</p>'
+	echo "https://github.com/iharc-jordan/ceasar-control-panel/issues"
+	$BIN/v-add-user-notification "$ROOT_USER" 'Ceasar PHP dependencies installation failed!' '<p>Please <a href="https://github.com/iharc-jordan/ceasar-control-panel/issues" target="_blank">open an issue on GitHub</a> to report this to our development team.</p>'
 	# Installation failed, clean up files
 	rm --recursive --force ${PM_INSTALL_DIR}/vendor
 	$BIN/v-change-sys-config-value 'USE_SERVER_SMTP' 'n'
@@ -94,15 +94,15 @@ chown $user: -R ${QUICK_INSTALL_DIR}/vendor
 if [ -z "$openssl_installed" ]; then
 	COMPOSER_HOME="$HOMEDIR/$user/.config/composer" user_exec /usr/bin/php $COMPOSER_BIN --quiet --no-dev install
 else
-	COMPOSER_HOME="$HOMEDIR/$user/.config/composer" user_exec $HESTIA_PHP $COMPOSER_BIN --quiet --no-dev install
+	COMPOSER_HOME="$HOMEDIR/$user/.config/composer" user_exec $CEASAR_PHP $COMPOSER_BIN --quiet --no-dev install
 fi
 
 # Check if installation was successful, if not abort script and throw error message notification and clean-up
 if [ $? -ne 0 ]; then
 	echo "ERROR: Quick install dependencies installation failed!"
 	echo "Please report this to our development team:"
-	echo "https://github.com/hestiacp/hestiacp/issues"
-	$BIN/v-add-user-notification "$ROOT_USER" 'Hestia Quick Install dependencies installation failed!' '<p>Please <a href="https://github.com/hestiacp/hestiacp/issues" target="_blank">open an issue on GitHub</a> to report this to our development team.</p>'
+	echo "https://github.com/iharc-jordan/ceasar-control-panel/issues"
+	$BIN/v-add-user-notification "$ROOT_USER" 'Ceasar Quick Install dependencies installation failed!' '<p>Please <a href="https://github.com/iharc-jordan/ceasar-control-panel/issues" target="_blank">open an issue on GitHub</a> to report this to our development team.</p>'
 	# Installation failed, clean up files
 	rm --recursive --force ${QUICK_INSTALL_DIR}/vendor
 	$BIN/v-log-action "system" "Error" "Plugins" "Quick Install dependencies installation failed"

@@ -1,5 +1,5 @@
 <?php
-use function Hestiacp\quoteshellarg\quoteshellarg;
+use function Ceasar\Shell\quoteshellarg;
 
 ob_start();
 $TAB = "MAIL";
@@ -25,12 +25,12 @@ $v_username = $user;
 if (!empty($_GET["domain"]) && empty($_GET["account"])) {
 	$v_domain = $_GET["domain"];
 
-	exec(HESTIA_CMD . "v-list-sys-webmail json", $output, $return_var);
+	exec(CEASAR_CMD . "v-list-sys-webmail json", $output, $return_var);
 	$webmail_clients = json_decode(implode("", $output), true);
 	unset($output);
 
 	exec(
-		HESTIA_CMD . "v-list-mail-domain " . $user . " " . quoteshellarg($v_domain) . " json",
+		CEASAR_CMD . "v-list-mail-domain " . $user . " " . quoteshellarg($v_domain) . " json",
 		$output,
 		$return_var,
 	);
@@ -64,7 +64,7 @@ if (!empty($_GET["domain"]) && empty($_GET["account"])) {
 	$v_ssl = $data[$v_domain]["SSL"];
 	if (!empty($v_ssl)) {
 		exec(
-			HESTIA_CMD .
+			CEASAR_CMD .
 				"v-list-mail-domain-ssl " .
 				$user .
 				" " .
@@ -98,7 +98,7 @@ if (!empty($_GET["domain"]) && !empty($_GET["account"])) {
 
 	$v_account = $_GET["account"];
 	exec(
-		HESTIA_CMD .
+		CEASAR_CMD .
 			"v-list-mail-account " .
 			$user .
 			" " .
@@ -146,7 +146,7 @@ if (!empty($_GET["domain"]) && !empty($_GET["account"])) {
 	// Parse autoreply
 	if ($v_autoreply == "yes") {
 		exec(
-			HESTIA_CMD .
+			CEASAR_CMD .
 				"v-list-mail-account-autoreply " .
 				$user .
 				" " .
@@ -177,7 +177,7 @@ if (
 	verify_csrf($_POST);
 
 	exec(
-		HESTIA_CMD . "v-list-mail-domain " . $user . " " . quoteshellarg($v_domain) . " json",
+		CEASAR_CMD . "v-list-mail-domain " . $user . " " . quoteshellarg($v_domain) . " json",
 		$output,
 		$return_var,
 	);
@@ -188,7 +188,7 @@ if (
 	// Delete antispam
 	if ($v_antispam == "yes" && empty($_POST["v_antispam"]) && empty($_SESSION["error_msg"])) {
 		exec(
-			HESTIA_CMD .
+			CEASAR_CMD .
 				"v-delete-mail-domain-antispam " .
 				$v_username .
 				" " .
@@ -204,7 +204,7 @@ if (
 	// Add antispam
 	if ($v_antispam == "no" && !empty($_POST["v_antispam"]) && empty($_SESSION["error_msg"])) {
 		exec(
-			HESTIA_CMD .
+			CEASAR_CMD .
 				"v-add-mail-domain-antispam " .
 				$v_username .
 				" " .
@@ -220,7 +220,7 @@ if (
 	// Delete antivirus
 	if ($v_antivirus == "yes" && empty($_POST["v_antivirus"]) && empty($_SESSION["error_msg"])) {
 		exec(
-			HESTIA_CMD .
+			CEASAR_CMD .
 				"v-delete-mail-domain-antivirus " .
 				$v_username .
 				" " .
@@ -236,7 +236,7 @@ if (
 	// Add antivirus
 	if ($v_antivirus == "no" && !empty($_POST["v_antivirus"]) && empty($_SESSION["error_msg"])) {
 		exec(
-			HESTIA_CMD .
+			CEASAR_CMD .
 				"v-add-mail-domain-antivirus " .
 				$v_username .
 				" " .
@@ -252,7 +252,7 @@ if (
 	// Delete DKIM
 	if ($v_dkim == "yes" && empty($_POST["v_dkim"]) && empty($_SESSION["error_msg"])) {
 		exec(
-			HESTIA_CMD .
+			CEASAR_CMD .
 				"v-delete-mail-domain-dkim " .
 				$v_username .
 				" " .
@@ -268,7 +268,7 @@ if (
 	// Add DKIM
 	if ($v_dkim == "no" && !empty($_POST["v_dkim"]) && empty($_SESSION["error_msg"])) {
 		exec(
-			HESTIA_CMD . "v-add-mail-domain-dkim " . $v_username . " " . quoteshellarg($v_domain),
+			CEASAR_CMD . "v-add-mail-domain-dkim " . $v_username . " " . quoteshellarg($v_domain),
 			$output,
 			$return_var,
 		);
@@ -280,7 +280,7 @@ if (
 	// Delete catchall
 	if (!empty($v_catchall) && empty($_POST["v_catchall"]) && empty($_SESSION["error_msg"])) {
 		exec(
-			HESTIA_CMD .
+			CEASAR_CMD .
 				"v-delete-mail-domain-catchall " .
 				$v_username .
 				" " .
@@ -305,7 +305,7 @@ if (
 			$v_rate = quoteshellarg($_POST["v_rate"]);
 		}
 		exec(
-			HESTIA_CMD .
+			CEASAR_CMD .
 				"v-change-mail-domain-rate-limit " .
 				$v_username .
 				" " .
@@ -324,7 +324,7 @@ if (
 
 	if (!empty($_POST["v_reject"]) && $v_antispam == "yes" && $v_reject != "yes") {
 		exec(
-			HESTIA_CMD . "v-add-mail-domain-reject " . $user . " " . $v_domain . " yes",
+			CEASAR_CMD . "v-add-mail-domain-reject " . $user . " " . $v_domain . " yes",
 			$output,
 			$return_var,
 		);
@@ -334,7 +334,7 @@ if (
 	}
 	if (empty($_POST["v_reject"]) && $v_reject == "yes") {
 		exec(
-			HESTIA_CMD . "v-delete-mail-domain-reject " . $user . " " . $v_domain . " yes",
+			CEASAR_CMD . "v-delete-mail-domain-reject " . $user . " " . $v_domain . " yes",
 			$output,
 			$return_var,
 		);
@@ -348,7 +348,7 @@ if (
 		if ($v_catchall != $_POST["v_catchall"]) {
 			$v_catchall = quoteshellarg($_POST["v_catchall"]);
 			exec(
-				HESTIA_CMD .
+				CEASAR_CMD .
 					"v-change-mail-domain-catchall " .
 					$v_username .
 					" " .
@@ -367,7 +367,7 @@ if (
 	if (empty($v_catchall) && !empty($_POST["v_catchall"]) && empty($_SESSION["error_msg"])) {
 		$v_catchall = quoteshellarg($_POST["v_catchall"]);
 		exec(
-			HESTIA_CMD .
+			CEASAR_CMD .
 				"v-add-mail-domain-catchall " .
 				$v_username .
 				" " .
@@ -386,7 +386,7 @@ if (
 			if (!empty($_POST["v_webmail"])) {
 				$v_webmail = quoteshellarg($_POST["v_webmail"]);
 				exec(
-					HESTIA_CMD .
+					CEASAR_CMD .
 						"v-add-mail-domain-webmail " .
 						$user .
 						" " .
@@ -407,7 +407,7 @@ if (
 		if (empty($_POST["v_webmail"])) {
 			if (empty($_SESSION["error_msg"])) {
 				exec(
-					HESTIA_CMD . "v-delete-mail-domain-webmail " . $user . " " . $v_domain . " yes",
+					CEASAR_CMD . "v-delete-mail-domain-webmail " . $user . " " . $v_domain . " yes",
 					$output,
 					$return_var,
 				);
@@ -459,7 +459,7 @@ if (
 			}
 
 			exec(
-				HESTIA_CMD .
+				CEASAR_CMD .
 					"v-change-mail-domain-sslcert " .
 					$user .
 					" " .
@@ -476,7 +476,7 @@ if (
 			$restart_proxy = "yes";
 
 			exec(
-				HESTIA_CMD .
+				CEASAR_CMD .
 					"v-list-mail-domain-ssl " .
 					$user .
 					" " .
@@ -519,7 +519,7 @@ if (
 		empty($_SESSION["error_msg"])
 	) {
 		exec(
-			HESTIA_CMD .
+			CEASAR_CMD .
 				"v-delete-letsencrypt-domain " .
 				$user .
 				" " .
@@ -542,7 +542,7 @@ if (
 	// Delete SSL certificate
 	if ($v_ssl == "yes" && empty($_POST["v_ssl"]) && empty($_SESSION["error_msg"])) {
 		exec(
-			HESTIA_CMD . "v-delete-mail-domain-ssl " . $v_username . " " . quoteshellarg($v_domain),
+			CEASAR_CMD . "v-delete-mail-domain-ssl " . $v_username . " " . quoteshellarg($v_domain),
 			$output,
 			$return_var,
 		);
@@ -563,7 +563,7 @@ if (
 		empty($_SESSION["error_msg"])
 	) {
 		exec(
-			HESTIA_CMD .
+			CEASAR_CMD .
 				"v-add-letsencrypt-domain " .
 				$user .
 				" " .
@@ -626,7 +626,7 @@ if (
 				fclose($fp);
 			}
 			exec(
-				HESTIA_CMD .
+				CEASAR_CMD .
 					"v-add-mail-domain-ssl " .
 					$user .
 					" " .
@@ -644,7 +644,7 @@ if (
 			$restart_proxy = "yes";
 
 			exec(
-				HESTIA_CMD .
+				CEASAR_CMD .
 					"v-list-mail-domain-ssl " .
 					$user .
 					" " .
@@ -703,7 +703,7 @@ if (
 				fclose($fp);
 
 				exec(
-					HESTIA_CMD .
+					CEASAR_CMD .
 						"v-add-mail-domain-smtp-relay " .
 						$v_username .
 						" " .
@@ -727,7 +727,7 @@ if (
 			$v_smtp_relay = false;
 			$v_smtp_relay_host = $v_smtp_relay_user = $v_smtp_relay_pass = $v_smtp_relay_port = "";
 			exec(
-				HESTIA_CMD .
+				CEASAR_CMD .
 					"v-delete-mail-domain-smtp-relay " .
 					$v_username .
 					" " .
@@ -767,7 +767,7 @@ if (
 	$v_send_email = $_POST["v_send_email"];
 
 	exec(
-		HESTIA_CMD .
+		CEASAR_CMD .
 			"v-list-mail-account " .
 			$user .
 			" " .
@@ -792,7 +792,7 @@ if (
 			fwrite($fp, $_POST["v_password"] . "\n");
 			fclose($fp);
 			exec(
-				HESTIA_CMD .
+				CEASAR_CMD .
 					"v-change-mail-account-password " .
 					$v_username .
 					" " .
@@ -819,7 +819,7 @@ if (
 			$v_quota = quoteshellarg($_POST["v_quota"]);
 		}
 		exec(
-			HESTIA_CMD .
+			CEASAR_CMD .
 				"v-change-mail-account-quota " .
 				$v_username .
 				" " .
@@ -846,7 +846,7 @@ if (
 			$v_rate = quoteshellarg($_POST["v_rate"]);
 		}
 		exec(
-			HESTIA_CMD .
+			CEASAR_CMD .
 				"v-change-mail-account-rate-limit " .
 				$v_username .
 				" " .
@@ -877,7 +877,7 @@ if (
 		foreach ($result as $alias) {
 			if (empty($_SESSION["error_msg"]) && !empty($alias)) {
 				exec(
-					HESTIA_CMD .
+					CEASAR_CMD .
 						"v-delete-mail-account-alias " .
 						$v_username .
 						" " .
@@ -897,7 +897,7 @@ if (
 		foreach ($result as $alias) {
 			if (empty($_SESSION["error_msg"]) && !empty($alias)) {
 				exec(
-					HESTIA_CMD .
+					CEASAR_CMD .
 						"v-add-mail-account-alias " .
 						$v_username .
 						" " .
@@ -919,7 +919,7 @@ if (
 		foreach ($vfwd as $forward) {
 			if (empty($_SESSION["error_msg"]) && !empty($forward)) {
 				exec(
-					HESTIA_CMD .
+					CEASAR_CMD .
 						"v-delete-mail-account-forward " .
 						$v_username .
 						" " .
@@ -935,7 +935,7 @@ if (
 				unset($output);
 			}
 			exec(
-				HESTIA_CMD .
+				CEASAR_CMD .
 					"v-add-mail-account-forward " .
 					$v_username .
 					" " .
@@ -964,7 +964,7 @@ if (
 		foreach ($result as $forward) {
 			if (empty($_SESSION["error_msg"]) && !empty($forward)) {
 				exec(
-					HESTIA_CMD .
+					CEASAR_CMD .
 						"v-delete-mail-account-forward " .
 						$v_username .
 						" " .
@@ -984,7 +984,7 @@ if (
 		foreach ($result as $forward) {
 			if (empty($_SESSION["error_msg"]) && !empty($forward)) {
 				exec(
-					HESTIA_CMD .
+					CEASAR_CMD .
 						"v-add-mail-account-forward " .
 						$v_username .
 						" " .
@@ -1006,7 +1006,7 @@ if (
 	// Delete FWD_ONLY flag
 	if ($v_fwd_only == "yes" && empty($_POST["v_fwd_only"]) && empty($_SESSION["error_msg"])) {
 		exec(
-			HESTIA_CMD .
+			CEASAR_CMD .
 				"v-delete-mail-account-fwd-only " .
 				$v_username .
 				" " .
@@ -1024,7 +1024,7 @@ if (
 	// Add FWD_ONLY flag
 	if ($v_fwd_only != "yes" && !empty($_POST["v_fwd_only"]) && empty($_SESSION["error_msg"])) {
 		exec(
-			HESTIA_CMD .
+			CEASAR_CMD .
 				"v-add-mail-account-fwd-only " .
 				$v_username .
 				" " .
@@ -1042,7 +1042,7 @@ if (
 	// Delete autoreply
 	if ($v_autoreply == "yes" && empty($_POST["v_autoreply"]) && empty($_SESSION["error_msg"])) {
 		exec(
-			HESTIA_CMD .
+			CEASAR_CMD .
 				"v-delete-mail-account-autoreply " .
 				$v_username .
 				" " .
@@ -1064,7 +1064,7 @@ if (
 			$v_autoreply_message = str_replace("\r\n", "\n", $_POST["v_autoreply_message"]);
 			$v_autoreply_message = quoteshellarg($v_autoreply_message);
 			exec(
-				HESTIA_CMD .
+				CEASAR_CMD .
 					"v-add-mail-account-autoreply " .
 					$v_username .
 					" " .

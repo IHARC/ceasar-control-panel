@@ -13,12 +13,12 @@ access_key_id="$1"
 format="${2:-shell}"
 
 # Includes
-# shellcheck source=/etc/hestiacp/hestia.conf
-source /etc/hestiacp/hestia.conf
-# shellcheck source=/usr/local/hestia/func/main.sh
-source $HESTIA/func/main.sh
+# shellcheck source=/etc/ceasar/ceasar.conf
+source /etc/ceasar/ceasar.conf
+# shellcheck source=/usr/local/ceasar/func/main.sh
+source $CEASAR/func/main.sh
 # load config file
-source_conf "$HESTIA/conf/hestia.conf"
+source_conf "$CEASAR/conf/ceasar.conf"
 
 # JSON list function
 json_list() {
@@ -72,7 +72,7 @@ COMMENT=""
 DATE=""
 TIME=""
 
-source_conf "${HESTIA}/data/access-keys/${access_key_id}"
+source_conf "${CEASAR}/data/access-keys/${access_key_id}"
 
 # Listing data
 case $format in
@@ -82,7 +82,7 @@ case $format in
 esac
 
 #----------------------------------------------------------#
-#                       Hestia                             #
+#                       Ceasar                             #
 #----------------------------------------------------------#
 
 exit

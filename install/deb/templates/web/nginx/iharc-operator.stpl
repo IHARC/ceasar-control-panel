@@ -1,11 +1,11 @@
 #=========================================================================#
 # Private Operator Web Domain Template                                             #
 # DO NOT MODIFY THIS FILE! CHANGES WILL BE LOST WHEN REBUILDING DOMAINS   #
-# https://hestiacp.com/docs/server-administration/web-templates.html      #
+# https://ceasar.com/docs/server-administration/web-templates.html      #
 #=========================================================================#
 
 server {
-	# HAProxy terminates public TLS from Hestia's native certificate state. Keep
+	# HAProxy terminates public TLS from Ceasar's native certificate state. Keep
 	# this paired rebuild listener plaintext like customer vhosts so Nginx does
 	# not combine TLS and plaintext flags for the shared private 9443 socket.
 	listen      127.0.0.1:9443;

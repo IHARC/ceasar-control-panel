@@ -1,13 +1,13 @@
 # Ceasar Control Panel
 
 Ceasar Control Panel is the IHARC Labs maintained white-label checkout for a
-hosting control panel. It preserves the upstream Hestia Control Panel source,
+hosting control panel. It preserves the upstream Ceasar Control Panel source,
 filesystem layout, commands, and APIs so that upstream security and maintenance
 work can be reviewed against a pinned source baseline.
 
 ## Source status
 
-- Upstream project: <https://github.com/hestiacp/hestiacp.git>
+- Upstream project: <https://github.com/iharc-jordan/ceasar-control-panel.git>
 - Baseline tag: `1.10.4`
 - Baseline commit: `733dd4453ae358b587d61b3f2faedf6e24c4db51`
 - Current checkout: native white-label changes are kept in separate IHARC
@@ -47,7 +47,7 @@ provider, database, or authentication service.
 ## Hosting integration
 
 IHARC Labs pins this repository at `vendor/ceasar`. Its
-`infra/common/bootstrap-hestia.sh` and `infra/common/install-hosting-payload.sh`
+`infra/common/bootstrap-ceasar.sh` and `infra/common/install-hosting-payload.sh`
 install the native panel and host controls. The portal, authentication,
 database, billing, background workers, and Azure deployment code live in the
 Labs repository. `install/common/api/iharc-control` contains the native API

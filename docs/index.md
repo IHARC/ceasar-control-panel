@@ -22,7 +22,7 @@ hero:
 features:
   - icon: 📌
     title: Pinned source baseline
-    details: This checkout records the upstream Hestia 1.10.4 tag and commit used as its maintenance baseline.
+    details: This checkout records the upstream Ceasar 1.10.4 tag and commit used as its maintenance baseline.
     link: /docs/introduction/getting-started
     linkText: Read the guide
   - icon: ⚙️
@@ -32,7 +32,7 @@ features:
     linkText: Configuration
   - icon: 🔧
     title: Native compatibility
-    details: Hestia filesystem paths, command names, and APIs remain stable so source updates can be reviewed without an internal path rename.
+    details: Ceasar filesystem paths, command names, and APIs remain stable so source updates can be reviewed without an internal path rename.
     link: /docs/reference/cli
     linkText: CLI reference
   - icon: 🧾

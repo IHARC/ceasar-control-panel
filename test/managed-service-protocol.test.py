@@ -1,7 +1,7 @@
 """Executable checks for the optional managed-service native boundary.
 
 Each check copies Ceasar into an isolated php:8.4-cli container. It never
-reads a host Hestia configuration or talks to a provider or database.
+reads a host Ceasar configuration or talks to a provider or database.
 """
 
 import pathlib
@@ -22,20 +22,20 @@ class ManagedServiceProtocol(unittest.TestCase):
     def fixture(self, body: str) -> subprocess.CompletedProcess[str]:
         setup = r'''
             set -eu
-            mkdir -p /etc/hestiacp /usr/local/hestia/conf /usr/local/hestia/log /usr/local/hestia/php/bin /opt/managed /var/lib/managed
-            ln -s "$(command -v php)" /usr/local/hestia/php/bin/php
-            install -D -m 755 /source/bin/v-managed-service /usr/local/hestia/bin/v-managed-service
-            install -D -m 644 /source/func/main.sh /usr/local/hestia/func/main.sh
-            install -D -m 644 /source/web/inc/managed-service.php /usr/local/hestia/web/inc/managed-service.php
-            install -D -m 644 /source/web/templates/pages/list_managed.php /usr/local/hestia/web/templates/pages/list_managed.php
-            printf '%s\n' 'HESTIA=/usr/local/hestia' > /etc/hestiacp/hestia.conf
-            printf '%s\n' "MANAGED_SERVICES='yes'" > /usr/local/hestia/conf/hestia.conf
-            mkdir -p /usr/local/hestia/data/users/admin
-            printf '%s\n' "ROLE='admin'" > /usr/local/hestia/data/users/admin/user.conf
+            mkdir -p /etc/ceasar /usr/local/ceasar/conf /usr/local/ceasar/log /usr/local/ceasar/php/bin /opt/managed /var/lib/managed
+            ln -s "$(command -v php)" /usr/local/ceasar/php/bin/php
+            install -D -m 755 /source/bin/v-managed-service /usr/local/ceasar/bin/v-managed-service
+            install -D -m 644 /source/func/main.sh /usr/local/ceasar/func/main.sh
+            install -D -m 644 /source/web/inc/managed-service.php /usr/local/ceasar/web/inc/managed-service.php
+            install -D -m 644 /source/web/templates/pages/list_managed.php /usr/local/ceasar/web/templates/pages/list_managed.php
+            printf '%s\n' 'CEASAR=/usr/local/ceasar' > /etc/ceasar/ceasar.conf
+            printf '%s\n' "MANAGED_SERVICES='yes'" > /usr/local/ceasar/conf/ceasar.conf
+            mkdir -p /usr/local/ceasar/data/users/admin
+            printf '%s\n' "ROLE='admin'" > /usr/local/ceasar/data/users/admin/user.conf
             printf '%s\n' '#!/bin/sh' 'cat > /var/lib/managed/request.json' "printf '%s\\n' '{\"ok\":true}'" > /opt/managed/adapter
             chmod 755 /opt/managed/adapter
-            printf '%s\n' '{"adapter":"/opt/managed/adapter"}' > /usr/local/hestia/conf/managed-service.json
-            chmod 600 /usr/local/hestia/conf/managed-service.json
+            printf '%s\n' '{"adapter":"/opt/managed/adapter"}' > /usr/local/ceasar/conf/managed-service.json
+            chmod 600 /usr/local/ceasar/conf/managed-service.json
         '''
         script = textwrap.dedent(setup) + "\n" + textwrap.dedent(body)
         return subprocess.run(
@@ -64,22 +64,22 @@ class ManagedServiceProtocol(unittest.TestCase):
     def test_command_canonicalizes_valid_input_and_rejects_before_adapter_start(self):
         self.assert_fixture(
             r'''
-            if ! printf '%s' '{"actor":"forged","operation":"read","section":"overview","extra":"discarded"}' | /usr/local/hestia/bin/v-managed-service admin > /tmp/response.json; then cat /usr/local/hestia/log/error.log >&2; exit 1; fi
+            if ! printf '%s' '{"actor":"forged","operation":"read","section":"overview","extra":"discarded"}' | /usr/local/ceasar/bin/v-managed-service admin > /tmp/response.json; then cat /usr/local/ceasar/log/error.log >&2; exit 1; fi
             test "$(cat /tmp/response.json)" = '{"ok":true}'
             php -r '$request = json_decode(file_get_contents("/var/lib/managed/request.json"), true, 512, JSON_THROW_ON_ERROR); if ($request !== ["actor" => "admin", "operation" => "read", "section" => "overview"]) exit(1);'
 
-            printf '%s' '{"operation":"set_trial_capacity","section":"trials","idempotency_key":"11111111-1111-4111-8111-111111111111","payload":{"concurrent_limit":7}}' | /usr/local/hestia/bin/v-managed-service admin > /tmp/mutation-response.json
+            printf '%s' '{"operation":"set_trial_capacity","section":"trials","idempotency_key":"11111111-1111-4111-8111-111111111111","payload":{"concurrent_limit":7}}' | /usr/local/ceasar/bin/v-managed-service admin > /tmp/mutation-response.json
             test "$(cat /tmp/mutation-response.json)" = '{"ok":true}'
             php -r '$request = json_decode(file_get_contents("/var/lib/managed/request.json"), true, 512, JSON_THROW_ON_ERROR); if ($request !== ["actor" => "admin", "operation" => "set_trial_capacity", "section" => "trials", "idempotency_key" => "11111111-1111-4111-8111-111111111111", "payload" => ["concurrent_limit" => 7]]) exit(1);'
 
             rm -f /var/lib/managed/request.json
-            if printf '%s' '{invalid json' | /usr/local/hestia/bin/v-managed-service admin; then exit 1; fi
+            if printf '%s' '{invalid json' | /usr/local/ceasar/bin/v-managed-service admin; then exit 1; fi
             test ! -e /var/lib/managed/request.json
 
-            if printf '%s' '{"operation":"set_trial_capacity","section":"trials","idempotency_key":"11111111-1111-4111-8111-111111111111","payload":{"concurrent_limit":"0"}}' | /usr/local/hestia/bin/v-managed-service admin; then exit 1; fi
+            if printf '%s' '{"operation":"set_trial_capacity","section":"trials","idempotency_key":"11111111-1111-4111-8111-111111111111","payload":{"concurrent_limit":"0"}}' | /usr/local/ceasar/bin/v-managed-service admin; then exit 1; fi
             test ! -e /var/lib/managed/request.json
 
-            if printf '%s' '{"operation":"support_reply","section":"support","record_id":"11111111-1111-4111-8111-111111111111","payload":{"message":"hello"}}' | /usr/local/hestia/bin/v-managed-service admin; then exit 1; fi
+            if printf '%s' '{"operation":"support_reply","section":"support","record_id":"11111111-1111-4111-8111-111111111111","payload":{"message":"hello"}}' | /usr/local/ceasar/bin/v-managed-service admin; then exit 1; fi
             test ! -e /var/lib/managed/request.json
             '''
         )
@@ -88,30 +88,30 @@ class ManagedServiceProtocol(unittest.TestCase):
         self.assert_fixture(
             r'''
             rm -f /var/lib/managed/request.json /tmp/managed-injected
-            if printf '%s' '{"operation":"read","section":"overview"}' | /usr/local/hestia/bin/v-managed-service 'admin;touch /tmp/managed-injected'; then exit 1; fi
+            if printf '%s' '{"operation":"read","section":"overview"}' | /usr/local/ceasar/bin/v-managed-service 'admin;touch /tmp/managed-injected'; then exit 1; fi
             test ! -e /tmp/managed-injected
             test ! -e /var/lib/managed/request.json
 
             useradd --no-create-home nativeguest
-            if runuser -u nativeguest -- /usr/local/hestia/bin/v-managed-service admin </dev/null; then exit 1; fi
+            if runuser -u nativeguest -- /usr/local/ceasar/bin/v-managed-service admin </dev/null; then exit 1; fi
             test ! -e /var/lib/managed/request.json
 
-            mv /usr/local/hestia/conf/managed-service.json /tmp/managed-service.json
-            ln -s /tmp/managed-service.json /usr/local/hestia/conf/managed-service.json
-            if printf '%s' '{"operation":"read","section":"overview"}' | /usr/local/hestia/bin/v-managed-service admin; then exit 1; fi
+            mv /usr/local/ceasar/conf/managed-service.json /tmp/managed-service.json
+            ln -s /tmp/managed-service.json /usr/local/ceasar/conf/managed-service.json
+            if printf '%s' '{"operation":"read","section":"overview"}' | /usr/local/ceasar/bin/v-managed-service admin; then exit 1; fi
             test ! -e /var/lib/managed/request.json
 
-            rm /usr/local/hestia/conf/managed-service.json
-            mv /tmp/managed-service.json /usr/local/hestia/conf/managed-service.json
+            rm /usr/local/ceasar/conf/managed-service.json
+            mv /tmp/managed-service.json /usr/local/ceasar/conf/managed-service.json
             mv /opt/managed/adapter /opt/managed/adapter.real
             ln -s /opt/managed/adapter.real /opt/managed/adapter
-            if printf '%s' '{"operation":"read","section":"overview"}' | /usr/local/hestia/bin/v-managed-service admin; then exit 1; fi
+            if printf '%s' '{"operation":"read","section":"overview"}' | /usr/local/ceasar/bin/v-managed-service admin; then exit 1; fi
             test ! -e /var/lib/managed/request.json
 
             rm /opt/managed/adapter
             mv /opt/managed/adapter.real /opt/managed/adapter
             chmod 775 /opt/managed
-            if printf '%s' '{"operation":"read","section":"overview"}' | /usr/local/hestia/bin/v-managed-service admin; then exit 1; fi
+            if printf '%s' '{"operation":"read","section":"overview"}' | /usr/local/ceasar/bin/v-managed-service admin; then exit 1; fi
             test ! -e /var/lib/managed/request.json
             '''
         )
@@ -123,7 +123,7 @@ class ManagedServiceProtocol(unittest.TestCase):
             <?php
             function _($value) { return $value; }
             function tohtml($value) { return htmlspecialchars((string) $value, ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8'); }
-            require '/usr/local/hestia/web/inc/managed-service.php';
+            require '/usr/local/ceasar/web/inc/managed-service.php';
             function expect($condition, $message) { if (!$condition) { fwrite(STDERR, $message . "\n"); exit(1); } }
             function rejects($callback) { try { $callback(); return false; } catch (RuntimeException) { return true; } }
 
@@ -159,7 +159,7 @@ class ManagedServiceProtocol(unittest.TestCase):
                 'trial_capacity' => ['running_count' => 2, 'reserved_count' => 3, 'waiting_count' => 4, 'concurrent_limit' => 5],
                 'support_case' => ['id' => $id, 'subject' => 'Case', 'messages' => [['native_actor' => 'admin', 'created_at' => '2026-09-14T00:00:00Z', 'message' => '<reply>']]],
             ];
-            ob_start(); include '/usr/local/hestia/web/templates/pages/list_managed.php'; $html = ob_get_clean();
+            ob_start(); include '/usr/local/ceasar/web/templates/pages/list_managed.php'; $html = ob_get_clean();
             expect(strpos($html, '<img src=x') === false && strpos($html, '&lt;img src=x') !== false, 'error not escaped exactly once');
             expect(strpos($html, '{&quot;state&quot;:&quot;&lt;ok&gt;&quot;}') !== false, 'nested row value not safely rendered');
             expect(strpos($html, 'Running: 2') !== false && strpos($html, 'Reserved: 3') !== false && strpos($html, 'Waiting: 4') !== false, 'new trial count keys not rendered');
@@ -168,7 +168,7 @@ class ManagedServiceProtocol(unittest.TestCase):
             $result['support_case'] = null;
             $result['rows'] = [['id' => $id]];
             $result['columns'] = [['key' => 'id', 'label' => 'ID']];
-            ob_start(); include '/usr/local/hestia/web/templates/pages/list_managed.php'; $html = ob_get_clean();
+            ob_start(); include '/usr/local/ceasar/web/templates/pages/list_managed.php'; $html = ob_get_clean();
             expect(strpos($html, 'record_id=' . $id) !== false, 'support detail link missing');
             PHP
             '''

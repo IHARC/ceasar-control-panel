@@ -13,12 +13,12 @@
 MODE=$1
 
 # Includes
-# shellcheck source=/etc/hestiacp/hestia.conf
-source /etc/hestiacp/hestia.conf
-# shellcheck source=/usr/local/hestia/func/main.sh
-source $HESTIA/func/main.sh
+# shellcheck source=/etc/ceasar/ceasar.conf
+source /etc/ceasar/ceasar.conf
+# shellcheck source=/usr/local/ceasar/func/main.sh
+source $CEASAR/func/main.sh
 # load config file
-source_conf "$HESTIA/conf/hestia.conf"
+source_conf "$CEASAR/conf/ceasar.conf"
 
 PMA_INSTALL="/usr/share/phpmyadmin"
 PMA_CONFIG="/etc/phpmyadmin"
@@ -28,14 +28,14 @@ PMA_CONFIG="/etc/phpmyadmin"
 #----------------------------------------------------------#
 
 # Perform verification if read-only mode is enabled
-check_hestia_demo_mode
+check_ceasar_demo_mode
 
 if [ "x$(id -u)" != 'x0' ]; then
 	echo "Error: Script can be run executed only by root"
 	exit 10
 fi
 
-if [ ! -e "$PMA_INSTALL/hestia-sso.php" ]; then
+if [ ! -e "$PMA_INSTALL/ceasar-sso.php" ]; then
 	echo 'Error:  PMA Single Sign On already disabled'
 	exit 1
 fi
@@ -44,31 +44,31 @@ fi
 #                       Action                             #
 #----------------------------------------------------------#
 
-apikey=$(grep -Po "'API_KEY', '(.*)'" /usr/share/phpmyadmin/hestia-sso.php | cut "-d'" -f4)
+apikey=$(grep -Po "'API_KEY', '(.*)'" /usr/share/phpmyadmin/ceasar-sso.php | cut "-d'" -f4)
 
 if [ -z $(echo $apikey | grep ":") ]; then
 	$BIN/v-revoke-api-key "$apikey"
 else
-	apikey=$(grep -Po "'API_KEY', '(.*)'" /usr/share/phpmyadmin/hestia-sso.php | cut "-d'" -f4 | cut -d ":" -f1)
+	apikey=$(grep -Po "'API_KEY', '(.*)'" /usr/share/phpmyadmin/ceasar-sso.php | cut "-d'" -f4 | cut -d ":" -f1)
 	$BIN/v-delete-access-key "$apikey"
 fi
 
 #remove new files
-rm /usr/share/phpmyadmin/hestia-sso.php
-rm /etc/phpmyadmin/hestia-sso.inc.php
+rm /usr/share/phpmyadmin/ceasar-sso.php
+rm /etc/phpmyadmin/ceasar-sso.inc.php
 
 #revert config
-sed -i "/hestia-sso.inc.php/d" $PMA_CONFIG/config.inc.php
+sed -i "/ceasar-sso.inc.php/d" $PMA_CONFIG/config.inc.php
 
 # disable key
 $BIN/v-change-sys-config-value 'PHPMYADMIN_KEY' ""
 
 #----------------------------------------------------------#
-#                       Hestia                             #
+#                       Ceasar                             #
 #----------------------------------------------------------#
 
 if [ "$MODE" != "quiet" ]; then
-	echo "PMA Hestia-SSO plugin has been successfully removed/disabled"
+	echo "PMA Ceasar-SSO plugin has been successfully removed/disabled"
 fi
 
 # Logging

@@ -2,10 +2,10 @@
 
 declare(strict_types=1);
 
-namespace Hestia\WebApp\Installers\PrestaShop;
+namespace Ceasar\WebApp\Installers\PrestaShop;
 
-use Hestia\WebApp\BaseSetup;
-use Hestia\WebApp\InstallationTarget\InstallationTarget;
+use Ceasar\WebApp\BaseSetup;
+use Ceasar\WebApp\InstallationTarget\InstallationTarget;
 
 class PrestaShopSetup extends BaseSetup {
     protected array $info = [
@@ -79,7 +79,7 @@ class PrestaShopSetup extends BaseSetup {
         "resources" => [
             "archive" => [
                 "src" =>
-                    "https://assets.prestashop3.com/dst/edition/corporate/9.1.4-5.0/prestashop_edition_classic_version_9.1.4-5.0.zip?source=hestiacp",
+                    "https://assets.prestashop3.com/dst/edition/corporate/9.1.4-5.0/prestashop_edition_classic_version_9.1.4-5.0.zip?source=ceasar",
             ],
         ],
         "server" => [

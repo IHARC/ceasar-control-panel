@@ -1,7 +1,7 @@
 #=========================================================================#
 # Private Operator Web Domain Template                                             #
 # DO NOT MODIFY THIS FILE! CHANGES WILL BE LOST WHEN REBUILDING DOMAINS   #
-# https://hestiacp.com/docs/server-administration/web-templates.html      #
+# https://ceasar.com/docs/server-administration/web-templates.html      #
 #=========================================================================#
 
 server {

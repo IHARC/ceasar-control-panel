@@ -1,4 +1,4 @@
-#!/usr/local/hestia/php/bin/php
+#!/usr/local/ceasar/php/bin/php
 <?php
 declare(strict_types=1);
 
@@ -20,13 +20,13 @@ if ($sessionId === "" || preg_match('/^[A-Za-z0-9,-]+$/', $sessionId) !== 1) {
 	deny("invalid session id");
 }
 
-$hestia = getenv("HESTIA");
-if (!is_string($hestia) || $hestia === "") {
-	deny("missing HESTIA env");
+$ceasar = getenv("CEASAR");
+if (!is_string($ceasar) || $ceasar === "") {
+	deny("missing CEASAR env");
 }
 
-session_name("HESTIASID");
-session_save_path($hestia . "/data/sessions");
+session_name("CEASARSID");
+session_save_path($ceasar . "/data/sessions");
 session_id($sessionId);
 
 if (!@session_start()) {

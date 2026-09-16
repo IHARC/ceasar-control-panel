@@ -1,0 +1,37 @@
+#!/bin/bash
+# info: update all ceasar packages
+# options: NONE
+#
+# example: v-update-sys-ceasar-all
+#
+# This function of updating all ceasar packages
+
+#----------------------------------------------------------#
+#                Variables & Functions                     #
+#----------------------------------------------------------#
+
+# Includes
+# shellcheck source=/etc/ceasar/ceasar.conf
+source /etc/ceasar/ceasar.conf
+# shellcheck source=/usr/local/ceasar/func/main.sh
+source $CEASAR/func/main.sh
+# load config file
+source_conf "$CEASAR/conf/ceasar.conf"
+
+# Perform verification if read-only mode is enabled
+check_ceasar_demo_mode
+
+#----------------------------------------------------------#
+#                       Action                             #
+#----------------------------------------------------------#
+
+# Starting update loop
+for package in ceasar ceasar-nginx ceasar-php; do
+	$BIN/v-update-sys-ceasar "$package"
+done
+
+#----------------------------------------------------------#
+#                       Ceasar                             #
+#----------------------------------------------------------#
+
+exit

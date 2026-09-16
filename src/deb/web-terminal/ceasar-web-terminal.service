@@ -1,0 +1,16 @@
+[Unit]
+Description=Ceasar Web Terminal
+Documentation=https://ceasar.com/docs/
+After=network.target
+
+[Service]
+User=root
+Group=ceasar-users
+Environment=NODE_ENV=production
+Environment=CEASAR=/usr/local/ceasar
+ExecStart=/usr/local/ceasar/web-terminal/server.js
+ExecStop=/bin/kill -s TERM $MAINPID
+Restart=on-failure
+
+[Install]
+WantedBy=multi-user.target

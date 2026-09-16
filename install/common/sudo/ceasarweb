@@ -1,0 +1,4 @@
+Defaults:root !requiretty
+
+# sudo is limited to ceasar scripts
+ceasarweb   ALL=NOPASSWD:/usr/local/ceasar/bin/*

@@ -10,7 +10,7 @@ This fork provides the canonical-account lifecycle commands
 `iharc-customer-isolation`, `v-iharc-resource-isolation`,
 `iharc-transfer-uid-floor`, `v-iharc-transfer-policy`, and
 `iharc-haproxy-cert-sync`, with their nonsecret Python support files under
-Hestia `libexec/iharc`. A managed hosting deployment must supply its
+Ceasar `libexec/iharc`. A managed hosting deployment must supply its
 root-owned account profile, transfer-policy data, service units, and HAProxy
 configuration. Those deployment bindings are intentionally outside this
 repository. Missing or unsafe deployment configuration makes the affected
@@ -18,7 +18,7 @@ canonical-account operation fail; these commands have no fallback path.
 
 ## Adding a new theme
 
-Create a new theme in `/usr/local/hestia/web/css/themes/custom/my_theme.css`
+Create a new theme in `/usr/local/ceasar/web/css/themes/custom/my_theme.css`
 
 ```css
 .page-login,
@@ -32,7 +32,7 @@ Create a new theme in `/usr/local/hestia/web/css/themes/custom/my_theme.css`
 
 ## Customising a default theme
 
-Changes to default themes are always overwritten during updates. Custom CSS files can be uploaded to `/usr/local/hestia/web/css/custom` in `.css` or `.min.css` format.
+Changes to default themes are always overwritten during updates. Custom CSS files can be uploaded to `/usr/local/ceasar/web/css/custom` in `.css` or `.min.css` format.
 
 Please note that `default.css` base theme is always loaded. Other default and custom themes override the rules in this file.
 
@@ -46,29 +46,29 @@ nano /var/www/html/index.html
 
 ## Customising the default domain skeleton structure
 
-The default structure that will be added to a domain when it gets created is located in `/usr/local/hestia/data/templates/web/skel/public_html`.
+The default structure that will be added to a domain when it gets created is located in `/usr/local/ceasar/data/templates/web/skel/public_html`.
 
 ## Running commands before and after updates
 
-With the release of Hestia 1.4.6 we have added pre-install and post-install hooks. For example, you can use hooks to:
+With the release of Ceasar 1.4.6 we have added pre-install and post-install hooks. For example, you can use hooks to:
 
 - Disable and enable demo mode before and after an update.
 - Restore a customised skeleton page.
 
 Hooks are located in one of the following files:
 
-- `/etc/hestiacp/hooks/pre_install.sh`
-- `/etc/hestiacp/hooks/post_install.sh`
+- `/etc/ceasar/hooks/pre_install.sh`
+- `/etc/ceasar/hooks/post_install.sh`
 
 ::: tip
-Don’t forget to make the file executable by running `chmod +x /etc/hestiacp/hooks/[file].sh`.
+Don’t forget to make the file executable by running `chmod +x /etc/ceasar/hooks/[file].sh`.
 :::
 
 For example, to disable demo mode on pre-install:
 
-```bash /etc/hestiacp/hooks/pre_install.sh
+```bash /etc/ceasar/hooks/pre_install.sh
 #!/bin/bash
-sed -i "s|^DEMO_MODE=.*'|DEMO_MODE='no'|g" $HESTIA/conf/hestia.conf
+sed -i "s|^DEMO_MODE=.*'|DEMO_MODE='no'|g" $CEASAR/conf/ceasar.conf
 ```
 
 ::: warning

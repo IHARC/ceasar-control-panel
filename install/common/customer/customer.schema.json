@@ -1,0 +1,32 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/iharc-jordan/ceasar-control-panel/customer.schema.json",
+  "title": "Ceasar optional customer module configuration",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema",
+    "enabled",
+    "brand_name",
+    "supabase_url",
+    "supabase_publishable_key",
+    "terms_url",
+    "privacy_url",
+    "passkeys_enabled",
+    "passkey_rp_id"
+  ],
+  "properties": {
+    "schema": { "const": 1 },
+    "enabled": { "type": "boolean" },
+    "brand_name": { "type": "string", "minLength": 1, "maxLength": 80 },
+    "supabase_url": { "type": "string", "format": "uri", "pattern": "^https://" },
+    "supabase_publishable_key": { "type": "string", "pattern": "^sb_publishable_" },
+    "terms_url": { "type": "string", "format": "uri", "pattern": "^https://" },
+    "privacy_url": { "type": "string", "format": "uri", "pattern": "^https://" },
+    "passkeys_enabled": { "type": "boolean" },
+    "passkey_rp_id": {
+      "type": "string",
+      "pattern": "^[a-z0-9](?:[a-z0-9.-]{0,251}[a-z0-9])?$"
+    }
+  }
+}

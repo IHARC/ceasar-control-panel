@@ -7,60 +7,60 @@ if [ "$1" != "configure" ]; then
 fi
 
 # Run triggers only on updates
-if [ ! -e "/usr/local/hestia/data/users/" ]; then
+if [ ! -e "/usr/local/ceasar/data/users/" ]; then
 	exit
 fi
 
-# Prevent running and causes issues with outdated hestia version
-if ! id "hestiaweb" &> /dev/null; then
+# Prevent running and causes issues with outdated ceasar version
+if ! id "ceasarweb" &> /dev/null; then
 	exit
 fi
 
 # Touch and set permisions on default log files on installation
-update-rc.d hestia defaults > /dev/null
-invoke-rc.d hestia start || true
+update-rc.d ceasar defaults > /dev/null
+invoke-rc.d ceasar start || true
 
-# Adapt Port Listing in HESTIA NGINX Backend
-source /usr/local/hestia/func/syshealth.sh # Load syshealth functions
+# Adapt Port Listing in CEASAR NGINX Backend
+source /usr/local/ceasar/func/syshealth.sh # Load syshealth functions
 
-# Check if the function syshealth_adapt_hestia_nginx_listen_ports exists
-if ! declare -f syshealth_adapt_hestia_nginx_listen_ports > /dev/null; then
+# Check if the function syshealth_adapt_ceasar_nginx_listen_ports exists
+if ! declare -f syshealth_adapt_ceasar_nginx_listen_ports > /dev/null; then
 	exit
 fi
-syshealth_adapt_hestia_nginx_listen_ports # Adapt port listing
+syshealth_adapt_ceasar_nginx_listen_ports # Adapt port listing
 syshealth_adapt_nginx_resolver
 
 ###############################################################
 #                Initialize functions/variables               #
 ###############################################################
 
-if [ -z "$HESTIA" ]; then
-	export HESTIA='/usr/local/hestia'
-	PATH=$PATH:/usr/local/hestia/bin
+if [ -z "$CEASAR" ]; then
+	export CEASAR='/usr/local/ceasar'
+	PATH=$PATH:/usr/local/ceasar/bin
 	export PATH
 fi
 
 # Check if preinstall hook exists
-if [ -e "/etc/hestiacp/hooks/nginx/pre_install.sh" ]; then
-	/etc/hestiacp/hooks/nginx/pre_install.sh
+if [ -e "/etc/ceasar/hooks/nginx/pre_install.sh" ]; then
+	/etc/ceasar/hooks/nginx/pre_install.sh
 fi
 
 # Load upgrade functions and variables
-source /usr/local/hestia/func/main.sh
-source /usr/local/hestia/func/upgrade.sh
-source /usr/local/hestia/conf/hestia.conf
-source /usr/local/hestia/install/upgrade/upgrade.conf
+source /usr/local/ceasar/func/main.sh
+source /usr/local/ceasar/func/upgrade.sh
+source /usr/local/ceasar/conf/ceasar.conf
+source /usr/local/ceasar/install/upgrade/upgrade.conf
 
 # Reset backend port
 if [ -n "$BACKEND_PORT" ]; then
-	/usr/local/hestia/bin/v-change-sys-port $BACKEND_PORT
+	/usr/local/ceasar/bin/v-change-sys-port $BACKEND_PORT
 fi
 
-if [ -e "/etc/hestiacp/hooks/nginx/post_install.sh" ]; then
-	/etc/hestiacp/hooks/nginx/post_install.sh
+if [ -e "/etc/ceasar/hooks/nginx/post_install.sh" ]; then
+	/etc/ceasar/hooks/nginx/post_install.sh
 fi
 
-# Restart hestia service
-if [ -f "/etc/init.d/hestia" ]; then
-	systemctl restart hestia > /dev/null 2>&1
+# Restart ceasar service
+if [ -f "/etc/init.d/ceasar" ]; then
+	systemctl restart ceasar > /dev/null 2>&1
 fi

@@ -1,5 +1,5 @@
 <?php
-use function Hestiacp\quoteshellarg\quoteshellarg;
+use function Ceasar\Shell\quoteshellarg;
 
 ob_start();
 
@@ -62,7 +62,7 @@ if ($_SESSION["userContext"] === "admin") {
 
 foreach ($database as $value) {
 	$value = quoteshellarg($value);
-	exec(HESTIA_CMD . $cmd . " " . $user . " " . $value, $output, $return_var);
+	exec(CEASAR_CMD . $cmd . " " . $user . " " . $value, $output, $return_var);
 }
 
 header("Location: /list/db/");

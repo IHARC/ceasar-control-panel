@@ -1,0 +1,78 @@
+#!/bin/bash
+# info: add cron job for ceasar automatic updates
+# options: MODE
+#
+# This function adds a cronjob for ceasar automatic updates
+# that can be downloaded from apt or git.
+
+#----------------------------------------------------------#
+#                Variables & Functions                     #
+#----------------------------------------------------------#
+
+# Argument definition
+mode=$1
+
+# Includes
+# shellcheck source=/etc/ceasar/ceasar.conf
+source /etc/ceasar/ceasar.conf
+# shellcheck source=/usr/local/ceasar/func/main.sh
+source $CEASAR/func/main.sh
+# load config file
+source_conf "$CEASAR/conf/ceasar.conf"
+
+#----------------------------------------------------------#
+#                    Verifications                         #
+#----------------------------------------------------------#
+
+is_system_enabled "$CRON_SYSTEM" 'CRON_SYSTEM'
+check_cron_apt=$(grep 'v-update-sys-ceasar-all' "/var/spool/cron/crontabs/ceasarweb")
+check_cron_git=$(grep 'v-update-sys-ceasar-git' "/var/spool/cron/crontabs/ceasarweb")
+if [ -n "$check_cron_apt" ] || [ -n "$check_cron_git" ]; then
+	exit
+fi
+
+# Perform verification if read-only mode is enabled
+check_ceasar_demo_mode
+
+#----------------------------------------------------------#
+#                       Action                             #
+#----------------------------------------------------------#
+
+# Generating timestamp
+time_n_date=$(date +'%T %F')
+time=$(echo "$time_n_date" | cut -f 1 -d \ )
+date=$(echo "$time_n_date" | cut -f 2 -d \ )
+
+# Define time somewhere at night
+if [ -z "$mode" ] || [ "$mode" = "apt" ]; then
+	min=$(generate_password '012345' '2')
+	hour=$(generate_password '1234567' '1')
+	day='*'
+	month='*'
+	wday='*'
+	command='v-update-sys-ceasar-all'
+fi
+
+if [ "$mode" = "git" ]; then
+	min='0'
+	hour='0'
+	day='*'
+	month='*'
+	wday='*'
+	command='v-update-sys-ceasar-git'
+fi
+
+sed -i -e "\$a$min $hour * * * sudo /usr/local/ceasar/bin/$command" "/var/spool/cron/crontabs/ceasarweb"
+
+#----------------------------------------------------------#
+#                       Ceasar                             #
+#----------------------------------------------------------#
+# Restarting cron
+$BIN/v-restart-cron
+check_result $? "Cron restart failed" > /dev/null
+
+# Logging
+$BIN/v-log-action "system" "Info" "Updates" "Automatic updates enabled."
+log_event "$OK" "$ARGUMENTS"
+
+exit

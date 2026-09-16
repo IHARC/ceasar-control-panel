@@ -16,12 +16,12 @@ keyid=$2
 fingerprint=$3
 
 # Includes
-# shellcheck source=/etc/hestiacp/hestia.conf
-source /etc/hestiacp/hestia.conf
-# shellcheck source=/usr/local/hestia/func/main.sh
-source $HESTIA/func/main.sh
+# shellcheck source=/etc/ceasar/ceasar.conf
+source /etc/ceasar/ceasar.conf
+# shellcheck source=/usr/local/ceasar/func/main.sh
+source $CEASAR/func/main.sh
 # load config file
-source_conf "$HESTIA/conf/hestia.conf"
+source_conf "$CEASAR/conf/ceasar.conf"
 # Additional argument formatting
 
 parse_ssh_key_line() {
@@ -53,7 +53,7 @@ source "$USER_DATA/user.conf"
 
 # Use the same dedicated root-owned lock as native key adds. Do not lock
 # authorized_keys itself: the successful rewrite below replaces that inode.
-SSH_KEY_LOCK_DIRECTORY="/run/hestia/ssh-key-locks"
+SSH_KEY_LOCK_DIRECTORY="/run/ceasar/ssh-key-locks"
 install -d -o root -g root -m 0700 "$SSH_KEY_LOCK_DIRECTORY" || check_result $? "Unable to prepare SSH key lock" "$E_SYSTEM"
 SSH_KEY_LOCK_FILE="$SSH_KEY_LOCK_DIRECTORY/$user.lock"
 (umask 077; : >> "$SSH_KEY_LOCK_FILE") || check_result $? "Unable to prepare SSH key lock" "$E_SYSTEM"
@@ -68,7 +68,7 @@ if [ ! -f "$AUTHKEY_FILE" ]; then
 fi
 
 # Perform verification if read-only mode is enabled
-check_hestia_demo_mode
+check_ceasar_demo_mode
 
 #----------------------------------------------------------#
 #                       Action                             #
@@ -123,7 +123,7 @@ mv -f "$AUTHKEY_TEMP" "$AUTHKEY_FILE" || check_result $? "Unable to update SSH k
 trap - EXIT
 
 #----------------------------------------------------------#
-#                       Hestia                             #
+#                       Ceasar                             #
 #----------------------------------------------------------#
 
 # Logging

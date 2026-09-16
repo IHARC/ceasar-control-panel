@@ -1,5 +1,5 @@
 <?php
-use function Hestiacp\quoteshellarg\quoteshellarg;
+use function Ceasar\Shell\quoteshellarg;
 
 // Init
 ob_start();
@@ -15,7 +15,7 @@ if ($read_only === true) {
 
 if (!empty($_GET["database"])) {
 	$v_database = quoteshellarg($_GET["database"]);
-	exec(HESTIA_CMD . "v-unsuspend-database " . $user . " " . $v_database, $output, $return_var);
+	exec(CEASAR_CMD . "v-unsuspend-database " . $user . " " . $v_database, $output, $return_var);
 	check_return_code($return_var, $output);
 	unset($output);
 }

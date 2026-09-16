@@ -1,5 +1,5 @@
 <?php
-use function Hestiacp\quoteshellarg\quoteshellarg;
+use function Ceasar\Shell\quoteshellarg;
 
 ob_start();
 $TAB = "DB";
@@ -22,7 +22,7 @@ if ($_SESSION["userContext"] === "admin" && !empty($_GET["user"])) {
 // List datbase
 $v_database = $_GET["database"];
 exec(
-	HESTIA_CMD . "v-list-database " . $user . " " . quoteshellarg($v_database) . " 'json'",
+	CEASAR_CMD . "v-list-database " . $user . " " . quoteshellarg($v_database) . " 'json'",
 	$output,
 	$return_var,
 );
@@ -56,7 +56,7 @@ if (!empty($_POST["save"]) && $read_only !== true) {
 	// Change database user
 	if ($v_dbuser != $_POST["v_dbuser"] && empty($_SESSION["error_msg"])) {
 		$cmd = implode(" ", [
-			HESTIA_CMD . "v-change-database-user",
+			CEASAR_CMD . "v-change-database-user",
 			// $user is already shell-quoted
 			$user,
 			quoteshellarg($v_database),
@@ -78,7 +78,7 @@ if (!empty($_POST["save"]) && $read_only !== true) {
 			fwrite($fp, $_POST["v_password"] . "\n");
 			fclose($fp);
 			exec(
-				HESTIA_CMD .
+				CEASAR_CMD .
 					"v-change-database-password " .
 					$user .
 					" " .

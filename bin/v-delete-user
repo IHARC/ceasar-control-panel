@@ -16,18 +16,18 @@ user=$1
 restart=$2
 
 # Includes
-# shellcheck source=/etc/hestiacp/hestia.conf
-source /etc/hestiacp/hestia.conf
-# shellcheck source=/usr/local/hestia/func/main.sh
-source $HESTIA/func/main.sh
-# shellcheck source=/usr/local/hestia/func/domain.sh
-source $HESTIA/func/domain.sh
-# shellcheck source=/usr/local/hestia/func/db.sh
-source $HESTIA/func/db.sh
-# shellcheck source=/usr/local/hestia/func/ip.sh
-source $HESTIA/func/ip.sh
+# shellcheck source=/etc/ceasar/ceasar.conf
+source /etc/ceasar/ceasar.conf
+# shellcheck source=/usr/local/ceasar/func/main.sh
+source $CEASAR/func/main.sh
+# shellcheck source=/usr/local/ceasar/func/domain.sh
+source $CEASAR/func/domain.sh
+# shellcheck source=/usr/local/ceasar/func/db.sh
+source $CEASAR/func/db.sh
+# shellcheck source=/usr/local/ceasar/func/ip.sh
+source $CEASAR/func/ip.sh
 # load config file
-source_conf "$HESTIA/conf/hestia.conf"
+source_conf "$CEASAR/conf/ceasar.conf"
 
 #----------------------------------------------------------#
 #                    Verifications                         #
@@ -41,7 +41,7 @@ if [ "$user" = "$ROOT_USER" ]; then
 fi
 
 # Perform verification if read-only mode is enabled
-check_hestia_demo_mode
+check_ceasar_demo_mode
 
 #----------------------------------------------------------#
 #                       Action                             #
@@ -56,7 +56,7 @@ if [[ "$user" =~ ^ih[0-9a-f]{14}$ && -x "$BIN/v-iharc-transfer-policy" ]]; then
 fi
 
 if [[ "$user" =~ ^ih[0-9a-f]{14}$ ]]; then
-	"$HESTIA/bin/iharc-customer-isolation" delete-prep "$user" "$HESTIA" > /dev/null \
+	"$CEASAR/bin/iharc-customer-isolation" delete-prep "$user" "$CEASAR" > /dev/null \
 		|| check_result "$E_INVALID" "customer resource isolation deletion is not safe"
 fi
 
@@ -83,7 +83,7 @@ fi
 
 # Deleting databases
 if [[ "$user" =~ ^ih[0-9a-f]{14}$ ]]; then
-	"$HESTIA/bin/iharc-customer-isolation" delete-database-prep "$user" "$HESTIA" > /dev/null \
+	"$CEASAR/bin/iharc-customer-isolation" delete-database-prep "$user" "$CEASAR" > /dev/null \
 		|| check_result "$E_DB" "customer database isolation could not prepare for deletion"
 fi
 if [ -n "$DB_SYSTEM" ] && [ "$DB_SYSTEM" != 'no' ]; then
@@ -102,13 +102,13 @@ $BIN/v-delete-user-ips "$user"
 check_result "$?" "user ip release failed"
 
 # Deleteing user pipes
-sed -i "/ $user$/d" "$HESTIA/data/queue/disk.pipe"
-sed -i "/ $user$/d" "$HESTIA/data/queue/traffic.pipe"
+sed -i "/ $user$/d" "$CEASAR/data/queue/disk.pipe"
+sed -i "/ $user$/d" "$CEASAR/data/queue/traffic.pipe"
 
 # Deleting sftp jail
 $BIN/v-delete-user-sftp-jail "$user"
 if [[ "$user" =~ ^ih[0-9a-f]{14}$ ]]; then
-	"$HESTIA/bin/iharc-customer-isolation" delete-finalize "$user" "$HESTIA" > /dev/null \
+	"$CEASAR/bin/iharc-customer-isolation" delete-finalize "$user" "$CEASAR" > /dev/null \
 		|| check_result "$E_INVALID" "customer resource isolation deletion is not safe"
 fi
 
@@ -142,7 +142,7 @@ if [ "$user" != "$ROOT_USER" ]; then
 fi
 
 #----------------------------------------------------------#
-#                       Hestia                             #
+#                       Ceasar                             #
 #----------------------------------------------------------#
 
 # Logging

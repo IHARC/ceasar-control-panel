@@ -25,18 +25,18 @@ aliases=$5
 proxy_ext=$6
 
 # Includes
-# shellcheck source=/etc/hestiacp/hestia.conf
-source /etc/hestiacp/hestia.conf
-# shellcheck source=/usr/local/hestia/func/main.sh
-source $HESTIA/func/main.sh
-# shellcheck source=/usr/local/hestia/func/domain.sh
-source $HESTIA/func/domain.sh
-# shellcheck source=/usr/local/hestia/func/ip.sh
-source $HESTIA/func/ip.sh
-# shellcheck source=/usr/local/hestia/func/syshealth.sh
-source $HESTIA/func/syshealth.sh
+# shellcheck source=/etc/ceasar/ceasar.conf
+source /etc/ceasar/ceasar.conf
+# shellcheck source=/usr/local/ceasar/func/main.sh
+source $CEASAR/func/main.sh
+# shellcheck source=/usr/local/ceasar/func/domain.sh
+source $CEASAR/func/domain.sh
+# shellcheck source=/usr/local/ceasar/func/ip.sh
+source $CEASAR/func/ip.sh
+# shellcheck source=/usr/local/ceasar/func/syshealth.sh
+source $CEASAR/func/syshealth.sh
 # load config file
-source_conf "$HESTIA/conf/hestia.conf"
+source_conf "$CEASAR/conf/ceasar.conf"
 
 # Additional argument formatting
 format_domain
@@ -85,7 +85,7 @@ else
 fi
 
 # Perform verification if read-only mode is enabled
-check_hestia_demo_mode
+check_ceasar_demo_mode
 
 #----------------------------------------------------------#
 #                       Action                             #
@@ -136,7 +136,7 @@ user_exec chmod 551 $HOMEDIR/$user/web/$domain/stats $HOMEDIR/$user/web/$domain/
 find $HOMEDIR/$user/web/$domain/public_html -type d | xargs chmod 755
 find $HOMEDIR/$user/web/$domain/public_html -type f | xargs chmod 644
 
-# domain folder permissions: DOMAINDIR_WRITABLE: default-val:no source:hestia.conf
+# domain folder permissions: DOMAINDIR_WRITABLE: default-val:no source:ceasar.conf
 DOMAINDIR_MODE=551
 if [ "$DOMAINDIR_WRITABLE" = 'yes' ]; then DOMAINDIR_MODE=751; fi
 
@@ -231,7 +231,7 @@ if [ -n "$PROXY_SYSTEM" ]; then
 fi
 
 #----------------------------------------------------------#
-#                       Hestia                             #
+#                       Ceasar                             #
 #----------------------------------------------------------#
 
 # Increasing counters
@@ -253,10 +253,10 @@ echo "DOMAIN='$domain' IP='$ip' IP6='' CUSTOM_DOCROOT='' ALIAS='$ALIAS' TPL='$WE
 
 syshealth_repair_web_config
 
-# Move the generated vhost/pool before Hestia reloads shared Apache. This
+# Move the generated vhost/pool before Ceasar reloads shared Apache. This
 # prevents a rebuild race in which the shared master could retain it.
 if [[ "$user" =~ ^ih[0-9a-f]{14}$ && ! -e "/run/iharc-customer-isolation/delete/$user" ]]; then
-	"$HESTIA/bin/iharc-customer-isolation" reconcile "$user" "$HESTIA" > /dev/null \
+	"$CEASAR/bin/iharc-customer-isolation" reconcile "$user" "$CEASAR" > /dev/null \
 		|| check_result "$E_RESTART" "customer resource isolation could not be reconciled"
 fi
 

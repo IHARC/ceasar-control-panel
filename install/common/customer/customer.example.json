@@ -1,0 +1,11 @@
+{
+  "schema": 1,
+  "enabled": false,
+  "brand_name": "Ceasar",
+  "supabase_url": "https://your-project.supabase.co",
+  "supabase_publishable_key": "sb_publishable_replace_me",
+  "terms_url": "https://example.com/terms",
+  "privacy_url": "https://example.com/privacy",
+  "passkeys_enabled": false,
+  "passkey_rp_id": "app.example.com"
+}

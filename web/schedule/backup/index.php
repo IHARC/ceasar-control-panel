@@ -11,7 +11,7 @@ if ($read_only === true) {
 	exit();
 }
 
-exec(HESTIA_CMD . "v-schedule-user-backup " . $user, $output, $return_var);
+exec(CEASAR_CMD . "v-schedule-user-backup " . $user, $output, $return_var);
 if ($return_var == 0) {
 	$_SESSION["error_msg"] = _(
 		"Task has been added to the queue. You will receive an email notification when your backup is ready for download.",
@@ -19,7 +19,7 @@ if ($return_var == 0) {
 } else {
 	$_SESSION["error_msg"] = implode("<br>", $output);
 	if (empty($_SESSION["error_msg"])) {
-		$_SESSION["error_msg"] = _("Error: Hestia did not return any output.");
+		$_SESSION["error_msg"] = _("Error: Ceasar did not return any output.");
 	}
 
 	if ($return_var == 4) {

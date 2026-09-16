@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Root-only publication of schema-2 traffic permissions.
 
-This command transports an already-authoritative policy from the native Hestia
+This command transports an already-authoritative policy from the native Ceasar
 bridge. It has no pricing, provider, allowance-issuance, or controller-lease
 authority. Publication never writes usage or refreshes traffic permission.
 """
@@ -156,13 +156,13 @@ class Publisher:
             accounts.append(incoming.payload)
         self._write_config(config)
         # The map/fragment is derived from the just-published policy and
-        # Hestia's own web.conf/ssl tree. A failed sync leaves the new policy
+        # Ceasar's own web.conf/ssl tree. A failed sync leaves the new policy
         # fail-closed in the controller rather than reviving a manual map.
         self.authority_sync()
 
     def native_authority_sync(self) -> None:
         result = subprocess.run(
-            ["/usr/local/hestia/bin/iharc-haproxy-cert-sync"],
+            ["/usr/local/ceasar/bin/iharc-haproxy-cert-sync"],
             check=False,
             timeout=20,
             env={"PATH": "/usr/sbin:/usr/bin:/sbin:/bin", "LANG": "C"},
@@ -219,14 +219,14 @@ class Publisher:
         A short-lived account may fail after native isolation is bound but
         before its first authoritative transfer policy is published. Only the
         existing retention transaction, its live delete marker, the suspended
-        Hestia record, and an inactive isolation observation may authorize that
+        Ceasar record, and an inactive isolation observation may authorize that
         no-policy identity cleanup.
         """
-        transaction = self.path(f"/usr/local/hestia/data/iharc-retention/{username}.deletion")
+        transaction = self.path(f"/usr/local/ceasar/data/iharc-retention/{username}.deletion")
         intent = transaction / "intent"
         delete_root = self.path("/run/iharc-customer-isolation/delete")
         delete_marker = delete_root / username
-        user_config = self.path(f"/usr/local/hestia/data/users/{username}/user.conf")
+        user_config = self.path(f"/usr/local/ceasar/data/users/{username}/user.conf")
 
         self._require_owned_path(transaction, directory=True, mode=0o700)
         intent_info = self._require_owned_path(intent, directory=False, mode=0o600)
@@ -259,7 +259,7 @@ class Publisher:
             raise PolicyError("native retention transaction does not match the suspended account")
 
         result = subprocess.run(
-            ["/usr/local/hestia/bin/iharc-customer-isolation", "status", username, "/usr/local/hestia"],
+            ["/usr/local/ceasar/bin/iharc-customer-isolation", "status", username, "/usr/local/ceasar"],
             check=False, capture_output=True, text=True, timeout=5,
             env={"PATH": "/usr/sbin:/usr/bin:/sbin:/bin", "LANG": "C"},
         )
@@ -303,7 +303,7 @@ class Publisher:
     def assert_terminal_ready(self, username: str) -> None:
         """Refuse native identity removal until terminal traffic closure is observed.
 
-        This verifier has no policy-writing authority. Hestia's delete hook
+        This verifier has no policy-writing authority. Ceasar's delete hook
         calls it before stopping/deleting a canonical identity, so the
         authoritative publisher must first record a terminal policy and the
         local controller must have applied its blocked observation.

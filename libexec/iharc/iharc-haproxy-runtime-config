@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Build the non-root HAProxy runtime configuration from Hestia's vendor file.
+# Build the non-root HAProxy runtime configuration from Ceasar's vendor file.
 # HAProxy 2.4 requires set-mark to start with CAP_NET_ADMIN, but it cannot
 # preserve that capability across its own global user/group privilege drop.
 # systemd therefore starts it directly as haproxy with only the two network

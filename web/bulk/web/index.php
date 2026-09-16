@@ -1,5 +1,5 @@
 <?php
-use function Hestiacp\quoteshellarg\quoteshellarg;
+use function Ceasar\Shell\quoteshellarg;
 
 ob_start();
 
@@ -68,15 +68,15 @@ if ($_SESSION["userContext"] === "admin") {
 
 foreach ($domain as $value) {
 	$value = quoteshellarg($value);
-	exec(HESTIA_CMD . $cmd . " " . $user . " " . $value . " no", $output, $return_var);
+	exec(CEASAR_CMD . $cmd . " " . $user . " " . $value . " no", $output, $return_var);
 	$restart = "yes";
 }
 
 if (isset($restart)) {
-	exec(HESTIA_CMD . "v-restart-web", $output, $return_var);
-	exec(HESTIA_CMD . "v-restart-proxy", $output, $return_var);
-	exec(HESTIA_CMD . "v-restart-dns", $output, $return_var);
-	exec(HESTIA_CMD . "v-restart-web-backend", $output, $return_var);
+	exec(CEASAR_CMD . "v-restart-web", $output, $return_var);
+	exec(CEASAR_CMD . "v-restart-proxy", $output, $return_var);
+	exec(CEASAR_CMD . "v-restart-dns", $output, $return_var);
+	exec(CEASAR_CMD . "v-restart-web-backend", $output, $return_var);
 }
 
 header("Location: /list/web/");

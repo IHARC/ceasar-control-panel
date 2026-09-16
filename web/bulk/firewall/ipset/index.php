@@ -1,5 +1,5 @@
 <?php
-use function Hestiacp\quoteshellarg\quoteshellarg;
+use function Ceasar\Shell\quoteshellarg;
 
 ob_start();
 
@@ -37,7 +37,7 @@ switch ($action) {
 
 foreach ($setname as $value) {
 	$v_name = quoteshellarg($value);
-	exec(HESTIA_CMD . $cmd . " " . $v_name, $output, $return_var);
+	exec(CEASAR_CMD . $cmd . " " . $v_name, $output, $return_var);
 }
 
 header("Location: /list/firewall/ipset/");

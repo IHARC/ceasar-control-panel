@@ -15,12 +15,12 @@
 format=${1-shell}
 
 # Includes
-# shellcheck source=/etc/hestiacp/hestia.conf
-source /etc/hestiacp/hestia.conf
-# shellcheck source=/usr/local/hestia/func/main.sh
-source $HESTIA/func/main.sh
+# shellcheck source=/etc/ceasar/ceasar.conf
+source /etc/ceasar/ceasar.conf
+# shellcheck source=/usr/local/ceasar/func/main.sh
+source $CEASAR/func/main.sh
 # load config file
-source_conf "$HESTIA/conf/hestia.conf"
+source_conf "$CEASAR/conf/ceasar.conf"
 
 # Define array for available themes
 available_themes=()
@@ -28,16 +28,16 @@ available_themes=()
 # Function to process CSS theme files
 get_themes() {
 	# Retrieve list of system themes
-	if [ -d "$HESTIA_THEMES" ]; then
-		for file in "$HESTIA_THEMES"/*.min.css; do
+	if [ -d "$CEASAR_THEMES" ]; then
+		for file in "$CEASAR_THEMES"/*.min.css; do
 			filename=$(basename "$file" .min.css)
 			available_themes+=("${filename%.*}")
 		done
 	fi
 
 	# Check for existence of custom themes folder and iterate through items
-	if [ -d "$HESTIA_THEMES_CUSTOM" ] && [ "$(ls -A "$HESTIA_THEMES_CUSTOM")" ]; then
-		for file in "$HESTIA_THEMES_CUSTOM"/*.css; do
+	if [ -d "$CEASAR_THEMES_CUSTOM" ] && [ "$(ls -A "$CEASAR_THEMES_CUSTOM")" ]; then
+		for file in "$CEASAR_THEMES_CUSTOM"/*.css; do
 			filename=$(basename "$file" .css)
 			available_themes+=("${filename%.*}")
 		done
@@ -105,7 +105,7 @@ case $format in
 esac
 
 #----------------------------------------------------------#
-#                       Hestia                             #
+#                       Ceasar                             #
 #----------------------------------------------------------#
 
 exit

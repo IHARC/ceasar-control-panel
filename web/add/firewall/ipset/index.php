@@ -1,5 +1,5 @@
 <?php
-use function Hestiacp\quoteshellarg\quoteshellarg;
+use function Ceasar\Shell\quoteshellarg;
 
 ob_start();
 $TAB = "FIREWALL";
@@ -51,7 +51,7 @@ if (!empty($_POST["ok"])) {
 	// Add firewall ipset list
 	if (empty($_SESSION["error_msg"])) {
 		exec(
-			HESTIA_CMD .
+			CEASAR_CMD .
 				"v-add-firewall-ipset " .
 				quoteshellarg($v_ipname) .
 				" " .

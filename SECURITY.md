@@ -1,10 +1,10 @@
-# Hestia CP Security policy
+# Ceasar CP Security policy
 
-Welcome and thanks for taking interest in Hestia CP!
+Welcome and thanks for taking interest in Ceasar CP!
 
-We are mostly interested in reports by actual Hestia CP users but all high quality contributions are welcome.
+We are mostly interested in reports by actual Ceasar CP users but all high quality contributions are welcome.
 
-If you believe you have discovered a vulnerability in Hestia Control Panel, please notify our development team by submitting a [vulnerability disclosure via GitHub](https://github.com/hestiacp/hestiacp/security/advisories/new).
+If you believe you have discovered a vulnerability in Ceasar Control Panel, please notify our development team by submitting a [vulnerability disclosure via GitHub](https://github.com/iharc-jordan/ceasar-control-panel/security/advisories/new).
 
 We ask you to include a detailed description of the vulnerability, a list of services involved (e.g. exim, dovecot) and the versions which you've tested, full steps to reproduce the vulnerability, and include your findings and expected results.
 

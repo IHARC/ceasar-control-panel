@@ -1,5 +1,5 @@
 <?php
-use function Hestiacp\quoteshellarg\quoteshellarg;
+use function Ceasar\Shell\quoteshellarg;
 
 ob_start();
 $TAB = "BACKUP";
@@ -12,7 +12,7 @@ if ($_SESSION["userContext"] === "admin" && !empty($_GET["user"])) {
 }
 
 // List backup exclustions
-exec(HESTIA_CMD . "v-list-user-backup-exclusions " . $user . " 'json'", $output, $return_var);
+exec(CEASAR_CMD . "v-list-user-backup-exclusions " . $user . " 'json'", $output, $return_var);
 check_return_code($return_var, $output);
 $data = json_decode(implode("", $output), true);
 unset($output);
@@ -112,7 +112,7 @@ if (!empty($_POST["save"]) && $read_only !== true) {
 
 	// Save changes
 	exec(
-		HESTIA_CMD . "v-update-user-backup-exclusions " . $user . " " . $tmp,
+		CEASAR_CMD . "v-update-user-backup-exclusions " . $user . " " . $tmp,
 		$output,
 		$return_var,
 	);

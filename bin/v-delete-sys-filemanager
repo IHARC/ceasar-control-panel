@@ -1,5 +1,5 @@
 #!/bin/bash
-# info: remove file manager functionality from Hestia Control Panel
+# info: remove file manager functionality from Ceasar Control Panel
 # options: [MODE]
 #
 # example: v-delete-sys-filemanager
@@ -14,14 +14,14 @@ MODE=$1
 FORCE=$2
 
 # Includes
-# shellcheck source=/etc/hestiacp/hestia.conf
-source /etc/hestiacp/hestia.conf
-# shellcheck source=/usr/local/hestia/func/main.sh
-source $HESTIA/func/main.sh
+# shellcheck source=/etc/ceasar/ceasar.conf
+source /etc/ceasar/ceasar.conf
+# shellcheck source=/usr/local/ceasar/func/main.sh
+source $CEASAR/func/main.sh
 # load config file
-source_conf "$HESTIA/conf/hestia.conf"
+source_conf "$CEASAR/conf/ceasar.conf"
 
-FM_INSTALL_DIR="$HESTIA/web/fm"
+FM_INSTALL_DIR="$CEASAR/web/fm"
 
 #----------------------------------------------------------#
 #                    Verifications                         #
@@ -33,18 +33,18 @@ if [ "x$(id -u)" != 'x0' ]; then
 	exit 10
 fi
 
-# Ensure that $HESTIA (/usr/local/hestia/) and other variables are valid.
-if [ -z "$HESTIA" ]; then
-	HESTIA="/usr/local/hestia"
+# Ensure that $CEASAR (/usr/local/ceasar/) and other variables are valid.
+if [ -z "$CEASAR" ]; then
+	CEASAR="/usr/local/ceasar"
 fi
 
-if [ -z "$HOMEDIR" ] || [ -z "$HESTIA_INSTALL_DIR" ]; then
-	echo "Error: Hestia environment vars not present"
+if [ -z "$HOMEDIR" ] || [ -z "$CEASAR_INSTALL_DIR" ]; then
+	echo "Error: Ceasar environment vars not present"
 	exit 2
 fi
 
 # Perform verification if read-only mode is enabled
-check_hestia_demo_mode
+check_ceasar_demo_mode
 
 # Check if File Manager components are installed
 if [ "$FORCE" != "yes" ] && [ ! -e "$FM_INSTALL_DIR" ]; then

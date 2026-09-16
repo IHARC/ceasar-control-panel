@@ -1,0 +1,55 @@
+#!/bin/bash
+# info: update ceasar package/configs
+# options: PACKAGE
+#
+# example: v-update-sys-ceasar ceasar-php
+#
+# This function runs as apt update trigger. It pulls shell script from ceasar
+# server and runs it. (ceasar, ceasar-nginx and ceasar-php are valid options)
+
+#----------------------------------------------------------#
+#                Variables & Functions                     #
+#----------------------------------------------------------#
+
+# Argument definition
+package=$1
+
+# Includes
+# shellcheck source=/etc/ceasar/ceasar.conf
+source /etc/ceasar/ceasar.conf
+# shellcheck source=/usr/local/ceasar/func/main.sh
+source $CEASAR/func/main.sh
+# load config file
+source_conf "$CEASAR/conf/ceasar.conf"
+
+#----------------------------------------------------------#
+#                    Verifications                         #
+#----------------------------------------------------------#
+
+# Checking arg number
+check_args '1' "$#" 'PACKAGE'
+is_ceasar_package "ceasar ceasar-nginx ceasar-php" "$package"
+
+# Perform verification if read-only mode is enabled
+check_ceasar_demo_mode
+
+#----------------------------------------------------------#
+#                       Action                             #
+#----------------------------------------------------------#
+
+# Update repo
+apt-get update -o Dir::Etc::sourcelist="sources.list.d/ceasar.list" \
+	-o Dir::Etc::sourceparts="-" -o APT::Get::List-Cleanup="0" -qq
+
+# Update ceasar package
+apt-get install $package -qq > /dev/null 2>&1
+check_result $? "$package update failed" "$E_UPDATE"
+
+#----------------------------------------------------------#
+#                       Ceasar                             #
+#----------------------------------------------------------#
+
+# Logging
+log_event "$OK" "$ARGUMENTS"
+
+exit

@@ -1,0 +1,13 @@
+Source: ceasar
+Package: ceasar
+Priority: optional
+Version: 1.0.0
+Section: admin
+Maintainer: IHARC Labs <support@iharc.ca>
+Homepage: https://github.com/iharc-jordan/ceasar-control-panel
+Architecture: amd64
+Depends: bash, awk, sed, acl, sysstat, setpriv | util-linux (>= 2.33), zstd, lsb-release, idn2, jq, bubblewrap, at
+Description: Ceasar standalone hosting control panel
+ Ceasar is a self-contained control panel distribution for Ubuntu 24.04 amd64.
+ The package includes its native commands, web UI, templates, helpers, and
+ optional managed-service and customer-provider integration contracts.

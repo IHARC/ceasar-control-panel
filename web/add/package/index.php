@@ -1,5 +1,5 @@
 <?php
-use function Hestiacp\quoteshellarg\quoteshellarg;
+use function Ceasar\Shell\quoteshellarg;
 
 ob_start();
 $TAB = "PACKAGE";
@@ -217,11 +217,11 @@ if (!empty($_POST["ok"])) {
 			$pkg .= "TIME=" . $v_time . "\n";
 			$pkg .= "DATE=" . $v_date . "\n";
 
-			$tmpfile = tempnam("/tmp/", "hst_");
+			$tmpfile = tempnam("/tmp/", "ceasar_");
 			$fp = fopen($tmpfile, "w");
 			fwrite($fp, $pkg);
 			exec(
-				HESTIA_CMD . "v-add-user-package " . $tmpfile . " " . $v_package,
+				CEASAR_CMD . "v-add-user-package " . $tmpfile . " " . $v_package,
 				$output,
 				$return_var,
 			);
@@ -247,31 +247,31 @@ if (!empty($_POST["ok"])) {
 }
 
 // List web temmplates
-exec(HESTIA_CMD . "v-list-web-templates json", $output, $return_var);
+exec(CEASAR_CMD . "v-list-web-templates json", $output, $return_var);
 $web_templates = json_decode(implode("", $output), true);
 unset($output);
 
 // List web templates for backend
 if (!empty($_SESSION["WEB_BACKEND"])) {
-	exec(HESTIA_CMD . "v-list-web-templates-backend json", $output, $return_var);
+	exec(CEASAR_CMD . "v-list-web-templates-backend json", $output, $return_var);
 	$backend_templates = json_decode(implode("", $output), true);
 	unset($output);
 }
 
 // List web templates for proxy
 if (!empty($_SESSION["PROXY_SYSTEM"])) {
-	exec(HESTIA_CMD . "v-list-web-templates-proxy json", $output, $return_var);
+	exec(CEASAR_CMD . "v-list-web-templates-proxy json", $output, $return_var);
 	$proxy_templates = json_decode(implode("", $output), true);
 	unset($output);
 }
 
 // List DNS templates
-exec(HESTIA_CMD . "v-list-dns-templates json", $output, $return_var);
+exec(CEASAR_CMD . "v-list-dns-templates json", $output, $return_var);
 $dns_templates = json_decode(implode("", $output), true);
 unset($output);
 
 // List system shells
-exec(HESTIA_CMD . "v-list-sys-shells json", $output, $return_var);
+exec(CEASAR_CMD . "v-list-sys-shells json", $output, $return_var);
 $shells = json_decode(implode("", $output), true);
 unset($output);
 

@@ -5,13 +5,13 @@ import { readFileSync } from 'node:fs';
 import { spawn } from 'node-pty';
 import { WebSocketServer } from 'ws';
 
-const sessionName = 'HESTIASID';
+const sessionName = 'CEASARSID';
 const hostname = execSync('hostname', { silent: true }).toString().trim();
 const systemIPs = JSON.parse(
-	execSync(`${process.env.HESTIA}/bin/v-list-sys-ips json`, { silent: true }).toString(),
+	execSync(`${process.env.CEASAR}/bin/v-list-sys-ips json`, { silent: true }).toString(),
 );
 const { config } = JSON.parse(
-	execSync(`${process.env.HESTIA}/bin/v-list-sys-config json`, { silent: true }).toString(),
+	execSync(`${process.env.CEASAR}/bin/v-list-sys-config json`, { silent: true }).toString(),
 );
 
 function parseCookies(cookieHeader) {
@@ -99,8 +99,8 @@ wss.on('connection', (ws, req) => {
 	let authResult;
 	try {
 		const raw = execFileSync(
-			`${process.env.HESTIA}/php/bin/php`,
-			[`${process.env.HESTIA}/web-terminal/web-terminal-session-auth.php`, sessionID],
+			`${process.env.CEASAR}/php/bin/php`,
+			[`${process.env.CEASAR}/web-terminal/web-terminal-session-auth.php`, sessionID],
 			{ encoding: 'utf8' },
 		);
 		authResult = JSON.parse(raw);
@@ -147,7 +147,7 @@ wss.on('connection', (ws, req) => {
 			USER: username,
 			HOME: homedir,
 			PWD: homedir,
-			HESTIA: process.env.HESTIA,
+			CEASAR: process.env.CEASAR,
 		},
 	});
 	console.log(`New pty (${pty.pid}): ${shell} as ${username} (${uid}:${gid}) in ${homedir}`);

@@ -23,7 +23,7 @@ $oConfig->Set("contacts", "pdo_password", $argv[4]);
 $oConfig->Set("plugins", "enable", "On");
 
 \SnappyMail\Repository::installPackage("plugin", "change-password");
-\SnappyMail\Repository::installPackage("plugin", "change-password-hestia");
+\SnappyMail\Repository::installPackage("plugin", "change-password-ceasar");
 
 $sFile = APP_PRIVATE_DATA . "configs/plugin-change-password.json";
 if (!file_exists($sFile)) {
@@ -34,10 +34,10 @@ if (!file_exists($sFile)) {
 				"plugin" => [
 					"pass_min_length" => 8,
 					"pass_min_strength" => 60,
-					"driver_hestia_enabled" => true,
-					"driver_hestia_allowed_emails" => "*",
-					"hestia_host" => gethostname(),
-					"hestia_port" => (int) $argv[5], // $BACKEND_PORT
+					"driver_ceasar_enabled" => true,
+					"driver_ceasar_allowed_emails" => "*",
+					"ceasar_host" => gethostname(),
+					"ceasar_port" => (int) $argv[5], // $BACKEND_PORT
 				],
 			],
 			JSON_PRETTY_PRINT,
@@ -65,7 +65,7 @@ if (!file_exists($sFile)) {
 
 $oConfig->Save();
 
-$sFile = APP_PRIVATE_DATA . "domains/hestia.json";
+$sFile = APP_PRIVATE_DATA . "domains/ceasar.json";
 if (!file_exists($sFile)) {
 	$config = json_decode(file_get_contents(APP_PRIVATE_DATA . "domains/default.json"), true);
 	$config["IMAP"]["shortLogin"] = true;

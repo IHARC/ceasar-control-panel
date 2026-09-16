@@ -18,14 +18,24 @@ const externalPackages = [
 async function buildJS() {
 	const inputPath = './web/js/src/index.js';
 	try {
-		await esbuild.build({
-			entryPoints: [inputPath],
-			outfile: './web/js/dist/main.min.js',
-			bundle: true,
-			minify: true,
-			sourcemap: true,
-			external: externalPackages,
-		});
+		await Promise.all([
+			esbuild.build({
+				entryPoints: [inputPath],
+				outfile: './web/js/dist/main.min.js',
+				bundle: true,
+				minify: true,
+				sourcemap: true,
+				external: externalPackages,
+			}),
+			esbuild.build({
+				entryPoints: ['./web/js/src/customer/app.js'],
+				outfile: './web/js/dist/customer.min.js',
+				bundle: true,
+				format: 'esm',
+				minify: true,
+				sourcemap: true,
+			}),
+		]);
 		console.log('✅ JavaScript build completed for', inputPath);
 	} catch (error) {
 		console.error('❌ Error building JavaScript:', error);
@@ -134,6 +144,7 @@ async function buildCSS() {
 		});
 
 	await Promise.all(cssBuildPromises);
+	await processCSS('./web/css/src/customer.css', './web/css/customer.min.css');
 }
 
 // Ensure a directory exists

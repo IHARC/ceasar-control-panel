@@ -7,7 +7,7 @@
 # arbitrary command argument into a privileged adapter actor.
 actor=${1-}
 user=$actor
-readonly config=/usr/local/hestia/conf/managed-service.json
+readonly config=/usr/local/ceasar/conf/managed-service.json
 readonly max_request_bytes=32768
 
 if [ "$EUID" -ne 0 ]; then
@@ -15,16 +15,16 @@ if [ "$EUID" -ne 0 ]; then
 	exit 1
 fi
 
-# shellcheck source=/etc/hestiacp/hestia.conf
-source /etc/hestiacp/hestia.conf
-# shellcheck source=/usr/local/hestia/func/main.sh
-source "$HESTIA/func/main.sh"
-source_conf "$HESTIA/conf/hestia.conf"
+# shellcheck source=/etc/ceasar/ceasar.conf
+source /etc/ceasar/ceasar.conf
+# shellcheck source=/usr/local/ceasar/func/main.sh
+source "$CEASAR/func/main.sh"
+source_conf "$CEASAR/conf/ceasar.conf"
 
 check_args '1' "$#" 'ACTOR'
 is_format_valid 'user'
 is_object_valid 'user' 'USER' "$user"
-source_conf "$HESTIA/data/users/$user/user.conf"
+source_conf "$CEASAR/data/users/$user/user.conf"
 if [ "${MANAGED_SERVICES:-no}" != 'yes' ] || [ "$ROLE" != 'admin' ]; then
 	echo '{"error":"managed-service access requires an enabled administrator"}' >&2
 	exit 1
@@ -32,7 +32,7 @@ fi
 
 # The adapter is privileged. Refuse every symlink in either path and require
 # each parent directory to be root-owned and not writable by group or other.
-adapter=$("$HESTIA/php/bin/php" -r '
+adapter=$("$CEASAR/php/bin/php" -r '
 function trusted_path($path, $regular = false, $mode = null, $executable = false) {
     if (!is_string($path) || $path === "" || $path[0] !== "/") throw new Exception();
     for ($current = $path; ; $current = dirname($current)) {
@@ -60,7 +60,7 @@ try {
 
 # Fully parse and canonicalize stdin before starting the adapter. In
 # particular, a rejected JSON request must never execute an adapter process.
-request=$("$HESTIA/php/bin/php" -r '
+request=$("$CEASAR/php/bin/php" -r '
 function request_uuid($value) {
     if (!is_string($value) || !preg_match("/^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$/", $value)) throw new Exception();
     return strtolower($value);

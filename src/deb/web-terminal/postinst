@@ -7,7 +7,7 @@ if [ "$1" != "configure" ]; then
 fi
 
 # Run triggers below only on updates
-if [ ! -e "/usr/local/hestia/data/users/admin" ]; then
+if [ ! -e "/usr/local/ceasar/data/users/admin" ]; then
 	exit
 fi
 
@@ -15,22 +15,22 @@ fi
 #                Initialize functions/variables               #
 ###############################################################
 
-if [ -z "$HESTIA" ]; then
-	export HESTIA='/usr/local/hestia'
-	PATH=$PATH:/usr/local/hestia/bin
+if [ -z "$CEASAR" ]; then
+	export CEASAR='/usr/local/ceasar'
+	PATH=$PATH:/usr/local/ceasar/bin
 	export PATH
 fi
 
 # Load upgrade functions and variables
-source /usr/local/hestia/func/main.sh
-source /usr/local/hestia/func/upgrade.sh
-source /usr/local/hestia/conf/hestia.conf
-source /usr/local/hestia/install/upgrade/upgrade.conf
+source /usr/local/ceasar/func/main.sh
+source /usr/local/ceasar/func/upgrade.sh
+source /usr/local/ceasar/conf/ceasar.conf
+source /usr/local/ceasar/install/upgrade/upgrade.conf
 
-# Restart hestia-web-terminal service if enabled
-if [ -f "/etc/systemd/system/hestia-web-terminal.service" ]; then
+# Restart ceasar-web-terminal service if enabled
+if [ -f "/etc/systemd/system/ceasar-web-terminal.service" ]; then
 	systemctl daemon-reload > /dev/null 2>&1
-	if systemctl is-enabled hestia-web-terminal > /dev/null 2>&1; then
-		systemctl restart hestia-web-terminal
+	if systemctl is-enabled ceasar-web-terminal > /dev/null 2>&1; then
+		systemctl restart ceasar-web-terminal
 	fi
 fi

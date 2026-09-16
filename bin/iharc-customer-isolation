@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Reconcile one canonical Hestia customer into a native systemd cgroup v2
+# Reconcile one canonical Ceasar customer into a native systemd cgroup v2
 # boundary. This has no daemon loop and never accepts resource values from a
 # customer or an API caller.
 set -Eeuo pipefail
@@ -12,18 +12,18 @@ readonly CONFIG=/etc/iharc/customer-isolation.conf
 readonly DB_ROOT=/var/lib/mysql/iharc-customers
 
 fail() { printf 'customer-isolation: %s\n' "$*" >&2; exit 1; }
-usage() { echo 'usage: iharc-customer-isolation reconcile|resume-prep|suspend|backup-open|backup-close|delete-prep|delete-database-prep|delete-finalize|database-host|status ACCOUNT [HESTIA_ROOT] | boot-reconcile HESTIA_ROOT' >&2; }
+usage() { echo 'usage: iharc-customer-isolation reconcile|resume-prep|suspend|backup-open|backup-close|delete-prep|delete-database-prep|delete-finalize|database-host|status ACCOUNT [CEASAR_ROOT] | boot-reconcile CEASAR_ROOT' >&2; }
 regular() { [[ -f "$1" && ! -L "$1" ]]; }
 directory() { [[ -d "$1" && ! -L "$1" ]]; }
 canonical() { [[ "$1" =~ $CANONICAL_RE ]]; }
 
 action=${1:-}
 account=${2:-}
-hestia=${3:-/usr/local/hestia}
+ceasar=${3:-/usr/local/ceasar}
 case "$action" in
   boot-reconcile)
     [[ $# -eq 2 ]] || { usage; exit 2; }
-    hestia=$account
+    ceasar=$account
     account=''
     ;;
   reconcile|resume-prep|suspend|backup-open|backup-close|delete-prep|delete-database-prep|delete-finalize|database-host|status)
@@ -32,7 +32,7 @@ case "$action" in
     ;;
   *) usage; exit 2;;
 esac
-[[ "$hestia" == /* ]] && directory "$hestia" || fail 'Hestia root is unsafe'
+[[ "$ceasar" == /* ]] && directory "$ceasar" || fail 'Ceasar root is unsafe'
 regular "$CONFIG" || fail 'fixed profile is unavailable'
 [[ $(stat -c '%U:%G:%a' "$CONFIG") == root:root:600 ]] || fail 'fixed profile ownership is unsafe'
 # shellcheck disable=SC1090
@@ -43,13 +43,13 @@ done
 [[ "$DATABASE_PORT_FIRST" =~ ^[1-9][0-9]*$ && "$DATABASE_PORT_LAST" =~ ^[1-9][0-9]*$ && "$DATABASE_PORT_FIRST" -le "$DATABASE_PORT_LAST" ]] || fail 'database port range is invalid'
 [[ "$APACHE_PORT_FIRST" =~ ^[1-9][0-9]*$ && "$APACHE_PORT_LAST" =~ ^[1-9][0-9]*$ && "$APACHE_PORT_FIRST" -le "$APACHE_PORT_LAST" ]] || fail 'Apache port range is invalid'
 
-user_conf="$hestia/data/users/$account/user.conf"
+user_conf="$ceasar/data/users/$account/user.conf"
 state_file="$STATE_ROOT/$account.env"
 
-account_exists() { directory "$hestia/data/users/$account" && regular "$user_conf"; }
+account_exists() { directory "$ceasar/data/users/$account" && regular "$user_conf"; }
 account_has_database_records() {
-  [[ -f "$hestia/data/users/$account/db.conf" && ! -L "$hestia/data/users/$account/db.conf" ]] \
-    && grep -q "^DB='" "$hestia/data/users/$account/db.conf"
+  [[ -f "$ceasar/data/users/$account/db.conf" && ! -L "$ceasar/data/users/$account/db.conf" ]] \
+    && grep -q "^DB='" "$ceasar/data/users/$account/db.conf"
 }
 native_value() {
   local key=$1 file=$2
@@ -57,7 +57,7 @@ native_value() {
 }
 select_profile() {
   local package
-  package=$(native_value PACKAGE "$user_conf") || fail 'Hestia account package is unavailable'
+  package=$(native_value PACKAGE "$user_conf") || fail 'Ceasar account package is unavailable'
   case "$package" in
     Starter|starter)
       RESOURCE_PROFILE=starter
@@ -73,7 +73,7 @@ select_profile() {
       MEMORY_MAX=$PLUS_MEMORY_MAX
       FPM_PROCESS_MAX=$PLUS_FPM_PROCESS_MAX
       ;;
-    *) fail 'Hestia account has no approved native resource profile' ;;
+    *) fail 'Ceasar account has no approved native resource profile' ;;
   esac
   for value in "$CPU_QUOTA" "$MEMORY_HIGH" "$MEMORY_MAX" "$FPM_PROCESS_MAX"; do
     [[ -n "$value" ]] || fail 'selected resource profile is incomplete'
@@ -81,8 +81,8 @@ select_profile() {
 }
 native_state() {
   account_exists || { printf 'absent\n'; return; }
-  [[ "$(native_value ROLE "$user_conf")" == user ]] || fail 'Hestia account is not ROLE=user'
-  case "$(native_value SUSPENDED "$user_conf")" in yes) printf 'suspended\n';; no) printf 'active\n';; *) fail 'Hestia suspension state is invalid';; esac
+  [[ "$(native_value ROLE "$user_conf")" == user ]] || fail 'Ceasar account is not ROLE=user'
+  case "$(native_value SUSPENDED "$user_conf")" in yes) printf 'suspended\n';; no) printf 'active\n';; *) fail 'Ceasar suspension state is invalid';; esac
 }
 require_root() { [[ $(id -u) -eq 0 ]] || fail 'root is required'; }
 if [[ "$action" != boot-reconcile ]] && account_exists; then
@@ -145,10 +145,10 @@ allocate_state() {
     exec {allocation_lock_fd}>&-
     return
   fi
-  # A pre-existing Hestia database must be migrated explicitly while held.
+  # A pre-existing Ceasar database must be migrated explicitly while held.
   # Starting a new instance here would create an empty endpoint and make an
   # operator mistake look like a successful database migration.
-  account_has_database_records && fail 'existing Hestia databases require the explicit data-preserving migration procedure'
+  account_has_database_records && fail 'existing Ceasar databases require the explicit data-preserving migration procedure'
   for ((candidate=DATABASE_PORT_FIRST; candidate<=DATABASE_PORT_LAST; candidate++)); do
     if grep -R -Fqx "PORT=$candidate" "$STATE_ROOT" 2>/dev/null; then continue; fi
     listeners=$(ss -ltn "sport = :$candidate") || fail 'cannot inspect allocated MariaDB ports'
@@ -170,15 +170,15 @@ allocate_state() {
 }
 normalize_customer_web_directory() {
   local home_root web_directory owner
-  home_root=$(native_value HOMEDIR "$hestia/func/main.sh") \
-    || fail 'Hestia home root is unavailable'
+  home_root=$(native_value HOMEDIR "$ceasar/func/main.sh") \
+    || fail 'Ceasar home root is unavailable'
   [[ "$home_root" == /* && -d "$home_root" && ! -L "$home_root" ]] \
-    || fail 'Hestia home root is unsafe'
+    || fail 'Ceasar home root is unsafe'
   web_directory="$home_root/$account/web"
   [[ -d "$web_directory" && ! -L "$web_directory" ]] || fail 'customer native web directory is missing or unsafe'
   owner=$(stat -c '%U:%G' "$web_directory") || fail 'cannot inspect customer native web directory'
   [[ "$owner" == "root:$account" ]] || fail 'customer native web directory must be root-owned by its account group'
-  # Hestia creates this parent under the caller umask. It must remain root
+  # Ceasar creates this parent under the caller umask. It must remain root
   # owned while allowing the account to traverse it and create domain trees.
   chmod 0751 "$web_directory" || fail 'cannot normalize customer native web directory mode'
   [[ "$(stat -c '%U:%G:%a' "$web_directory")" == "root:$account:751" ]] \
@@ -344,9 +344,9 @@ remove_owned_fpm_configuration() {
   fi
   for held in /etc/php/8.5/fpm/pool.d/*.disabled-by-iharc-"$account"; do
     [[ -e "$held" || -L "$held" ]] || continue
-    fpm_pool_is_safe_hestia_owned_by_account "$held" "$account" \
-      || fail 'held Hestia PHP-FPM pool is unsafe during deletion'
-    rm -f -- "$held" || fail 'cannot remove held Hestia PHP-FPM pool'
+    fpm_pool_is_safe_ceasar_owned_by_account "$held" "$account" \
+      || fail 'held Ceasar PHP-FPM pool is unsafe during deletion'
+    rm -f -- "$held" || fail 'cannot remove held Ceasar PHP-FPM pool'
   done
 }
 write_mariadb_config() {
@@ -374,10 +374,10 @@ EOF
 ensure_database_host() {
   (
   local mysql_conf source_record dbuser password lock
-  # Share the exact config lock used by Hestia's scoped host-counter patch and
+  # Share the exact config lock used by Ceasar's scoped host-counter patch and
   # WordPress SQL-only recovery. Hold it across inventory read and native host
   # creation, then let this subshell close the descriptor before returning.
-  lock="$hestia/data/iharc-database-hosts.lock"
+  lock="$ceasar/data/iharc-database-hosts.lock"
   if [[ -e "$lock" || -L "$lock" ]]; then
     regular "$lock" && [[ $(stat -c '%U:%G:%a' "$lock") == root:root:600 ]] \
       || fail 'dedicated database host lock is unsafe'
@@ -388,7 +388,7 @@ ensure_database_host() {
   exec 9>>"$lock" || fail 'cannot open dedicated database host lock'
   flock -x 9 || fail 'cannot acquire dedicated database host lock'
   local -a existing_records=()
-  mysql_conf="$hestia/conf/mysql.conf"
+  mysql_conf="$ceasar/conf/mysql.conf"
   regular "$mysql_conf" || fail 'native MariaDB host inventory is unavailable'
   mapfile -t existing_records < <(grep -F "HOST='$ACCOUNT_DB_HOST' " "$mysql_conf" || true)
   if ((${#existing_records[@]})); then
@@ -400,17 +400,17 @@ ensure_database_host() {
   dbuser=$(printf '%s\n' "$source_record" | sed -n "s/.* USER='\\([^']*\\)'.*/\\1/p")
   password=$(printf '%s\n' "$source_record" | sed -n "s/.* PASSWORD='\\([^']*\\)'.*/\\1/p")
   [[ "$dbuser" =~ ^[A-Za-z0-9_]+$ && -n "$password" && "$password" != *"'"* ]] || fail 'native MariaDB admin record is unsafe'
-  # Hestia validates this inventory field as a number. It is not a customer
+  # Ceasar validates this inventory field as a number. It is not a customer
   # entitlement: package/admission policy remains the authority for databases.
-  "$hestia/bin/v-add-database-host" mysql "$ACCOUNT_DB_HOST" "$dbuser" "$password" 500 '' '' "$ACCOUNT_PORT" >/dev/null
+  "$ceasar/bin/v-add-database-host" mysql "$ACCOUNT_DB_HOST" "$dbuser" "$password" 500 '' '' "$ACCOUNT_PORT" >/dev/null
   ) || return 1
 }
 remove_database_host() {
   (
   local mysql_conf lock
-  # Keep retirement serialized with Hestia counter updates and any exact
+  # Keep retirement serialized with Ceasar counter updates and any exact
   # recovery write. This is a config-file lock only, never an account gate.
-  lock="$hestia/data/iharc-database-hosts.lock"
+  lock="$ceasar/data/iharc-database-hosts.lock"
   if [[ -e "$lock" || -L "$lock" ]]; then
     regular "$lock" && [[ $(stat -c '%U:%G:%a' "$lock") == root:root:600 ]] \
       || fail 'dedicated database host lock is unsafe during deletion'
@@ -421,22 +421,22 @@ remove_database_host() {
   exec 9>>"$lock" || fail 'cannot open dedicated database host lock during deletion'
   flock -x 9 || fail 'cannot acquire dedicated database host lock during deletion'
   local -a existing_records=()
-  mysql_conf="$hestia/conf/mysql.conf"
+  mysql_conf="$ceasar/conf/mysql.conf"
   regular "$mysql_conf" || fail 'native MariaDB host inventory is unavailable'
   mapfile -t existing_records < <(grep -F "HOST='$ACCOUNT_DB_HOST' " "$mysql_conf" || true)
   ((${#existing_records[@]})) || return 0
   ((${#existing_records[@]} == 1)) || fail 'dedicated database host inventory is ambiguous during deletion'
   [[ "${existing_records[0]}" == *" PORT='$ACCOUNT_PORT'"* ]] \
     || fail 'dedicated database host has a different port during deletion'
-  "$hestia/bin/v-delete-database-host" mysql "$ACCOUNT_DB_HOST" >/dev/null \
-    || fail 'dedicated Hestia database host could not be retired after database deletion'
+  "$ceasar/bin/v-delete-database-host" mysql "$ACCOUNT_DB_HOST" >/dev/null \
+    || fail 'dedicated Ceasar database host could not be retired after database deletion'
   ! grep -Fq "HOST='$ACCOUNT_DB_HOST' " "$mysql_conf" \
-    || fail 'dedicated Hestia database host remains after deletion'
+    || fail 'dedicated Ceasar database host remains after deletion'
   ) || return 1
 }
 ensure_database_admin() {
   local mysql_conf source_record dbuser password socket sql
-  mysql_conf="$hestia/conf/mysql.conf"
+  mysql_conf="$ceasar/conf/mysql.conf"
   regular "$mysql_conf" || fail 'native MariaDB host inventory is unavailable'
   source_record=$(grep -m1 "HOST='localhost' " "$mysql_conf") || fail 'native localhost MariaDB admin record is unavailable'
   dbuser=$(printf '%s\n' "$source_record" | sed -n "s/.* USER='\\([^']*\\)'.*/\\1/p")
@@ -456,9 +456,9 @@ FLUSH PRIVILEGES;
 EOF
   # mariadb-install-db initializes its socket administrator for the operating
   # system account passed with --user.  Authenticate through that native
-  # unix_socket identity before creating Hestia's password-backed database
+  # unix_socket identity before creating Ceasar's password-backed database
   # administrator for this private instance.
-  runuser -u mysql -- /usr/bin/mariadb --protocol=socket --socket="$socket" -umysql < "$sql" >/dev/null || { rm -f "$sql"; fail 'cannot initialize dedicated MariaDB Hestia administrator'; }
+  runuser -u mysql -- /usr/bin/mariadb --protocol=socket --socket="$socket" -umysql < "$sql" >/dev/null || { rm -f "$sql"; fail 'cannot initialize dedicated MariaDB Ceasar administrator'; }
   rm -f "$sql"
 }
 ensure_hosts_alias() {
@@ -498,7 +498,7 @@ fpm_pool_is_owned_by_account() {
   grep -Eq "^[[:space:]]*user[[:space:]]*=[[:space:]]*$owner[[:space:]]*$" "$pool" \
     && grep -Eq "^[[:space:]]*group[[:space:]]*=[[:space:]]*$owner[[:space:]]*$" "$pool"
 }
-fpm_pool_is_safe_hestia_owned_by_account() {
+fpm_pool_is_safe_ceasar_owned_by_account() {
   local pool=$1 owner=$2 metadata
   regular "$pool" || return 1
   # Reconcile normalizes held pools to 0644. A native deletion already in
@@ -510,15 +510,15 @@ fpm_pool_is_safe_hestia_owned_by_account() {
 }
 normalize_held_fpm_pool() {
   local pool=$1 owner=$2
-  fpm_pool_is_safe_hestia_owned_by_account "$pool" "$owner" \
-    || fail 'held Hestia PHP-FPM pool is unsafe'
-  chmod 0644 -- "$pool" || fail 'cannot normalize held Hestia PHP-FPM pool'
+  fpm_pool_is_safe_ceasar_owned_by_account "$pool" "$owner" \
+    || fail 'held Ceasar PHP-FPM pool is unsafe'
+  chmod 0644 -- "$pool" || fail 'cannot normalize held Ceasar PHP-FPM pool'
   [[ "$(stat -c '%U:%G:%a' "$pool")" == root:root:644 ]] \
-    || fail 'held Hestia PHP-FPM pool ownership is unsafe'
+    || fail 'held Ceasar PHP-FPM pool ownership is unsafe'
 }
 fpm_pool_is_regenerated_static_domain() {
   local source=$1 target=$2 held=$3 domain=$4
-  # Hestia can recreate an empty root-owned global pool for a static vhost
+  # Ceasar can recreate an empty root-owned global pool for a static vhost
   # after IHARC has already held that customer's former PHP pool.  The held
   # pool proves the account that owns this domain; a FastCGI source or any
   # explicit target owner must still take the strict different-owner path.
@@ -533,38 +533,38 @@ fpm_pool_is_regenerated_static_domain() {
 prepare_fpm() {
   local pool_root="/etc/php/8.5/fpm/iharc-customers/$account" global domain source held target listener count=0
   install -d -o root -g root -m 0755 "$pool_root"
-  # Hestia owns source pools by domain.  Disable only that account's live
-  # source and rebuild the private instance set from the current Hestia
+  # Ceasar owns source pools by domain.  Disable only that account's live
+  # source and rebuild the private instance set from the current Ceasar
   # domains, so a later domain deletion cannot leave a retired pool running.
   find "$pool_root" -maxdepth 1 -type f -name '*.conf' -delete
   for source in "/home/$account"/conf/web/*/apache2.conf; do
     [[ -f "$source" && ! -L "$source" ]] || continue
     domain=$(basename "$(dirname "$source")")
-    [[ "$domain" =~ ^[A-Za-z0-9.-]+$ ]] || fail 'Hestia domain name is unsafe'
+    [[ "$domain" =~ ^[A-Za-z0-9.-]+$ ]] || fail 'Ceasar domain name is unsafe'
     target="/etc/php/8.5/fpm/pool.d/$domain.conf"
     held="$target.disabled-by-iharc-$account"
     if [[ -e "$held" || -L "$held" ]]; then
       normalize_held_fpm_pool "$held" "$account"
     fi
     if [[ -f "$target" && ! -L "$target" ]]; then
-      if fpm_pool_is_safe_hestia_owned_by_account "$target" "$account"; then
-        mv -f "$target" "$held" || fail 'cannot hold Hestia PHP-FPM pool'
+      if fpm_pool_is_safe_ceasar_owned_by_account "$target" "$account"; then
+        mv -f "$target" "$held" || fail 'cannot hold Ceasar PHP-FPM pool'
         normalize_held_fpm_pool "$held" "$account"
       elif fpm_pool_is_regenerated_static_domain "$source" "$target" "$held" "$domain"; then
         rm -f -- "$target"
       else
-        fail 'Hestia FPM pool has a different owner'
+        fail 'Ceasar FPM pool has a different owner'
       fi
     fi
-    # Hestia creates a static domain before the later backend-template call.
+    # Ceasar creates a static domain before the later backend-template call.
     # Do not make that native lifecycle step require a PHP pool; do fail if a
-    # generated FastCGI vhost has no corresponding Hestia-owned pool.
+    # generated FastCGI vhost has no corresponding Ceasar-owned pool.
     if [[ ! -f "$held" || -L "$held" ]]; then
-      grep -Fq 'unix:' "$source" && fail 'Hestia FPM pool is unavailable for an active PHP domain'
+      grep -Fq 'unix:' "$source" && fail 'Ceasar FPM pool is unavailable for an active PHP domain'
       continue
     fi
-    grep -Eq "^[[:space:]]*pm[[:space:]]*=" "$held" || fail 'Hestia FPM pool has no process manager mode'
-    grep -Eq "^[[:space:]]*pm\.max_children[[:space:]]*=" "$held" || fail 'Hestia FPM pool has no max_children'
+    grep -Eq "^[[:space:]]*pm[[:space:]]*=" "$held" || fail 'Ceasar FPM pool has no process manager mode'
+    grep -Eq "^[[:space:]]*pm\.max_children[[:space:]]*=" "$held" || fail 'Ceasar FPM pool has no max_children'
     listener="/run/php/iharc-$account-$domain.sock"
     sed -E \
       -e "s|^[[:space:]]*listen[[:space:]]*=.*$|listen = $listener|" \
@@ -593,7 +593,7 @@ write_apache_config() {
   owned_directory "/var/log/apache2-$account" root adm 750 'customer Apache log directory'
   [[ -f /etc/apache2/apache2.conf && ! -L /etc/apache2/apache2.conf && -f /etc/apache2/envvars && ! -L /etc/apache2/envvars ]] || fail 'shared Apache configuration is unsafe'
   # Keep global server defaults, but never import shared customer vhosts into
-  # a private account instance through the absolute Hestia domain include.
+  # a private account instance through the absolute Ceasar domain include.
   sed -E '\|^[[:space:]]*IncludeOptional[[:space:]]+/etc/apache2/conf\.d/domains/\*\.conf[[:space:]]*$|d' \
     /etc/apache2/apache2.conf > "$root/apache2.conf"
   chown root:root "$root/apache2.conf"; chmod 0644 "$root/apache2.conf"
@@ -607,11 +607,11 @@ write_apache_config() {
   fi
   if [[ -e "$root/mods-enabled" ]]; then directory "$root/mods-enabled" || fail 'customer Apache module path is unsafe'; fi
   install -d -o root -g root -m 0755 "$root/mods-enabled"
-  # Hestia's monitoring listener belongs to the shared Apache instance. Each
+  # Ceasar's monitoring listener belongs to the shared Apache instance. Each
   # account must load the modules without also binding that shared port.
   for module in /etc/apache2/mods-enabled/*.load /etc/apache2/mods-enabled/*.conf; do
     [[ -e "$module" ]] || continue
-    [[ ${module##*/} == hestia-status.conf ]] && continue
+    [[ ${module##*/} == ceasar-status.conf ]] && continue
     ln -sfn -- "$module" "$root/mods-enabled/${module##*/}"
   done
   cat > "$root/ports.conf" <<EOF
@@ -634,12 +634,12 @@ EOF
   for source in "/home/$account"/conf/web/*/apache2.conf; do
     [[ -f "$source" && ! -L "$source" ]] || continue
     domain=$(basename "$(dirname "$source")")
-    [[ "$domain" =~ ^[A-Za-z0-9.-]+$ ]] || fail 'Hestia domain name is unsafe'
+    [[ "$domain" =~ ^[A-Za-z0-9.-]+$ ]] || fail 'Ceasar domain name is unsafe'
     held="/etc/php/8.5/fpm/pool.d/$domain.conf.disabled-by-iharc-$account"
     target="$root/conf.d/domains/$domain.conf"
     if [[ -f "$held" && ! -L "$held" ]]; then
       old_listener=$(awk -F= '/^[[:space:]]*listen[[:space:]]*=/ { gsub(/[[:space:]]/, "", $2); print $2; exit }' "$held")
-      [[ -n "$old_listener" && "$old_listener" != *"'"* ]] || fail 'Hestia FPM listener is unsafe'
+      [[ -n "$old_listener" && "$old_listener" != *"'"* ]] || fail 'Ceasar FPM listener is unsafe'
       listener="/run/php/iharc-$account-$domain.sock"
       sed -E \
         -e "s|<VirtualHost [^>]+>|<VirtualHost 127.0.0.1:$ACCOUNT_APACHE_PORT>|" \
@@ -647,13 +647,13 @@ EOF
         -e '\|^[[:space:]]*IncludeOptional /etc/apache2/conf\.d/\*\.inc[[:space:]]*$|d' \
         "$source" > "$target"
     else
-      grep -Fq 'unix:' "$source" && fail 'Hestia PHP vhost has no private FPM pool'
+      grep -Fq 'unix:' "$source" && fail 'Ceasar PHP vhost has no private FPM pool'
       sed -E \
         -e "s|<VirtualHost [^>]+>|<VirtualHost 127.0.0.1:$ACCOUNT_APACHE_PORT>|" \
         -e '\|^[[:space:]]*IncludeOptional /etc/apache2/conf\.d/\*\.inc[[:space:]]*$|d' \
         "$source" > "$target"
     fi
-    [[ $(grep -Ec '^<VirtualHost 127\.0\.0\.1:'"$ACCOUNT_APACHE_PORT"'>$' "$target") == 1 ]] || fail 'Hestia Apache vhost could not be bound to the account listener'
+    [[ $(grep -Ec '^<VirtualHost 127\.0\.0\.1:'"$ACCOUNT_APACHE_PORT"'>$' "$target") == 1 ]] || fail 'Ceasar Apache vhost could not be bound to the account listener'
     chown root:"$account" "$target"; chmod 0640 "$target"
     # The global Apache instance must never retain this customer's vhost.
     rm -f -- "/etc/apache2/conf.d/domains/$domain.conf" "/etc/apache2/conf.d/domains/$domain.ssl.conf"
@@ -683,7 +683,7 @@ write_nginx_routes() {
       printf 'customer-isolation: skipping customer route state with unsafe port: %s\n' "$name" >&2
       continue
     fi
-    if ! native_account_state=$(account="$name"; user_conf="$hestia/data/users/$name/user.conf"; native_state); then
+    if ! native_account_state=$(account="$name"; user_conf="$ceasar/data/users/$name/user.conf"; native_state); then
       printf 'customer-isolation: skipping customer route with unreadable native account: %s\n' "$name" >&2
       continue
     fi
@@ -723,7 +723,7 @@ start_web_instances() {
   # configuration cannot continue to serve this canonical account.
   systemctl reload php8.5-fpm.service
   systemctl reload apache2.service
-  domains=$(grep -c "DOMAIN='" "$hestia/data/users/$account/web.conf" 2>/dev/null || true)
+  domains=$(grep -c "DOMAIN='" "$ceasar/data/users/$account/web.conf" 2>/dev/null || true)
   if ((domains == 0)); then
     systemctl stop "apache2@$account.service" "iharc-php-fpm@$account.service" 2>/dev/null || true
     return
@@ -759,20 +759,20 @@ boot_reconcile() {
       status=1
       continue
     fi
-    if ! saved_state=$(account="$saved_account"; user_conf="$hestia/data/users/$saved_account/user.conf"; native_state); then
+    if ! saved_state=$(account="$saved_account"; user_conf="$ceasar/data/users/$saved_account/user.conf"; native_state); then
       printf 'customer-isolation: boot reconcile could not inspect account: %s\n' "$saved_account" >&2
       status=1
       continue
     fi
     case "$saved_state" in
       active)
-        if ! "$0" reconcile "$saved_account" "$hestia" >/dev/null; then
+        if ! "$0" reconcile "$saved_account" "$ceasar" >/dev/null; then
           printf 'customer-isolation: boot reconcile failed for account: %s\n' "$saved_account" >&2
           status=1
         fi
         ;;
       suspended)
-        if ! "$0" suspend "$saved_account" "$hestia" >/dev/null; then
+        if ! "$0" suspend "$saved_account" "$ceasar" >/dev/null; then
           printf 'customer-isolation: boot suspend failed for account: %s\n' "$saved_account" >&2
           status=1
         fi
@@ -797,7 +797,7 @@ remove_owned_dropin() {
 }
 finalize_deletion() {
   regular "/run/iharc-customer-isolation/delete/$account" || fail 'native retention deletion was not prepared'
-  grep -q "DB='" "$hestia/data/users/$account/db.conf" 2>/dev/null && fail 'Hestia still owns account databases'
+  grep -q "DB='" "$ceasar/data/users/$account/db.conf" 2>/dev/null && fail 'Ceasar still owns account databases'
   # An earlier successful finalization can leave only the durable deletion
   # marker. It is already converged, so remove that marker idempotently.
   if ! state_read; then
@@ -806,7 +806,7 @@ finalize_deletion() {
   fi
   stop_customer
   # A state-only interruption may occur before start_database creates the
-  # dedicated Hestia host, bind mount, or data directory. Exact absence is
+  # dedicated Ceasar host, bind mount, or data directory. Exact absence is
   # converged; anything present remains subject to the ownership checks in the
   # individual removers.
   remove_database_host
@@ -845,7 +845,7 @@ emit_status() {
 protect_customer_imds() {
   # v-add-user invokes reconcile before returning. Install the independent
   # customer UID deny before callers can publish a transfer policy.
-  /usr/bin/python3 -I "$hestia/libexec/iharc/iharc-transferd.py" --protect-imds-uid "$ACCOUNT_UID" \
+  /usr/bin/python3 -I "$ceasar/libexec/iharc/iharc-transferd.py" --protect-imds-uid "$ACCOUNT_UID" \
     || fail 'customer IMDS isolation could not be installed'
 }
 
@@ -882,7 +882,7 @@ case "$action" in
     # Database creation must not restart the web slice/network controller just
     # before native QuickInstall downloads WP-CLI. Existing state is validated
     # by state_read; only an unprepared account needs full reconciliation.
-    state_read || "$0" reconcile "$account" "$hestia" >/dev/null
+    state_read || "$0" reconcile "$account" "$ceasar" >/dev/null
     state_read
     start_database
     emit_status active >/dev/null
