@@ -16,6 +16,8 @@ cleanup() {
 }
 trap cleanup EXIT
 
+grep -Fxq 'umask 022' "$installer"
+
 cat > "$tmp_dir/noble" << 'EOF'
 ID=ubuntu
 VERSION_ID="24.04"

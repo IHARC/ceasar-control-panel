@@ -1,15 +1,15 @@
 #!/bin/bash
 
 # Run triggers only on updates
-if [ ! -e "/usr/local/ceasar/data/users/admin" ]; then
+if [ ! -e "/etc/ceasar/ceasar.conf" ]; then
 	exit
 fi
 
 # Create a new Backup folder
 CEASAR_BACKUP="/root/ceasar_nginx_backups/$(date +%d%m%Y%H%M)"
-mkdir -p CEASAR_BACKUP
+mkdir -p "$CEASAR_BACKUP"
 
 # Create a backup of the current configuration
-cp -r /usr/local/ceasar/nginx/conf/nginx.conf $CEASAR_BACKUP/nginx.conf
+cp -r /usr/local/ceasar/nginx/conf/nginx.conf "$CEASAR_BACKUP/nginx.conf"
 
 exit

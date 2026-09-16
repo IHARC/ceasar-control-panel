@@ -321,9 +321,17 @@ function check_ip_not_banned(){
 #----------------------------------------------------------#
 
 @test "User: Add new user" {
-    run v-add-user $user $user $user@ceasar.com default "Super Test"
-    assert_success
-    refute_output
+	run bash -c 'umask 077; exec v-add-user "$@"' _ "$user" "$user" "$user@ceasar.com" default "Super Test"
+	assert_success
+	refute_output
+
+	run stat -c '%a' "$HOMEDIR/$user/web"
+	assert_success
+	assert_output '751'
+
+	run stat -c '%a' "$HOMEDIR/$user/conf"
+	assert_success
+	assert_output '711'
 }
 
 @test "User: Add new user Failed 1" {
@@ -2269,7 +2277,7 @@ echo   "1.2.3.4" >> $CEASAR/data/firewall/excludes.conf
 #----------------------------------------------------------#
 
 @test "Backup: Backup user" {
-  run v-backup-user $user
+  run bash -c 'umask 077; exec v-backup-user "$@"' _ "$user"
   assert_success
 }
 
