@@ -185,14 +185,21 @@ export class CustomerBusinessBackend {
 		return this.#request('PATCH', '/profile', { displayName });
 	}
 
-	requestTrialAdmission({ accountId, planCode, siteType, requestedCustomDomain, idempotencyKey }) {
-		return this.#request('POST', '/admissions/trial', {
+	async requestTrialAdmission({
+		accountId,
+		planCode,
+		siteType,
+		requestedCustomDomain,
+		idempotencyKey,
+	}) {
+		const result = await this.#request('POST', '/admissions/trial', {
 			accountId,
 			planCode,
 			siteType,
 			requestedCustomDomain: requestedCustomDomain || null,
 			idempotencyKey,
 		});
+		return result.url ? { ...result, url: this.#hostedUrl(result.url) } : result;
 	}
 
 	async requestPaidAdmission({
@@ -219,15 +226,6 @@ export class CustomerBusinessBackend {
 		return result.url ? { ...result, url: this.#hostedUrl(result.url) } : result;
 	}
 
-	addWebsite(serviceId, { accountId, siteType, requestedCustomDomain, idempotencyKey }) {
-		return this.#request('POST', `/services/${pathId(serviceId)}/websites`, {
-			accountId,
-			siteType,
-			requestedCustomDomain: requestedCustomDomain || null,
-			idempotencyKey,
-		});
-	}
-
 	confirmMigration(serviceId, { accountId, workspaceReadyOperationId, idempotencyKey }) {
 		return this.#request(
 			'POST',
@@ -245,31 +243,6 @@ export class CustomerBusinessBackend {
 	async billingPortal(accountId) {
 		const result = await this.#request('POST', '/billing/portal-sessions', { accountId }, true);
 		return this.#hostedUrl(result.portalUrl || result.url);
-	}
-
-	refreshDomain(serviceId, { accountId, websiteId, hostname, dnsRecordType, idempotencyKey }) {
-		return this.#request(
-			'POST',
-			`/services/${pathId(serviceId)}/domain-refresh`,
-			{
-				accountId,
-				websiteId,
-				hostname,
-				dnsRecordType,
-				confirmDomainChange: true,
-				idempotencyKey,
-			},
-			true,
-		);
-	}
-
-	requestBackup(serviceId, { accountId, idempotencyKey }) {
-		return this.#request(
-			'POST',
-			`/services/${pathId(serviceId)}/backups`,
-			{ accountId, replaceExistingManualBackup: true, idempotencyKey },
-			true,
-		);
 	}
 
 	openSupportCase({ accountId, serviceId, subject, message, idempotencyKey }) {
@@ -347,7 +320,7 @@ function customerApiBase(value) {
 	if (
 		typeof value !== 'string' ||
 		value.length > 200 ||
-		!/^\/[A-Za-z0-9][A-Za-z0-9._~!$&'()*+,;=:@\/-]*\/?$/.test(value)
+		!/^\/[A-Za-z0-9][A-Za-z0-9._~!$&'()*+,;=:@/-]*\/?$/.test(value)
 	) {
 		throw new Error('Customer backend path is invalid.');
 	}

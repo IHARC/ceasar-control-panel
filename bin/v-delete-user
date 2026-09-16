@@ -58,6 +58,60 @@ fi
 if is_iharc_managed_user "$user"; then
 	"$CEASAR/bin/iharc-customer-isolation" delete-prep "$user" "$CEASAR" > /dev/null \
 		|| check_result "$E_INVALID" "customer resource isolation deletion is not safe"
+
+	# Per-user Restic repositories are the native offsite archive boundary.
+	# Purge them while this account's root-owned key is still available; a failed
+	# remote purge aborts before Ceasar removes the account identity or any local
+	# recovery data.
+	[[ -f "$CEASAR/conf/restic.conf" ]] || check_result "$E_BACKUP" "Restic configuration is unavailable for customer deletion"
+	source_conf "$CEASAR/conf/restic.conf"
+	[[ -n "${REPO:-}" ]] || check_result "$E_BACKUP" "Restic repository is unavailable for customer deletion"
+	if [[ ! -f "$USER_DATA/restic.conf" ]]; then
+		# A new account has no key or repository until its first native backup.
+		# Treat only a confirmed absent repository as empty; an existing repository
+		# without its key must stop deletion before identity teardown.
+		restic --repo "${REPO%/}/$user" --password-file /dev/null --json snapshots > /dev/null
+		restic_status=$?
+		[[ "$restic_status" -eq 10 ]] || check_result "$E_BACKUP" "customer offsite backup cannot be verified without its key"
+	else
+		snapshot_json=$(mktemp) || check_result "$E_SYSTEM" "customer offsite backup inventory could not be staged"
+		restic --repo "${REPO%/}/$user" --password-file "$USER_DATA/restic.conf" --json snapshots > "$snapshot_json"
+		restic_status=$?
+		if [[ "$restic_status" -eq 0 ]]; then
+			mapfile -t snapshot_ids < <(grep -oE '"id"[[:space:]]*:[[:space:]]*"[[:xdigit:]]{64}"' "$snapshot_json" | sed -E 's/.*"([[:xdigit:]]{64})"/\1/')
+			if grep -q '"id"' "$snapshot_json" && [[ "${#snapshot_ids[@]}" -eq 0 ]]; then
+				rm -f "$snapshot_json"
+				check_result "$E_BACKUP" "customer offsite backup inventory is malformed"
+			fi
+			rm -f "$snapshot_json"
+			if [[ "${#snapshot_ids[@]}" -gt 0 ]]; then
+				restic --repo "${REPO%/}/$user" --password-file "$USER_DATA/restic.conf" forget "${snapshot_ids[@]}" --prune > /dev/null \
+					|| check_result "$E_BACKUP" "customer offsite backup purge failed"
+				snapshot_json=$(mktemp) || check_result "$E_SYSTEM" "customer offsite backup purge could not be verified"
+				restic --repo "${REPO%/}/$user" --password-file "$USER_DATA/restic.conf" --json snapshots > "$snapshot_json"
+				restic_status=$?
+				if [[ "$restic_status" -ne 0 ]] || grep -q '"id"' "$snapshot_json"; then
+					rm -f "$snapshot_json"
+					check_result "$E_BACKUP" "customer offsite backup purge did not reconcile"
+				fi
+				rm -f "$snapshot_json"
+			fi
+		elif [[ "$restic_status" -eq 10 ]]; then
+			rm -f "$snapshot_json"
+		else
+			rm -f "$snapshot_json"
+			check_result "$E_BACKUP" "customer offsite backup inventory failed"
+		fi
+	fi
+
+	# Native full archives use the account prefix at the top of the configured
+	# backup directory. The validated Ceasar username keeps this deletion scoped
+	# to this account only.
+	if [[ -d "$BACKUP" ]]; then
+		find "$BACKUP" -maxdepth 1 -type f \( -name "${user}.*.tar" -o -name "${user}.log" \) -delete \
+			|| check_result "$E_BACKUP" "customer local backup purge failed"
+	fi
+	sed -i "/v-backup-user $user /d; /v-backup-user-restic $user /d" "$CEASAR/data/queue/backup.pipe"
 fi
 
 # Deleting web domains

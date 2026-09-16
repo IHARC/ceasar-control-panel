@@ -41,7 +41,7 @@ profile_customer_enabled='no'
 profile_managed_services='no'
 
 # Define software versions
-CEASAR_INSTALL_VER='1.0.3'
+CEASAR_INSTALL_VER='1.0.4'
 
 # Build the full Ceasar version
 # Split base version from an optional channel suffix (~alpha / ~beta).
@@ -61,7 +61,7 @@ case "$os" in
 		exit 1
 		;;
 esac
-# Final package version, for example 1.0.3-1+ubuntu24.04.
+# Final package version, for example 1.0.4-1+ubuntu24.04.
 CEASAR_INSTALL_BUILD="${CEASAR_BASE_VER}-1+${os_id}${CEASAR_CHANNEL}"
 
 # Supported PHP versions
@@ -161,13 +161,13 @@ validate_platform() {
 	local platform_id
 	platform_id="$(awk -F= '$1 == "ID" { gsub(/\"/, "", $2); print $2 }' "$OS_RELEASE_FILE")"
 	if [ "$platform_id" != 'ubuntu' ] || [ "$release" != '24.04' ]; then
-		check_result 1 "Ceasar 1.0.3 supports only Ubuntu 24.04 LTS."
+		check_result 1 "Ceasar 1.0.4 supports only Ubuntu 24.04 LTS."
 	fi
 	if [ "$architecture" != 'x86_64' ] && [ "$architecture" != 'amd64' ]; then
-		check_result 1 "Ceasar 1.0.3 supports only amd64 systems."
+		check_result 1 "Ceasar 1.0.4 supports only amd64 systems."
 	fi
 	if [ -n "$codename" ] && [ "$codename" != 'noble' ]; then
-		check_result 1 "Ceasar 1.0.3 requires the Ubuntu noble package repositories."
+		check_result 1 "Ceasar 1.0.4 requires the Ubuntu noble package repositories."
 	fi
 	codename='noble'
 }
@@ -225,7 +225,7 @@ validate_release_bundle() {
 	local manifest="$SCRIPT_DIR/ceasar-release.json"
 	[ -f "$manifest" ] || return 0
 	command -v python3 > /dev/null 2>&1 || check_result 1 "python3 is required to verify the Ceasar release bundle."
-	python3 - "$manifest" "$SCRIPT_DIR/packages" << 'PY'
+	python3 - "$manifest" "$SCRIPT_DIR/packages" "$CEASAR_INSTALL_VER" << 'PY'
 import hashlib
 import json
 import pathlib
@@ -234,10 +234,11 @@ import sys
 
 manifest_path = pathlib.Path(sys.argv[1])
 package_dir = pathlib.Path(sys.argv[2])
+expected_version = sys.argv[3]
 data = json.loads(manifest_path.read_text(encoding="utf-8"))
 if set(data) != {"schemaVersion", "version", "commit", "platform", "packages"}:
     raise SystemExit("release manifest fields do not match schema v1")
-if data.get("schemaVersion") != 1 or data.get("version") != "1.0.3":
+if data.get("schemaVersion") != 1 or data.get("version") != expected_version:
     raise SystemExit("unsupported Ceasar release manifest")
 if data.get("platform") != {"os": "ubuntu", "version": "24.04", "architecture": "amd64"}:
     raise SystemExit("release bundle does not target Ubuntu 24.04 amd64")

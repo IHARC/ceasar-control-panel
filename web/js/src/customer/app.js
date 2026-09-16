@@ -176,7 +176,9 @@ async function bindAccount(config, identity, backend) {
 				}
 				if (
 					context.accountId &&
-					!['admission-paid', 'billing-portal'].includes(form.dataset.accountAction)
+					!['admission-trial', 'admission-paid', 'billing-portal'].includes(
+						form.dataset.accountAction,
+					)
 				) {
 					await refreshSelectedAccount(backend, context);
 				}
@@ -330,14 +332,18 @@ async function accountAction(action, data, context, identity, backend) {
 	const accountId = required(context.accountId);
 	const serviceId = clean(context.serviceId);
 	if (action === 'admission-trial') {
-		await backend.requestTrialAdmission({
+		const checkout = await backend.requestTrialAdmission({
 			accountId,
 			planCode: required(data.plan_code),
 			siteType: required(data.site_type),
 			requestedCustomDomain: clean(data.requested_custom_domain),
 			idempotencyKey: required(data.idempotency_key),
 		});
-		return 'Trial request accepted.';
+		if (checkout.state === 'ready' && checkout.url) {
+			location.assign(checkout.url);
+			return '';
+		}
+		return { message: 'Secure trial checkout is preparing. Try again in a moment.', retry: true };
 	}
 	if (action === 'admission-paid') {
 		if (data.intent === 'migration' && data.site_type !== 'php') {
@@ -357,15 +363,6 @@ async function accountAction(action, data, context, identity, backend) {
 		}
 		return { message: 'Stripe Checkout is preparing. Try again in a moment.', retry: true };
 	}
-	if (action === 'service-website') {
-		await backend.addWebsite(required(serviceId), {
-			accountId,
-			siteType: required(data.site_type),
-			requestedCustomDomain: clean(data.requested_custom_domain),
-			idempotencyKey: required(data.idempotency_key),
-		});
-		return 'Website request accepted.';
-	}
 	if (action === 'migration-confirm') {
 		const handoff = context.state.migrationWorkspace?.[0];
 		await backend.confirmMigration(required(serviceId), {
@@ -374,23 +371,6 @@ async function accountAction(action, data, context, identity, backend) {
 			idempotencyKey: required(data.idempotency_key),
 		});
 		return 'Import completion recorded.';
-	}
-	if (action === 'domain-refresh') {
-		await backend.refreshDomain(required(serviceId), {
-			accountId,
-			websiteId: required(data.website_id),
-			hostname: required(data.hostname),
-			dnsRecordType: required(data.dns_record_type),
-			idempotencyKey: required(data.idempotency_key),
-		});
-		return 'Domain refresh requested.';
-	}
-	if (action === 'backup') {
-		await backend.requestBackup(required(serviceId), {
-			accountId,
-			idempotencyKey: required(data.idempotency_key),
-		});
-		return 'Backup requested.';
 	}
 	if (action === 'support-open') {
 		await backend.openSupportCase({
@@ -508,16 +488,6 @@ function renderCustomerState(state, context, preferredServiceId = '') {
 		empty: 'No support cases',
 	});
 
-	const websites = (state.websites || []).filter(
-		(row) => !context.serviceId || row.service_id === context.serviceId,
-	);
-	populateSelect('[data-website-select]', websites, {
-		value: (row) => row.id,
-		label: (row) => row.hostname || 'Website',
-		selected: '',
-		empty: 'No website available',
-	});
-
 	const handoff = state.migrationWorkspace?.[0];
 	const migrationButton = document.querySelector('[data-migration-confirm]');
 	if (migrationButton) migrationButton.disabled = !handoff?.workspace_ready_operation_id;
@@ -530,18 +500,48 @@ function renderNativeAccess(rows) {
 	target.replaceChildren();
 	const row = rows[0];
 	if (!row || row.access_state !== 'ready') return;
-	const candidate = row.panel_origin || row.url || row.login_url || row.panel_url;
+	const candidate = row.panel_origin;
 	if (typeof candidate !== 'string') return;
 	try {
-		const url = new URL(candidate);
-		if (url.protocol !== 'https:') return;
-		const link = document.createElement('a');
-		link.className = 'button button-secondary';
-		link.href = url.toString();
-		link.rel = 'noopener';
-		link.target = '_blank';
-		link.textContent = 'Open native hosting controls';
-		target.append(link);
+		const origin = new URL(candidate);
+		const hostname = typeof row.sftp_hostname === 'string' ? row.sftp_hostname : '';
+		const port = Number(row.sftp_port);
+		const username = typeof row.provider_username === 'string' ? row.provider_username : '';
+		if (
+			origin.protocol !== 'https:' ||
+			origin.username ||
+			origin.password ||
+			origin.pathname !== '/' ||
+			origin.search ||
+			origin.hash ||
+			!hostname ||
+			!Number.isInteger(port) ||
+			port < 1 ||
+			port > 65535 ||
+			!username
+		)
+			return;
+		const heading = document.createElement('h3');
+		heading.className = 'u-mb10';
+		heading.textContent = 'Native hosting access';
+		const credentials = document.createElement('p');
+		credentials.className = 'u-mb10';
+		credentials.textContent = `Username: ${username} · SFTP: ${hostname}:${port}`;
+		const controls = document.createElement('p');
+		const login = document.createElement('a');
+		login.className = 'button button-secondary';
+		login.href = new URL('/login/', origin).toString();
+		login.rel = 'noopener';
+		login.target = '_blank';
+		login.textContent = 'Open hosting controls';
+		const reset = document.createElement('a');
+		reset.className = 'button button-secondary';
+		reset.href = new URL('/reset/', origin).toString();
+		reset.rel = 'noopener';
+		reset.target = '_blank';
+		reset.textContent = 'Set or reset hosting password';
+		controls.append(login, document.createTextNode(' '), reset);
+		target.append(heading, credentials, controls);
 	} catch {
 		// The backend did not provide a usable native access URL.
 	}

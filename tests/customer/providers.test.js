@@ -208,12 +208,17 @@ describe('CustomerBusinessBackend', () => {
 		await backend.supportCase('case-1');
 		await backend.createAccount('Example account');
 		await backend.updateProfile('Example customer');
-		await backend.requestTrialAdmission({
-			accountId: 'account-1',
-			planCode: 'starter',
-			siteType: 'wordpress',
-			requestedCustomDomain: 'example.com',
-			idempotencyKey: 'request-1',
+		await expect(
+			backend.requestTrialAdmission({
+				accountId: 'account-1',
+				planCode: 'starter',
+				siteType: 'wordpress',
+				requestedCustomDomain: 'example.com',
+				idempotencyKey: 'request-1',
+			}),
+		).resolves.toEqual({
+			state: 'ready',
+			url: 'https://checkout.stripe.com/session',
 		});
 		await expect(
 			backend.requestPaidAdmission({
@@ -228,37 +233,20 @@ describe('CustomerBusinessBackend', () => {
 			state: 'ready',
 			url: 'https://checkout.stripe.com/session',
 		});
-		await backend.addWebsite('service-1', {
-			accountId: 'account-1',
-			siteType: 'static',
-			requestedCustomDomain: 'static.example.com',
-			idempotencyKey: 'request-3',
-		});
 		await backend.confirmMigration('service-1', {
 			accountId: 'account-1',
 			workspaceReadyOperationId: 'operation-1',
-			idempotencyKey: 'request-4',
-		});
-		await backend.refreshDomain('service-1', {
-			accountId: 'account-1',
-			websiteId: 'website-1',
-			hostname: 'www.example.com',
-			dnsRecordType: 'CNAME',
-			idempotencyKey: 'request-5',
-		});
-		await backend.requestBackup('service-1', {
-			accountId: 'account-1',
-			idempotencyKey: 'request-6',
+			idempotencyKey: 'request-3',
 		});
 		await backend.openSupportCase({
 			accountId: 'account-1',
 			serviceId: 'service-1',
 			subject: 'Help',
 			message: 'Please help',
-			idempotencyKey: 'request-7',
+			idempotencyKey: 'request-4',
 		});
-		await backend.replyToSupportCase('case-1', 'Thanks', 'request-8');
-		await backend.closeSupportCase('case-1', 'request-9');
+		await backend.replyToSupportCase('case-1', 'Thanks', 'request-5');
+		await backend.closeSupportCase('case-1', 'request-6');
 		await backend.requestEmailChange('new@example.com');
 		await backend.changePassword('correct horse battery staple');
 		expect(fetcher.mock.calls.map(([url]) => url)).toEqual([
@@ -269,10 +257,7 @@ describe('CustomerBusinessBackend', () => {
 			'/api/provider/v1/customer/profile',
 			'/api/provider/v1/customer/admissions/trial',
 			'/api/provider/v1/customer/billing/checkout-sessions',
-			'/api/provider/v1/customer/services/service-1/websites',
 			'/api/provider/v1/customer/migrations/service-1/confirm',
-			'/api/provider/v1/customer/services/service-1/domain-refresh',
-			'/api/provider/v1/customer/services/service-1/backups',
 			'/api/provider/v1/customer/support',
 			'/api/provider/v1/customer/support/case-1/replies',
 			'/api/provider/v1/customer/support/case-1/close',
@@ -286,11 +271,11 @@ describe('CustomerBusinessBackend', () => {
 			requestedCustomDomain: 'example.com',
 			idempotencyKey: 'request-1',
 		});
-		expect(JSON.parse(fetcher.mock.calls[8][1].body)).toEqual({
+		expect(JSON.parse(fetcher.mock.calls[7][1].body)).toEqual({
 			accountId: 'account-1',
 			workspaceReadyOperationId: 'operation-1',
 			customerAttestsImportComplete: true,
-			idempotencyKey: 'request-4',
+			idempotencyKey: 'request-3',
 		});
 	});
 

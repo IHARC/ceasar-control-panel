@@ -52,7 +52,11 @@ $application
 		$options = $input->getArgument("options");
 		$data = [];
 		foreach ($options as $option) {
-			$o = explode("=", $option);
+			$o = explode("=", $option, 2);
+			if (count($o) !== 2 || $o[0] === "") {
+				$output->writeln("Invalid option");
+				return Command::FAILURE;
+			}
 			$data["webapp_" . $o[0]] = $o[1];
 		}
 		$ceasar = new \Ceasar\System\CeasarApp();

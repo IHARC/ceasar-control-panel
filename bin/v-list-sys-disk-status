@@ -1,10 +1,45 @@
 #!/bin/bash
 # info: list disk information
-# options:
+# options: [FORMAT]
 #
-# example: v-list-sys-disk-status
+# example: v-list-sys-disk-status json
 #
 # This function lists disk information
+
+format=${1-plain}
+
+if [[ "$format" == json ]]; then
+	# The Ceasar API and capacity worker use one native observation. Account
+	# allocation belongs on the filesystem holding customer home directories;
+	# local backup archives count only when they share that filesystem.
+	source /etc/ceasar/ceasar.conf
+	source "$CEASAR/func/main.sh"
+	source_conf "$CEASAR/conf/ceasar.conf"
+
+	storage_path=${HOMEDIR:-/home}
+	backup_path=${BACKUP:-/backup}
+	read -r total_storage_bytes used_storage_bytes < <(df -B1 --output=size,used "$storage_path" | tail -n 1)
+	if [[ ! "$total_storage_bytes" =~ ^[0-9]+$ || ! "$used_storage_bytes" =~ ^[0-9]+$ ]]; then
+		printf '%s\n' '{"status":"error","findings":[]}'
+		exit 1
+	fi
+
+	retained_data_bytes=0
+	if [[ -d "$backup_path" ]] && [[ "$(df -P "$storage_path" | awk 'NR == 2 { print $1 }')" == "$(df -P "$backup_path" | awk 'NR == 2 { print $1 }')" ]]; then
+		retained_data_bytes=$(du -sx --block-size=1 "$backup_path" 2> /dev/null | awk 'NR == 1 { print $1 }')
+		[[ "$retained_data_bytes" =~ ^[0-9]+$ ]] || retained_data_bytes=0
+	fi
+
+	checked_at=$(date -u +'%Y-%m-%dT%H:%M:%SZ')
+	printf '{"status":"ok","checked_at":"%s","findings":[{"topic":"storage","status":"ok","details":{"total_storage_bytes":%s,"used_storage_bytes":%s,"retained_data_bytes":%s,"restore_workspace_bytes":0}}]}\n' \
+		"$checked_at" "$total_storage_bytes" "$used_storage_bytes" "$retained_data_bytes"
+	exit
+fi
+
+if [[ "$format" != plain ]]; then
+	echo "Error: unsupported disk status format" >&2
+	exit 1
+fi
 
 #----------------------------------------------------------#
 #                       Action                             #

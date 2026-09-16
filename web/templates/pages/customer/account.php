@@ -86,52 +86,13 @@
 			<button class="button button-secondary" type="submit">Continue to Stripe Checkout</button>
 		</form>
 
-		<h3 class="u-mt20 u-mb10">Add a website</h3>
-		<form data-account-action="service-website">
-			<div class="u-mb10">
-				<label class="form-label" for="website-site-type">Site type</label>
-				<select class="form-select" id="website-site-type" name="site_type"><option value="wordpress">WordPress</option><option value="php">PHP</option><option value="static">Static site</option></select>
-			</div>
-			<div class="u-mb20">
-				<label class="form-label" for="website-domain">Custom domain (optional)</label>
-				<input class="form-control" id="website-domain" name="requested_custom_domain" inputmode="url">
-			</div>
-			<button class="button" type="submit">Add website to selected service</button>
-		</form>
-
-		<h3 class="u-mt20 u-mb10">Service operations</h3>
+		<h3 class="u-mt20 u-mb10">Complete an existing import</h3>
 		<form class="u-mb10" data-account-action="migration-confirm">
 			<div class="form-check u-mb10">
 				<input class="form-check-input" id="migration-complete" type="checkbox" name="customer_attests_import_complete" required>
 				<label for="migration-complete">I confirm the import into the selected service is complete.</label>
 			</div>
 			<button class="button button-secondary" type="submit" data-migration-confirm disabled>Confirm import</button>
-		</form>
-		<form class="u-mb10" data-account-action="backup">
-			<div class="form-check u-mb10">
-				<input class="form-check-input" id="backup-replace" type="checkbox" name="replace_existing_manual_backup" required>
-				<label for="backup-replace">Replace the previous manual backup for this service.</label>
-			</div>
-			<button class="button button-secondary" type="submit">Request backup</button>
-		</form>
-		<form data-account-action="domain-refresh">
-			<div class="u-mb10">
-				<label class="form-label" for="domain-website">Website</label>
-				<select class="form-select" id="domain-website" name="website_id" data-website-select required disabled><option>Select a service first</option></select>
-			</div>
-			<div class="u-mb10">
-				<label class="form-label" for="domain-hostname">Hostname</label>
-				<input class="form-control" id="domain-hostname" name="hostname" required>
-			</div>
-			<div class="u-mb10">
-				<label class="form-label" for="domain-record-type">DNS record type</label>
-				<select class="form-select" id="domain-record-type" name="dns_record_type"><option>A</option><option>AAAA</option><option>CNAME</option></select>
-			</div>
-			<div class="form-check u-mb10">
-				<input class="form-check-input" id="domain-confirm" type="checkbox" name="confirm_domain_change" required>
-				<label for="domain-confirm">Apply this domain change to the selected website.</label>
-			</div>
-			<button class="button button-secondary" type="submit">Refresh domain</button>
 		</form>
 	</section>
 
