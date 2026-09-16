@@ -25,7 +25,7 @@ fi
 
 autoload_inc="$CEASAR/web/inc/vendor/autoload.php"
 autoload_src="$CEASAR/web/src/vendor/autoload.php"
-autoload_filemanager="$CEASAR/install/deb/filemanager/filegator/vendor/autoload.php"
+autoload_filemanager="$CEASAR/web/fm/vendor/autoload.php"
 for autoload in "$autoload_inc" "$autoload_src" "$autoload_filemanager"; do
 	if [ ! -r "$autoload" ]; then
 		echo "ERROR: Packaged Composer autoloader is missing: $autoload" >&2
@@ -40,7 +40,7 @@ done
 chown -R root:root \
 	"$CEASAR/web/inc/vendor" \
 	"$CEASAR/web/src/vendor" \
-	"$CEASAR/install/deb/filemanager/filegator/vendor"
+	"$CEASAR/web/fm/vendor"
 
 "$BIN/v-log-action" "system" "Info" "Plugins" "Packaged PHP dependencies verified."
 log_event "$OK" "$ARGUMENTS"
