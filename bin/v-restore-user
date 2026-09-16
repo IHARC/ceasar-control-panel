@@ -22,6 +22,11 @@ cron=$7
 udir=$8
 notify=${9-no}
 
+# Extraction happens inside a private temporary directory. Normalize the
+# caller's umask so archived containers remain readable by the unprivileged
+# extraction helpers; restored secrets receive explicit modes below.
+umask 022
+
 # Define backup dir
 if [ -z "$BACKUP" ]; then
 	BACKUP=/backup
