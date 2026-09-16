@@ -4,7 +4,7 @@ on:
   workflow_dispatch:
   push:
     tags:
-      - "v1.0.2"
+      - "v1.0.3"
 
 concurrency:
   group: ceasar-release
@@ -33,7 +33,7 @@ jobs:
         run: |
           set -euo pipefail
           version="$(awk '$1 == "Version:" {print $2}' src/deb/ceasar/control)"
-          test "$version" = "1.0.2"
+          test "$version" = "1.0.3"
           if [[ "${GITHUB_REF_TYPE}" == "tag" ]]; then
             test "${GITHUB_REF_NAME}" = "v${version}"
           fi
@@ -53,7 +53,7 @@ jobs:
             -v "${GITHUB_WORKSPACE}:/src:ro" \
             -v "${GITHUB_WORKSPACE}/dist/debs:/out" \
             ceasar-release-builder:${{ github.sha }} \
-            bash -lc 'cd /src/src && bash ./ceasar_autocompile.sh --all --noinstall "~localsrc"'
+            bash -lc 'cd /src/src && bash ./ceasar_autocompile.sh --all --pkgrev 2 --noinstall "~localsrc"'
 
       - name: Verify package contents and target PHP platform
         run: |

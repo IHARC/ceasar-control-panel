@@ -47,7 +47,35 @@ jobs:
             -v "${GITHUB_WORKSPACE}:/src:ro" \
             -v "${GITHUB_WORKSPACE}/dist/debs:/out" \
             ceasar-package-builder:${{ github.sha }} \
-            bash -lc 'cd /src/src && bash ./ceasar_autocompile.sh --all --noinstall "~localsrc"'
+            bash -lc 'cd /src/src && bash ./ceasar_autocompile.sh --all --pkgrev 2 --noinstall "~localsrc"'
+
+      - name: Verify the previous Nginx package upgrades to the changed config
+        run: |
+          set -euo pipefail
+          previous="${RUNNER_TEMP}/ceasar-1.0.1"
+          mkdir -p "$previous"
+          curl --fail --silent --show-error --location \
+            https://github.com/iharc-jordan/ceasar-control-panel/releases/download/v1.0.1/ceasar-1.0.1-ubuntu24.04-amd64.tar.zst \
+            --output "${RUNNER_TEMP}/ceasar-1.0.1.tar.zst"
+          tar --zstd -xf "${RUNNER_TEMP}/ceasar-1.0.1.tar.zst" -C "$previous"
+          old_package=$(find "$previous/packages" -maxdepth 1 -type f -name 'ceasar-nginx_*.deb' -print -quit)
+          new_package=$(find dist/debs -maxdepth 1 -type f -name 'ceasar-nginx_*.deb' -print -quit)
+          old_version=$(dpkg-deb --field "$old_package" Version)
+          new_version=$(dpkg-deb --field "$new_package" Version)
+          dpkg --compare-versions "$new_version" gt "$old_version"
+          docker run --rm \
+            -v "$old_package:/packages/old.deb:ro" \
+            -v "${GITHUB_WORKSPACE}/${new_package}:/packages/new.deb:ro" \
+            ubuntu:24.04 bash -lc '
+              set -euo pipefail
+              dpkg --force-depends --unpack /packages/old.deb
+              ! grep -Eq "^[[:space:]]*absolute_redirect[[:space:]]+off;" \
+                /usr/local/ceasar/nginx/conf/nginx.conf
+              dpkg --force-depends --unpack /packages/new.deb
+              test "$(dpkg-query -W -f="\${Version}" ceasar-nginx)" = "'"$new_version"'"
+              grep -Eq "^[[:space:]]*absolute_redirect[[:space:]]+off;" \
+                /usr/local/ceasar/nginx/conf/nginx.conf
+            '
 
       - name: Start CI container
         run: |
@@ -133,6 +161,12 @@ jobs:
         run: |
           docker exec ceasar-ci bash -lc '
             set -euxo pipefail
+            core_package=$(find /ceasar-git/dist/debs -maxdepth 1 -type f -name "ceasar_*.deb" -print -quit)
+            chown root:root /usr/local/ceasar/conf
+            chmod 0750 /usr/local/ceasar/conf
+            dpkg --unpack "$core_package"
+            dpkg --configure ceasar
+            test "$(stat -c "%U:%G:%a" /usr/local/ceasar/conf)" = "root:ceasarweb:750"
             cat >/tmp/customer.json <<"JSON"
             {"schema":1,"enabled":true,"brand_name":"Ceasar","supabase_url":"https://fixture.supabase.co","supabase_publishable_key":"sb_publishable_fixture","terms_url":"https://example.com/terms","privacy_url":"https://example.com/privacy","passkeys_enabled":false,"passkey_rp_id":"example.com","login_url":"https://app.example.com/customer/login","callback_url":"https://login.example.com/auth/callback","account_url":"https://app.example.com/customer/account","worker_api_base":"/api/customer/v1"}
             JSON
