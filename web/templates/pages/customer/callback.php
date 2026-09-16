@@ -1,6 +1,9 @@
-<section class="customer-card customer-card-narrow">
-	<p class="customer-kicker">Secure confirmation</p>
-	<h1>Confirming your account</h1>
-	<p>Keep this page open while Ceasar completes the protected sign-in exchange.</p>
-	<div data-customer-notice class="customer-loading" aria-live="polite">Checking your confirmation link…</div>
-</section>
+<div class="login">
+	<a href="/customer/login/" class="u-block u-mb40">
+		<img src="/images/logo.svg" alt="<?= htmlspecialchars((string) $config['brand_name'], ENT_QUOTES) ?>" width="100" height="120">
+	</a>
+	<div>
+		<h1 class="login-title">Secure confirmation</h1>
+		<p data-customer-notice aria-live="polite">Checking your confirmation link…</p>
+	</div>
+</div>

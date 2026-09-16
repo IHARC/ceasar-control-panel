@@ -1,5 +1,9 @@
-<section class="customer-card customer-card-narrow">
-	<h1>Customer access is not configured</h1>
-	<p>This Ceasar installation is operating as a standalone control panel.</p>
-	<p>Administrators can continue to use <a href="/login/">native panel sign in</a>.</p>
-</section>
+<div class="login">
+	<a href="/" class="u-block u-mb40">
+		<img src="/images/logo.svg" alt="Ceasar" width="100" height="120">
+	</a>
+	<div>
+		<h1 class="login-title">Customer access unavailable</h1>
+		<p>This Ceasar installation has not enabled the optional customer account module.</p>
+	</div>
+</div>

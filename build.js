@@ -144,7 +144,6 @@ async function buildCSS() {
 		});
 
 	await Promise.all(cssBuildPromises);
-	await processCSS('./web/css/src/customer.css', './web/css/customer.min.css');
 }
 
 // Ensure a directory exists

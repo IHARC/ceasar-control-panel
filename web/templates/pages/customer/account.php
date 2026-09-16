@@ -1,141 +1,209 @@
-<section class="customer-account-heading">
-	<div>
-		<p class="customer-kicker">Customer account</p>
-		<h1>Welcome back</h1>
-		<p><span data-customer-email>Loading…</span> · assurance <strong data-customer-aal>—</strong></p>
+<div class="toolbar">
+	<div class="toolbar-inner">
+		<div class="toolbar-buttons">
+			<h1>Customer account</h1>
+		</div>
+		<div class="toolbar-right">
+			<p><span data-customer-email>Loading…</span> · <strong data-customer-aal>—</strong></p>
+		</div>
 	</div>
-	<nav class="customer-account-nav" aria-label="Account sections">
-		<a href="#services">Services</a>
-		<a href="#profile">Profile</a>
-		<a href="#security">Security</a>
-		<a href="#support">Support</a>
-	</nav>
-</section>
-<div data-customer-notice aria-live="polite"></div>
-<section id="services" class="customer-grid">
-	<div class="customer-card customer-span-two">
-		<h2>Your accounts</h2>
-		<div data-accounts class="customer-rows"><p>Loading…</p></div>
-	</div>
-	<div class="customer-card customer-span-two">
-		<h2>Your services</h2>
-		<div data-services class="customer-rows"><p>Loading…</p></div>
-	</div>
-	<div class="customer-card">
-		<h2>Choose a service</h2>
-		<div data-offerings class="customer-rows"></div>
-		<form class="customer-form" data-account-action="admission-trial">
-			<label>Account ID<input class="form-control" name="account_id" required></label>
-			<label>Offering ID<input class="form-control" name="offering_id" required></label>
+</div>
+<div class="container">
+	<div data-customer-notice aria-live="polite"></div>
+
+	<section id="services" class="form-container form-container-wide">
+		<h2 class="u-mb20">Services</h2>
+		<div class="u-mb20">
+			<label class="form-label" for="customer-account-context">Customer account</label>
+			<select class="form-select" id="customer-account-context" data-account-select disabled>
+				<option>Loading…</option>
+			</select>
+		</div>
+
+		<h3 class="u-mb10">Your accounts</h3>
+		<div class="units-table u-mb20" data-account-rows>
+			<div class="units-table-header">
+				<div class="units-table-cell"></div>
+				<div class="units-table-cell">Account</div>
+				<div class="units-table-cell">Role</div>
+			</div>
+			<p class="units-table-footer">Loading…</p>
+		</div>
+
+		<h3 class="u-mb10">Your hosting services</h3>
+		<div class="units-table u-mb20" data-service-rows>
+			<div class="units-table-header">
+				<div class="units-table-cell"></div>
+				<div class="units-table-cell">Service</div>
+				<div class="units-table-cell">Status</div>
+				<div class="units-table-cell">Native account</div>
+			</div>
+			<p class="units-table-footer">Loading…</p>
+		</div>
+
+		<div class="u-mb20">
+			<label class="form-label" for="customer-service-context">Selected service</label>
+			<select class="form-select" id="customer-service-context" data-service-select disabled>
+				<option>No service yet</option>
+			</select>
+		</div>
+		<div data-native-access class="u-mb20"></div>
+
+		<h3 class="u-mb10">Start a hosting service</h3>
+		<form data-account-action="admission-trial">
+			<div class="u-mb10">
+				<label class="form-label" for="trial-plan">Plan</label>
+				<select class="form-select" id="trial-plan" name="plan_code" data-plan-select required disabled><option>Loading…</option></select>
+			</div>
+			<div class="u-mb10">
+				<label class="form-label" for="trial-site-type">Site type</label>
+				<select class="form-select" id="trial-site-type" name="site_type"><option value="wordpress">WordPress</option><option value="php">PHP</option><option value="static">Static site</option></select>
+			</div>
+			<div class="u-mb20">
+				<label class="form-label" for="trial-domain">Custom domain (optional)</label>
+				<input class="form-control" id="trial-domain" name="requested_custom_domain" inputmode="url">
+			</div>
 			<button class="button" type="submit">Request trial</button>
 		</form>
-		<form class="customer-form" data-account-action="admission-paid">
-			<label>Account ID<input class="form-control" name="account_id" required></label>
-			<label>Offering ID<input class="form-control" name="offering_id" required></label>
-			<button class="button button-secondary" type="submit">Continue to secure checkout</button>
+
+		<form class="u-mt20" data-account-action="admission-paid">
+			<div class="u-mb10">
+				<label class="form-label" for="checkout-plan">Plan</label>
+				<select class="form-select" id="checkout-plan" name="plan_code" data-plan-select required disabled><option>Loading…</option></select>
+			</div>
+			<div class="u-mb10">
+				<label class="form-label" for="checkout-intent">Setup</label>
+				<select class="form-select" id="checkout-intent" name="intent"><option value="new_site">New site</option><option value="migration">Import an existing PHP site</option></select>
+			</div>
+			<div class="u-mb10">
+				<label class="form-label" for="checkout-site-type">Site type</label>
+				<select class="form-select" id="checkout-site-type" name="site_type"><option value="wordpress">WordPress</option><option value="php">PHP</option><option value="static">Static site</option></select>
+			</div>
+			<div class="u-mb20">
+				<label class="form-label" for="checkout-domain">Custom domain (optional)</label>
+				<input class="form-control" id="checkout-domain" name="requested_custom_domain" inputmode="url">
+			</div>
+			<button class="button button-secondary" type="submit">Continue to Stripe Checkout</button>
 		</form>
-	</div>
-	<div class="customer-card">
-		<h2>Add a website</h2>
-		<form class="customer-form" data-account-action="service-website">
-			<label>Service ID<input class="form-control" name="service_id" required></label>
-			<label>Domain<input class="form-control" name="domain" inputmode="url" required></label>
-			<button class="button" type="submit">Add website</button>
+
+		<h3 class="u-mt20 u-mb10">Add a website</h3>
+		<form data-account-action="service-website">
+			<div class="u-mb10">
+				<label class="form-label" for="website-site-type">Site type</label>
+				<select class="form-select" id="website-site-type" name="site_type"><option value="wordpress">WordPress</option><option value="php">PHP</option><option value="static">Static site</option></select>
+			</div>
+			<div class="u-mb20">
+				<label class="form-label" for="website-domain">Custom domain (optional)</label>
+				<input class="form-control" id="website-domain" name="requested_custom_domain" inputmode="url">
+			</div>
+			<button class="button" type="submit">Add website to selected service</button>
 		</form>
-	</div>
-	<div class="customer-card">
-		<h2>Service operations</h2>
-		<p>Migration confirmation requires a verified second factor.</p>
-		<form class="customer-form" data-account-action="migration-confirm">
-			<label>Service ID<input class="form-control" name="service_id" required></label>
-			<button class="button button-secondary" type="submit">Confirm migration</button>
+
+		<h3 class="u-mt20 u-mb10">Service operations</h3>
+		<form class="u-mb10" data-account-action="migration-confirm">
+			<div class="form-check u-mb10">
+				<input class="form-check-input" id="migration-complete" type="checkbox" name="customer_attests_import_complete" required>
+				<label for="migration-complete">I confirm the import into the selected service is complete.</label>
+			</div>
+			<button class="button button-secondary" type="submit" data-migration-confirm disabled>Confirm import</button>
 		</form>
-		<form class="customer-form" data-account-action="domain-refresh">
-			<label>Service ID<input class="form-control" name="service_id" required></label>
-			<button class="button button-secondary" type="submit">Refresh domains</button>
-		</form>
-		<form class="customer-form" data-account-action="backup">
-			<label>Service ID<input class="form-control" name="service_id" required></label>
+		<form class="u-mb10" data-account-action="backup">
+			<div class="form-check u-mb10">
+				<input class="form-check-input" id="backup-replace" type="checkbox" name="replace_existing_manual_backup" required>
+				<label for="backup-replace">Replace the previous manual backup for this service.</label>
+			</div>
 			<button class="button button-secondary" type="submit">Request backup</button>
 		</form>
-	</div>
-</section>
-<section id="profile" class="customer-grid">
-	<div class="customer-card">
-		<h2>Customer profile</h2>
-		<form class="customer-form" data-account-action="profile">
-			<label>Display name<input class="form-control" name="display_name" autocomplete="name" required></label>
+		<form data-account-action="domain-refresh">
+			<div class="u-mb10">
+				<label class="form-label" for="domain-website">Website</label>
+				<select class="form-select" id="domain-website" name="website_id" data-website-select required disabled><option>Select a service first</option></select>
+			</div>
+			<div class="u-mb10">
+				<label class="form-label" for="domain-hostname">Hostname</label>
+				<input class="form-control" id="domain-hostname" name="hostname" required>
+			</div>
+			<div class="u-mb10">
+				<label class="form-label" for="domain-record-type">DNS record type</label>
+				<select class="form-select" id="domain-record-type" name="dns_record_type"><option>A</option><option>AAAA</option><option>CNAME</option></select>
+			</div>
+			<div class="form-check u-mb10">
+				<input class="form-check-input" id="domain-confirm" type="checkbox" name="confirm_domain_change" required>
+				<label for="domain-confirm">Apply this domain change to the selected website.</label>
+			</div>
+			<button class="button button-secondary" type="submit">Refresh domain</button>
+		</form>
+	</section>
+
+	<section id="profile" class="form-container form-container-wide">
+		<h2 class="u-mb20">Profile and billing</h2>
+		<form data-account-action="profile">
+			<div class="u-mb20"><label class="form-label" for="display-name">Display name</label><input class="form-control" id="display-name" name="display_name" autocomplete="name" required></div>
 			<button class="button" type="submit">Save profile</button>
 		</form>
-		<form class="customer-form" data-account-action="account-create">
-			<label>New account name<input class="form-control" name="display_name" required></label>
+		<form class="u-mt20" data-account-action="account-create">
+			<div class="u-mb20"><label class="form-label" for="account-name">New account name</label><input class="form-control" id="account-name" name="display_name" required></div>
 			<button class="button button-secondary" type="submit">Create account</button>
 		</form>
-	</div>
-	<div class="customer-card">
-		<h2>Email and password</h2>
-		<form class="customer-form" data-account-action="identity-profile">
-			<label>Display name<input class="form-control" name="display_name" autocomplete="name"></label>
-			<label>New email<input class="form-control" type="email" name="email" autocomplete="email"></label>
-			<label>New password<input class="form-control" type="password" name="password" autocomplete="new-password" minlength="10"></label>
-			<button class="button button-secondary" type="submit">Update sign-in details</button>
+		<form class="u-mt20" data-account-action="email-change">
+			<div class="u-mb20"><label class="form-label" for="new-email">New email</label><input class="form-control" id="new-email" type="email" name="email" autocomplete="email" required></div>
+			<button class="button button-secondary" type="submit">Send email confirmation</button>
 		</form>
-	</div>
-	<div class="customer-card">
-		<h2>Billing</h2>
-		<p>Payment details are entered only on Stripe's hosted pages.</p>
-		<form class="customer-form" data-account-action="billing-portal">
-			<label>Account ID<input class="form-control" name="account_id" required></label>
-			<button class="button button-secondary" type="submit">Open billing portal</button>
+		<form class="u-mt20" data-account-action="password-change">
+			<div class="u-mb20"><label class="form-label" for="new-password">New password</label><input class="form-control" id="new-password" type="password" name="password" autocomplete="new-password" minlength="12" required></div>
+			<button class="button button-secondary" type="submit">Change password</button>
 		</form>
-	</div>
-</section>
-<section id="security" class="customer-grid">
-	<div class="customer-card">
-		<h2>Authenticator app</h2>
-		<div data-mfa-factors class="customer-rows"></div>
-		<form class="customer-form" data-account-action="mfa-enroll">
-			<label>Device name<input class="form-control" name="friendly_name" maxlength="120" value="Authenticator"></label>
+		<form class="u-mt20" data-account-action="billing-portal">
+			<p class="u-mb10">Payment methods, invoices, and cancellation are handled on Stripe's hosted portal.</p>
+			<button class="button button-secondary" type="submit">Open Stripe customer portal</button>
+		</form>
+	</section>
+
+	<section id="security" class="form-container form-container-wide">
+		<h2 class="u-mb20">Security</h2>
+		<h3 class="u-mb10">Authenticator apps</h3>
+		<div class="units-table u-mb20" data-mfa-rows><p class="units-table-footer">Loading…</p></div>
+		<form data-account-action="mfa-enroll">
+			<div class="u-mb20"><label class="form-label" for="factor-name">Device name</label><input class="form-control" id="factor-name" name="friendly_name" maxlength="120" value="Authenticator"></div>
 			<button class="button button-secondary" type="submit">Add authenticator</button>
 		</form>
-		<img data-mfa-qr class="customer-qr" alt="Authenticator QR code" hidden>
-		<form class="customer-form" data-account-action="mfa-verify">
+		<img data-mfa-qr class="u-hidden u-mt20 u-max-width300" alt="Authenticator QR code">
+		<form class="u-hidden u-mt20" data-account-action="mfa-verify" data-mfa-verify>
 			<input type="hidden" name="factor_id">
-			<label>Verification code<input class="form-control" name="code" inputmode="numeric" autocomplete="one-time-code" pattern="[0-9]{6}" required></label>
+			<div class="u-mb20"><label class="form-label" for="factor-code">Verification code</label><input class="form-control" id="factor-code" name="code" inputmode="numeric" autocomplete="one-time-code" pattern="[0-9]{6}" required></div>
 			<button class="button" type="submit">Verify factor</button>
 		</form>
-	</div>
-	<div class="customer-card">
-		<h2>Passkeys</h2>
-		<p>Passkeys use this customer's stable secure hostname and your device's protected credential store.</p>
-		<div data-passkeys class="customer-rows"></div>
-		<button class="button button-secondary" type="button" data-passkey-register>Register passkey</button>
-	</div>
-</section>
-<section id="support" class="customer-grid">
-	<div class="customer-card customer-span-two">
-		<h2>Support cases</h2>
-		<div data-support-cases class="customer-rows"><p>Loading…</p></div>
-	</div>
-	<div class="customer-card">
-		<h2>Ask for help</h2>
-		<form class="customer-form" data-account-action="support-open">
-			<label>Account ID<input class="form-control" name="account_id" required></label>
-			<label>Subject<input class="form-control" name="subject" maxlength="200" required></label>
-			<label>Message<textarea class="form-control" name="message" maxlength="10000" required></textarea></label>
+		<div data-passkey-section>
+			<h3 class="u-mt20 u-mb10">Passkeys</h3>
+			<div class="units-table u-mb20" data-passkey-rows></div>
+			<button class="button button-secondary u-hidden" type="button" data-passkey-register>Register passkey</button>
+		</div>
+	</section>
+
+	<section id="support" class="form-container form-container-wide">
+		<h2 class="u-mb20">Support</h2>
+		<div class="units-table u-mb20" data-support-rows>
+			<div class="units-table-header"><div class="units-table-cell"></div><div class="units-table-cell">Case</div><div class="units-table-cell">Status</div><div class="units-table-cell">Updated</div></div>
+			<p class="units-table-footer">Loading…</p>
+		</div>
+		<div data-support-case-detail class="u-mb20">
+			<p>Select a support case to read its messages.</p>
+		</div>
+		<div class="units-table u-mb20" data-support-message-rows>
+			<div class="units-table-header"><div class="units-table-cell"></div><div class="units-table-cell">From</div><div class="units-table-cell">Message</div><div class="units-table-cell">Date</div></div>
+			<p class="units-table-footer">No case selected.</p>
+		</div>
+		<form data-account-action="support-open">
+			<div class="u-mb10"><label class="form-label" for="support-service">Service (optional)</label><select class="form-select" id="support-service" name="service_id" data-service-select-optional><option value="">Account question</option></select></div>
+			<div class="u-mb10"><label class="form-label" for="support-subject">Subject</label><input class="form-control" id="support-subject" name="subject" maxlength="240" required></div>
+			<div class="u-mb20"><label class="form-label" for="support-message">Message</label><textarea class="form-control" id="support-message" name="message" maxlength="10000" required></textarea></div>
 			<button class="button" type="submit">Open support case</button>
 		</form>
-	</div>
-	<div class="customer-card">
-		<h2>Reply</h2>
-		<form class="customer-form" data-account-action="support-reply">
-			<label>Case ID<input class="form-control" name="case_id" required></label>
-			<label>Message<textarea class="form-control" name="message" maxlength="10000" required></textarea></label>
+		<form class="u-mt20" data-account-action="support-reply">
+			<div class="u-mb10"><label class="form-label" for="support-case">Case</label><select class="form-select" id="support-case" data-support-select required disabled><option>No support cases</option></select></div>
+			<div class="u-mb20"><label class="form-label" for="support-reply">Reply</label><textarea class="form-control" id="support-reply" name="message" maxlength="10000" required></textarea></div>
 			<button class="button button-secondary" type="submit">Send reply</button>
+			<button class="button button-secondary" type="button" data-support-close>Close selected case</button>
 		</form>
-		<form class="customer-form" data-account-action="support-close">
-			<label>Case ID<input class="form-control" name="case_id" required></label>
-			<button class="button button-secondary" type="submit">Close case</button>
-		</form>
-	</div>
-</section>
+	</section>
+</div>

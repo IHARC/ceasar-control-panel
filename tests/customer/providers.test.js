@@ -15,17 +15,23 @@ function identityFixture(overrides = {}) {
 	const auth = {
 		signUp: vi.fn().mockResolvedValue({ data: { user: { id: 'user-1' }, session: null } }),
 		signInWithPassword: vi.fn().mockResolvedValue({ data: { session: { access_token: 'token' } } }),
-		signInWithPasskey: vi.fn().mockResolvedValue({ data: { session: { access_token: 'passkey' } } }),
+		signInWithPasskey: vi
+			.fn()
+			.mockResolvedValue({ data: { session: { access_token: 'passkey' } } }),
 		signOut: vi.fn().mockResolvedValue({ error: null }),
 		mfa: {
-			getAuthenticatorAssuranceLevel: vi
-				.fn()
-				.mockResolvedValue({ data: { currentLevel: 'aal2', nextLevel: 'aal2' } }),
+			getAuthenticatorAssuranceLevel: vi.fn().mockResolvedValue({
+				data: { currentLevel: 'aal2', nextLevel: 'aal2' },
+			}),
 		},
 		...overrides,
 	};
 	const factory = vi.fn().mockReturnValue({ auth });
-	return { identity: new SupabaseIdentityProvider(config, factory), auth, factory };
+	return {
+		identity: new SupabaseIdentityProvider(config, factory),
+		auth,
+		factory,
+	};
 }
 
 describe('SupabaseIdentityProvider', () => {
@@ -47,10 +53,12 @@ describe('SupabaseIdentityProvider', () => {
 
 	it('requires public terms acceptance and preserves email confirmation', async () => {
 		const { identity, auth } = identityFixture();
-		await expect(identity.signUp('customer@example.com', 'correct horse battery', false)).rejects.toThrow(
-			'Terms of Service',
-		);
-		await expect(identity.signUp('customer@example.com', 'correct horse battery', true)).resolves.toEqual({
+		await expect(
+			identity.signUp('customer@example.com', 'correct horse battery', false),
+		).rejects.toThrow('Terms of Service');
+		await expect(
+			identity.signUp('customer@example.com', 'correct horse battery', true),
+		).resolves.toEqual({
 			id: 'user-1',
 		});
 		expect(auth.signUp).toHaveBeenCalledWith({
@@ -63,12 +71,15 @@ describe('SupabaseIdentityProvider', () => {
 	it('rejects an auth project that auto-confirms customer signup', async () => {
 		const { identity, auth } = identityFixture({
 			signUp: vi.fn().mockResolvedValue({
-				data: { user: { id: 'user-1' }, session: { access_token: 'unexpected' } },
+				data: {
+					user: { id: 'user-1' },
+					session: { access_token: 'unexpected' },
+				},
 			}),
 		});
-		await expect(identity.signUp('customer@example.com', 'correct horse battery', true)).rejects.toThrow(
-			'Email confirmation must be enabled',
-		);
+		await expect(
+			identity.signUp('customer@example.com', 'correct horse battery', true),
+		).rejects.toThrow('Email confirmation must be enabled');
 		expect(auth.signOut).toHaveBeenCalledOnce();
 	});
 });
@@ -80,20 +91,57 @@ describe('CustomerBusinessBackend', () => {
 			requireAal2: vi.fn(),
 		};
 		const fetcher = vi.fn().mockResolvedValue(
-			new Response(JSON.stringify({ services: [] }), {
-				status: 200,
-				headers: { 'content-type': 'application/json' },
-			}),
+			new Response(
+				JSON.stringify({
+					data: {
+						identity: { email: 'customer@example.com' },
+						state: { contexts: [], services: [] },
+					},
+				}),
+				{
+					status: 200,
+					headers: { 'content-type': 'application/json' },
+				},
+			),
 		);
 		const backend = new CustomerBusinessBackend(identity, fetcher);
-		await backend.sessionState();
+		await expect(backend.sessionState()).resolves.toEqual({
+			identity: { email: 'customer@example.com' },
+			state: { contexts: [], services: [] },
+		});
 		expect(fetcher).toHaveBeenCalledWith(
 			'/api/iharc/v1/customer/session',
 			expect.objectContaining({
 				method: 'GET',
-				headers: expect.objectContaining({ Authorization: 'Bearer customer-token' }),
+				headers: expect.objectContaining({
+					Authorization: 'Bearer customer-token',
+				}),
 			}),
 		);
+	});
+
+	it('uses the browser fetch function without an illegal receiver', async () => {
+		const identity = {
+			session: vi.fn().mockResolvedValue({ access_token: 'customer-token' }),
+			requireAal2: vi.fn(),
+		};
+		const fetcher = vi.fn().mockResolvedValue(
+			new Response(JSON.stringify({ data: { contexts: [], services: [] } }), {
+				status: 200,
+				headers: { 'content-type': 'application/json' },
+			}),
+		);
+		vi.stubGlobal('fetch', fetcher);
+		try {
+			const backend = new CustomerBusinessBackend(identity);
+			await expect(backend.accountState('account-1')).resolves.toEqual({
+				contexts: [],
+				services: [],
+			});
+			expect(fetcher).toHaveBeenCalledOnce();
+		} finally {
+			vi.unstubAllGlobals();
+		}
 	});
 
 	it('uses the implemented typed business route contract', async () => {
@@ -103,10 +151,18 @@ describe('CustomerBusinessBackend', () => {
 		};
 		const fetcher = vi.fn().mockImplementation(() =>
 			Promise.resolve(
-				new Response(JSON.stringify({ ok: true }), {
-					status: 200,
-					headers: { 'content-type': 'application/json' },
-				}),
+				new Response(
+					JSON.stringify({
+						data: {
+							state: 'ready',
+							url: 'https://checkout.stripe.com/session',
+						},
+					}),
+					{
+						status: 200,
+						headers: { 'content-type': 'application/json' },
+					},
+				),
 			),
 		);
 		const backend = new CustomerBusinessBackend(identity, fetcher);
@@ -117,20 +173,57 @@ describe('CustomerBusinessBackend', () => {
 		await backend.updateProfile('Example customer');
 		await backend.requestTrialAdmission({
 			accountId: 'account-1',
-			offeringId: 'starter',
+			planCode: 'starter',
+			siteType: 'wordpress',
+			requestedCustomDomain: 'example.com',
 			idempotencyKey: 'request-1',
 		});
-		await backend.addWebsite('service-1', 'example.com');
-		await backend.refreshDomain('service-1', 'request-2');
-		await backend.requestBackup('service-1', 'request-3');
-		await backend.openSupportCase({
+		await expect(
+			backend.requestPaidAdmission({
+				accountId: 'account-1',
+				planCode: 'plus',
+				intent: 'new_site',
+				siteType: 'php',
+				requestedCustomDomain: '',
+				idempotencyKey: 'request-2',
+			}),
+		).resolves.toEqual({
+			state: 'ready',
+			url: 'https://checkout.stripe.com/session',
+		});
+		await backend.addWebsite('service-1', {
 			accountId: 'account-1',
-			subject: 'Help',
-			message: 'Please help',
+			siteType: 'static',
+			requestedCustomDomain: 'static.example.com',
+			idempotencyKey: 'request-3',
+		});
+		await backend.confirmMigration('service-1', {
+			accountId: 'account-1',
+			workspaceReadyOperationId: 'operation-1',
 			idempotencyKey: 'request-4',
 		});
-		await backend.replyToSupportCase('case-1', 'Thanks', 'request-5');
-		await backend.closeSupportCase('case-1', 'request-6');
+		await backend.refreshDomain('service-1', {
+			accountId: 'account-1',
+			websiteId: 'website-1',
+			hostname: 'www.example.com',
+			dnsRecordType: 'CNAME',
+			idempotencyKey: 'request-5',
+		});
+		await backend.requestBackup('service-1', {
+			accountId: 'account-1',
+			idempotencyKey: 'request-6',
+		});
+		await backend.openSupportCase({
+			accountId: 'account-1',
+			serviceId: 'service-1',
+			subject: 'Help',
+			message: 'Please help',
+			idempotencyKey: 'request-7',
+		});
+		await backend.replyToSupportCase('case-1', 'Thanks', 'request-8');
+		await backend.closeSupportCase('case-1', 'request-9');
+		await backend.requestEmailChange('new@example.com');
+		await backend.changePassword('correct horse battery staple');
 		expect(fetcher.mock.calls.map(([url]) => url)).toEqual([
 			'/api/iharc/v1/customer/accounts/account-1/state',
 			'/api/iharc/v1/customer/services/service-1/state',
@@ -138,17 +231,29 @@ describe('CustomerBusinessBackend', () => {
 			'/api/iharc/v1/customer/accounts',
 			'/api/iharc/v1/customer/profile',
 			'/api/iharc/v1/customer/admissions/trial',
+			'/api/iharc/v1/customer/billing/checkout-sessions',
 			'/api/iharc/v1/customer/services/service-1/websites',
+			'/api/iharc/v1/customer/migrations/service-1/confirm',
 			'/api/iharc/v1/customer/services/service-1/domain-refresh',
 			'/api/iharc/v1/customer/services/service-1/backups',
 			'/api/iharc/v1/customer/support',
 			'/api/iharc/v1/customer/support/case-1/replies',
 			'/api/iharc/v1/customer/support/case-1/close',
+			'/api/iharc/v1/customer/profile/email-change',
+			'/api/iharc/v1/customer/profile/password',
 		]);
 		expect(JSON.parse(fetcher.mock.calls[5][1].body)).toEqual({
 			accountId: 'account-1',
-			offeringId: 'starter',
+			planCode: 'starter',
+			siteType: 'wordpress',
+			requestedCustomDomain: 'example.com',
 			idempotencyKey: 'request-1',
+		});
+		expect(JSON.parse(fetcher.mock.calls[8][1].body)).toEqual({
+			accountId: 'account-1',
+			workspaceReadyOperationId: 'operation-1',
+			customerAttestsImportComplete: true,
+			idempotencyKey: 'request-4',
 		});
 	});
 
@@ -159,7 +264,13 @@ describe('CustomerBusinessBackend', () => {
 		};
 		const fetcher = vi.fn();
 		const backend = new CustomerBusinessBackend(identity, fetcher);
-		await expect(backend.confirmMigration('service-1', 'request-1')).rejects.toThrow('step up');
+		await expect(
+			backend.confirmMigration('service-1', {
+				accountId: 'account-1',
+				workspaceReadyOperationId: 'operation-1',
+				idempotencyKey: 'request-1',
+			}),
+		).rejects.toThrow('step up');
 		await expect(backend.billingPortal('account-1')).rejects.toThrow('step up');
 		expect(fetcher).not.toHaveBeenCalled();
 	});

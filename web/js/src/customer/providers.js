@@ -34,7 +34,10 @@ export class SupabaseIdentityProvider {
 	}
 
 	async signIn(email, password) {
-		const { data, error } = await this.client.auth.signInWithPassword({ email, password });
+		const { data, error } = await this.client.auth.signInWithPassword({
+			email,
+			password,
+		});
 		throwIfError(error);
 		return data.session;
 	}
@@ -107,7 +110,10 @@ export class SupabaseIdentityProvider {
 	}
 
 	async verifyTotp(factorId, code) {
-		const { data, error } = await this.client.auth.mfa.challengeAndVerify({ factorId, code });
+		const { data, error } = await this.client.auth.mfa.challengeAndVerify({
+			factorId,
+			code,
+		});
 		throwIfError(error);
 		return data;
 	}
@@ -136,7 +142,9 @@ export class SupabaseIdentityProvider {
 
 	async deletePasskey(passkeyId) {
 		await this.requireAal2();
-		const { data, error } = await this.client.auth.passkey.delete({ passkeyId });
+		const { data, error } = await this.client.auth.passkey.delete({
+			passkeyId,
+		});
 		throwIfError(error);
 		return data;
 	}
@@ -155,7 +163,7 @@ export class SupabaseIdentityProvider {
 }
 
 export class CustomerBusinessBackend {
-	constructor(identity, fetchImplementation = globalThis.fetch) {
+	constructor(identity, fetchImplementation = (...arguments_) => globalThis.fetch(...arguments_)) {
 		this.identity = identity;
 		this.fetch = fetchImplementation;
 	}
@@ -184,61 +192,97 @@ export class CustomerBusinessBackend {
 		return this.#request('PATCH', '/profile', { displayName });
 	}
 
-	requestTrialAdmission({ accountId, offeringId, idempotencyKey }) {
+	requestTrialAdmission({ accountId, planCode, siteType, requestedCustomDomain, idempotencyKey }) {
 		return this.#request('POST', '/admissions/trial', {
 			accountId,
-			offeringId,
+			planCode,
+			siteType,
+			requestedCustomDomain: requestedCustomDomain || null,
 			idempotencyKey,
 		});
 	}
 
-	async requestPaidAdmission({ accountId, offeringId, idempotencyKey }) {
-		const result = await this.#request('POST', '/admissions/paid', {
+	async requestPaidAdmission({
+		accountId,
+		planCode,
+		intent,
+		siteType,
+		requestedCustomDomain,
+		idempotencyKey,
+	}) {
+		const result = await this.#request(
+			'POST',
+			'/billing/checkout-sessions',
+			{
+				accountId,
+				planCode,
+				intent,
+				siteType,
+				requestedCustomDomain: requestedCustomDomain || null,
+				idempotencyKey,
+			},
+			true,
+		);
+		return result.url ? { ...result, url: this.#hostedUrl(result.url) } : result;
+	}
+
+	addWebsite(serviceId, { accountId, siteType, requestedCustomDomain, idempotencyKey }) {
+		return this.#request('POST', `/services/${pathId(serviceId)}/websites`, {
 			accountId,
-			offeringId,
+			siteType,
+			requestedCustomDomain: requestedCustomDomain || null,
 			idempotencyKey,
 		});
-		return this.#hostedUrl(result.checkoutUrl || result.url);
 	}
 
-	addWebsite(serviceId, domain) {
-		return this.#request('POST', `/services/${pathId(serviceId)}/websites`, { domain });
-	}
-
-	confirmMigration(serviceId, idempotencyKey) {
+	confirmMigration(serviceId, { accountId, workspaceReadyOperationId, idempotencyKey }) {
 		return this.#request(
 			'POST',
 			`/migrations/${pathId(serviceId)}/confirm`,
-			{ idempotencyKey },
+			{
+				accountId,
+				workspaceReadyOperationId,
+				customerAttestsImportComplete: true,
+				idempotencyKey,
+			},
 			true,
 		);
 	}
 
 	async billingPortal(accountId) {
-		const result = await this.#request(
-			'POST',
-			'/billing/portal-sessions',
-			{ accountId },
-			true,
-		);
+		const result = await this.#request('POST', '/billing/portal-sessions', { accountId }, true);
 		return this.#hostedUrl(result.portalUrl || result.url);
 	}
 
-	refreshDomain(serviceId, idempotencyKey) {
-		return this.#request('POST', `/services/${pathId(serviceId)}/domain-refresh`, {
-			idempotencyKey,
-		});
+	refreshDomain(serviceId, { accountId, websiteId, hostname, dnsRecordType, idempotencyKey }) {
+		return this.#request(
+			'POST',
+			`/services/${pathId(serviceId)}/domain-refresh`,
+			{
+				accountId,
+				websiteId,
+				hostname,
+				dnsRecordType,
+				confirmDomainChange: true,
+				idempotencyKey,
+			},
+			true,
+		);
 	}
 
-	requestBackup(serviceId, idempotencyKey) {
-		return this.#request('POST', `/services/${pathId(serviceId)}/backups`, {
-			idempotencyKey,
-		});
+	requestBackup(serviceId, { accountId, idempotencyKey }) {
+		return this.#request(
+			'POST',
+			`/services/${pathId(serviceId)}/backups`,
+			{ accountId, replaceExistingManualBackup: true, idempotencyKey },
+			true,
+		);
 	}
 
-	openSupportCase({ accountId, subject, message, idempotencyKey }) {
+	openSupportCase({ accountId, serviceId, subject, message, idempotencyKey }) {
 		return this.#request('POST', '/support', {
 			accountId,
+			serviceId: serviceId || null,
 			subject,
 			message,
 			idempotencyKey,
@@ -256,6 +300,14 @@ export class CustomerBusinessBackend {
 		return this.#request('POST', `/support/${pathId(caseId)}/close`, {
 			idempotencyKey,
 		});
+	}
+
+	requestEmailChange(email) {
+		return this.#request('POST', '/profile/email-change', { email }, true);
+	}
+
+	changePassword(password) {
+		return this.#request('POST', '/profile/password', { password }, true);
 	}
 
 	#hostedUrl(value) {
@@ -283,12 +335,18 @@ export class CustomerBusinessBackend {
 			options.body = JSON.stringify(payload);
 		}
 		const response = await this.fetch(`${CUSTOMER_API}${path}`, options);
-		if (!response.ok) throw new Error('Customer request was rejected.');
 		const contentType = response.headers.get('content-type') || '';
 		if (!contentType.includes('application/json')) {
 			throw new Error('Customer backend returned an invalid response.');
 		}
-		return response.json();
+		const body = await response.json();
+		if (!response.ok) {
+			throw new Error(body?.error?.code || body?.error || 'Customer request was rejected.');
+		}
+		if (!Object.hasOwn(body, 'data')) {
+			throw new Error('Customer backend returned an invalid response.');
+		}
+		return body.data;
 	}
 }
 
