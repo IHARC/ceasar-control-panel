@@ -100,20 +100,19 @@ async function handleCallback(config, identity) {
 	location.replace(customerSetupUrl(config.accountUrl, setup));
 }
 
-function bindRecovery(config, identity) {
+export function bindRecovery(config, identity) {
 	const form = document.querySelector('[data-customer-recovery]');
 	if (!form) throw new Error('Password reset form is unavailable.');
-	document.querySelector('[data-customer-callback-status]')?.remove();
+	clearNotice();
 	form.classList.remove('u-hidden');
 	form.addEventListener('submit', async (event) => {
 		event.preventDefault();
-		const data = new FormData(form);
-		const password = required(data.get('password'));
-		if (password !== required(data.get('password_confirm'))) {
-			showError(new Error('Passwords do not match.'));
-			return;
-		}
 		try {
+			const data = new FormData(form);
+			const password = passwordValue(data.get('password'));
+			if (password !== passwordValue(data.get('password_confirm'))) {
+				throw new Error('Passwords do not match.');
+			}
 			await identity.updatePassword(password);
 			showNotice('Password updated. You can now sign in.', 'success');
 			form.remove();
@@ -652,6 +651,13 @@ function required(value) {
 
 function clean(value) {
 	return typeof value === 'string' ? value.trim() : '';
+}
+
+function passwordValue(value) {
+	if (typeof value !== 'string' || value.length === 0) {
+		throw new Error('Complete all required fields.');
+	}
+	return value;
 }
 
 function clearNotice() {
