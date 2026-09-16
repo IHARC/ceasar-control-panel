@@ -14,14 +14,14 @@ export class SupabaseIdentityProvider {
 		});
 	}
 
-	async signUp(email, password, acceptedTerms) {
+	async signUp(email, password, acceptedTerms, callbackUrl) {
 		if (!acceptedTerms) {
 			throw new Error('Accept the Terms of Service and Privacy Policy to continue.');
 		}
 		const { data, error } = await this.client.auth.signUp({
 			email,
 			password,
-			options: { emailRedirectTo: this.config.callbackUrl },
+			options: { emailRedirectTo: callbackUrl },
 		});
 		throwIfError(error);
 		if (data.session) {
@@ -72,16 +72,6 @@ export class SupabaseIdentityProvider {
 
 	async user() {
 		const { data, error } = await this.client.auth.getUser();
-		throwIfError(error);
-		return data.user;
-	}
-
-	async updateProfile({ displayName, email, password }) {
-		const attributes = {};
-		if (displayName) attributes.data = { display_name: displayName };
-		if (email) attributes.email = email;
-		if (password) attributes.password = password;
-		const { data, error } = await this.client.auth.updateUser(attributes);
 		throwIfError(error);
 		return data.user;
 	}

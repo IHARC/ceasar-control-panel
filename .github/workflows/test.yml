@@ -28,6 +28,9 @@ jobs:
       - name: Verify Debian version ordering
         run: bats test/version-order.bats
 
+      - name: Verify customer module production configuration
+        run: python3 test/customer-config.test.py
+
       - name: Verify IHARC authority, kernel, transfer, and enforcement behavior
         run: python3 -m unittest discover -s tests/iharc -p "test_*.py" -v
 

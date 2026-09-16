@@ -3,7 +3,7 @@
 declare(strict_types=1);
 
 const CEASAR_CUSTOMER_CONFIG = "/usr/local/ceasar/conf/customer.json";
-const CEASAR_SYSTEM_CONFIG = "/etc/ceasar/ceasar.conf";
+const CEASAR_SYSTEM_CONFIG = "/usr/local/ceasar/conf/ceasar.conf";
 
 function customer_bootstrap(): void {
 	$config = customer_config();
@@ -39,11 +39,7 @@ function customer_config(): array {
 		return $config;
 	}
 
-	$fixture = getenv("CEASAR_CUSTOMER_FIXTURE") === "1";
-	$path = getenv("CEASAR_CUSTOMER_CONFIG");
-	if (!is_string($path) || $path === "") {
-		$path = CEASAR_CUSTOMER_CONFIG;
-	}
+	$path = CEASAR_CUSTOMER_CONFIG;
 	$data = [];
 	if (is_file($path)) {
 		$decoded = json_decode((string) file_get_contents($path), true, 32, JSON_THROW_ON_ERROR);
@@ -68,13 +64,12 @@ function customer_config(): array {
 			"callback_url" => "",
 			"account_url" => "",
 			"worker_api_base" => "/api/customer/v1",
-			"fixture" => $fixture,
 		];
 
 		return $config;
 	}
 
-	$supabaseUrl = $data["supabase_url"] ?? ($fixture ? customer_request_origin() : "");
+	$supabaseUrl = $data["supabase_url"] ?? "";
 	$publishableKey = $data["supabase_publishable_key"] ?? "";
 	$terms = $data["terms_url"] ?? "https://example.invalid/terms";
 	$privacy = $data["privacy_url"] ?? "https://example.invalid/privacy";
@@ -96,30 +91,23 @@ function customer_config(): array {
 	) {
 		throw new RuntimeException("Customer module configuration is invalid.");
 	}
-	customer_require_supabase_url($supabaseUrl, $fixture);
-	if (!$fixture && !str_starts_with($publishableKey, "sb_publishable_")) {
+	customer_require_supabase_url($supabaseUrl);
+	if (!str_starts_with($publishableKey, "sb_publishable_")) {
 		throw new RuntimeException("Customer authentication requires a Supabase publishable key.");
-	}
-	if ($fixture && $publishableKey === "") {
-		$publishableKey = "sb_publishable_fixture";
 	}
 	customer_require_public_https_url($terms, "terms_url");
 	customer_require_public_https_url($privacy, "privacy_url");
-	customer_require_rp_id($rpId, $fixture);
-	$login = customer_require_customer_url($loginUrl, "/customer/login", $fixture);
-	$callback = customer_require_customer_url($callbackUrl, "/auth/callback", $fixture);
-	$account = customer_require_customer_url($accountUrl, "/customer/account", $fixture);
+	customer_require_rp_id($rpId);
+	$login = customer_require_customer_url($loginUrl, "/customer/login");
+	$callback = customer_require_customer_url($callbackUrl, "/auth/callback");
+	$account = customer_require_customer_url($accountUrl, "/customer/account");
 	$workerApiBase = customer_require_worker_api_base($workerApiBase);
 	if (customer_url_origin($login) !== customer_url_origin($account)) {
 		throw new RuntimeException("Customer login and account URLs must share one origin.");
 	}
 	foreach ([$login, $callback, $account] as $customerUrl) {
 		$host = strtolower((string) $customerUrl["host"]);
-		if (
-			!$fixture &&
-			$host !== strtolower($rpId) &&
-			!str_ends_with($host, "." . strtolower($rpId))
-		) {
+		if ($host !== strtolower($rpId) && !str_ends_with($host, "." . strtolower($rpId))) {
 			throw new RuntimeException(
 				"Customer URLs must be covered by the passkey relying-party ID.",
 			);
@@ -140,7 +128,6 @@ function customer_config(): array {
 		"callback_url" => rtrim($callbackUrl, "/"),
 		"account_url" => rtrim($accountUrl, "/"),
 		"worker_api_base" => $workerApiBase,
-		"fixture" => $fixture,
 	];
 	if ($config["schema"] !== 1) {
 		throw new RuntimeException("Customer module configuration schema is unsupported.");
@@ -169,9 +156,6 @@ function customer_require_worker_api_base(mixed $value): string {
 
 /** @param array<string, mixed> $config */
 function customer_module_enabled(array $config): bool {
-	if (getenv("CEASAR_CUSTOMER_FIXTURE") === "1") {
-		return $config["enabled"] === true;
-	}
 	if (!is_file(CEASAR_SYSTEM_CONFIG)) {
 		return false;
 	}
@@ -202,7 +186,6 @@ function customer_config_json(array $config): string {
 		"supabasePublishableKey" => $config["supabase_publishable_key"],
 		"passkeysEnabled" => $config["passkeys_enabled"],
 		"passkeyRpId" => $config["passkey_rp_id"],
-		"fixture" => $config["fixture"],
 		"loginUrl" => $config["login_url"],
 		"callbackUrl" => $config["callback_url"],
 		"accountUrl" => $config["account_url"],
@@ -216,10 +199,6 @@ function customer_config_json(array $config): string {
 }
 
 function customer_request_scheme(): string {
-	if (getenv("CEASAR_CUSTOMER_FIXTURE") === "1") {
-		return "http";
-	}
-
 	return !empty($_SERVER["HTTPS"]) && $_SERVER["HTTPS"] !== "off" ? "https" : "http";
 }
 
@@ -235,12 +214,11 @@ function customer_request_origin(): string {
 	return customer_request_scheme() . "://" . strtolower($host);
 }
 
-function customer_require_supabase_url(string $url, bool $fixture): void {
+function customer_require_supabase_url(string $url): void {
 	$parts = parse_url($url);
-	$allowedScheme = $fixture ? ["http", "https"] : ["https"];
 	if (
 		!is_array($parts) ||
-		!in_array($parts["scheme"] ?? null, $allowedScheme, true) ||
+		($parts["scheme"] ?? null) !== "https" ||
 		empty($parts["host"]) ||
 		isset($parts["user"]) ||
 		isset($parts["pass"]) ||
@@ -259,12 +237,11 @@ function customer_require_public_https_url(string $url, string $field): void {
 }
 
 /** @return array<string, mixed> */
-function customer_require_customer_url(string $url, string $expectedPath, bool $fixture): array {
+function customer_require_customer_url(string $url, string $expectedPath): array {
 	$parts = parse_url($url);
-	$allowedSchemes = $fixture ? ["http", "https"] : ["https"];
 	if (
 		!is_array($parts) ||
-		!in_array($parts["scheme"] ?? null, $allowedSchemes, true) ||
+		($parts["scheme"] ?? null) !== "https" ||
 		empty($parts["host"]) ||
 		isset($parts["user"]) ||
 		isset($parts["pass"]) ||
@@ -286,11 +263,8 @@ function customer_url_origin(array $parts): string {
 		(isset($parts["port"]) ? ":" . (int) $parts["port"] : "");
 }
 
-function customer_require_rp_id(string $rpId, bool $fixture): void {
+function customer_require_rp_id(string $rpId): void {
 	$host = strtolower((string) preg_replace('/:\d+$/', "", $_SERVER["HTTP_HOST"] ?? ""));
-	if ($fixture && in_array($host, ["localhost", "127.0.0.1"], true)) {
-		return;
-	}
 	if (
 		$rpId === "" ||
 		preg_match('/^[a-z0-9](?:[a-z0-9.-]{0,251}[a-z0-9])?$/D', $rpId) !== 1 ||

@@ -1,6 +1,9 @@
 import { CustomerBusinessBackend, SupabaseIdentityProvider } from './providers.js';
+import { customerSetupSelection, customerSetupUrl } from './navigation.js';
+import { createRequestKeys } from './request-keys.js';
 
 const configNode = document.querySelector('#customer-config');
+const submissionKeys = createRequestKeys();
 if (configNode) {
 	const config = JSON.parse(configNode.textContent);
 	const identity = new SupabaseIdentityProvider(config);
@@ -25,6 +28,9 @@ async function boot(config, identity, backend) {
 }
 
 function bindLogin(config, identity) {
+	const setup = customerSetupSelection(location.search);
+	const accountUrl = customerSetupUrl(config.accountUrl, setup);
+	const callbackUrl = customerSetupUrl(config.callbackUrl, setup, '');
 	for (const control of document.querySelectorAll('[data-auth-view]')) {
 		control.addEventListener('click', () => showAuthView(control.dataset.authView));
 	}
@@ -36,12 +42,13 @@ function bindLogin(config, identity) {
 			try {
 				if (form.dataset.customerAuthForm === 'sign-in') {
 					await identity.signIn(String(data.get('email')), String(data.get('password')));
-					if (!(await beginMfaChallenge(identity))) location.assign(config.accountUrl);
+					if (!(await beginMfaChallenge(identity))) location.assign(accountUrl);
 				} else if (form.dataset.customerAuthForm === 'sign-up') {
 					await identity.signUp(
 						String(data.get('email')),
 						String(data.get('password')),
 						data.get('terms') === 'yes',
+						callbackUrl,
 					);
 					showNotice('Check your email and confirm your address before signing in.', 'success');
 					form.reset();
@@ -64,7 +71,7 @@ function bindLogin(config, identity) {
 		const data = new FormData(event.currentTarget);
 		try {
 			await identity.verifyTotp(String(data.get('factor_id')), String(data.get('code')));
-			location.assign(config.accountUrl);
+			location.assign(accountUrl);
 		} catch (error) {
 			showError(error);
 		}
@@ -76,7 +83,7 @@ function bindLogin(config, identity) {
 		passkey.addEventListener('click', async () => {
 			try {
 				await identity.signInWithPasskey();
-				if (!(await beginMfaChallenge(identity))) location.assign(config.accountUrl);
+				if (!(await beginMfaChallenge(identity))) location.assign(accountUrl);
 			} catch (error) {
 				showError(error);
 			}
@@ -114,15 +121,19 @@ async function handleCallback(config, identity) {
 	const code = parameters.get('code');
 	if (!code) throw new Error('The confirmation link is incomplete.');
 	await identity.exchangeConfirmation(code);
-	const destination = new URL(config.accountUrl);
-	if (parameters.get('mode') === 'recovery') destination.hash = 'profile';
-	location.replace(destination.toString());
+	const setup = customerSetupSelection(location.search);
+	const destination =
+		parameters.get('mode') === 'recovery'
+			? new URL('#profile', config.accountUrl).toString()
+			: customerSetupUrl(config.accountUrl, setup);
+	location.replace(destination);
 }
 
 async function bindAccount(config, identity, backend) {
+	const setup = customerSetupSelection(location.search);
 	const session = await identity.session();
 	if (!session) {
-		location.replace(config.loginUrl);
+		location.replace(customerSetupUrl(config.loginUrl, setup, ''));
 		return;
 	}
 
@@ -131,33 +142,42 @@ async function bindAccount(config, identity, backend) {
 		serviceId: '',
 		supportCaseId: '',
 		userId: '',
+		setupPlanCode: setup.planCode,
 		state: {},
 	};
 	const [user, assurance] = await Promise.all([identity.user(), identity.assurance()]);
 	document.querySelector('[data-customer-sign-out]')?.classList.remove('u-hidden');
 	setText('[data-customer-email]', user.email || '');
 	setText('[data-customer-aal]', assurance.currentLevel || 'aal1');
+	setValue('[name=intent]', setup.intent);
 
 	for (const form of document.querySelectorAll('[data-account-action]')) {
+		form.addEventListener('input', () => submissionKeys.clear(form));
 		form.addEventListener('submit', async (event) => {
 			event.preventDefault();
 			clearNotice();
 			const data = Object.fromEntries(new FormData(form));
+			data.idempotency_key = submissionKeys.current(form);
 			try {
-				const message = await accountAction(
+				const result = await accountAction(
 					form.dataset.accountAction,
 					data,
 					context,
 					identity,
 					backend,
 				);
+				const message = typeof result === 'string' ? result : result.message;
+				if (typeof result === 'string' || !result.retry) submissionKeys.clear(form);
 				if (message) showNotice(message, 'success');
 				if (['support-open', 'support-reply'].includes(form.dataset.accountAction)) {
 					for (const field of form.querySelectorAll('input:not([type="hidden"]), textarea')) {
 						field.value = '';
 					}
 				}
-				if (!['admission-paid', 'billing-portal'].includes(form.dataset.accountAction)) {
+				if (
+					context.accountId &&
+					!['admission-paid', 'billing-portal'].includes(form.dataset.accountAction)
+				) {
 					await refreshSelectedAccount(backend, context);
 				}
 			} catch (error) {
@@ -204,9 +224,14 @@ async function bindAccount(config, identity, backend) {
 			showError(error);
 		}
 	});
-	document.querySelector('[data-support-close]')?.addEventListener('click', async () => {
+	const supportClose = document.querySelector('[data-support-close]');
+	supportClose?.addEventListener('click', async () => {
 		try {
-			await backend.closeSupportCase(required(context.supportCaseId), crypto.randomUUID());
+			await backend.closeSupportCase(
+				required(context.supportCaseId),
+				submissionKeys.current(supportClose),
+			);
+			submissionKeys.clear(supportClose);
 			showNotice('Support case closed.', 'success');
 			await refreshSelectedAccount(backend, context);
 		} catch (error) {
@@ -271,14 +296,13 @@ async function bindAccount(config, identity, backend) {
 }
 
 async function accountAction(action, data, context, identity, backend) {
-	const accountId = required(context.accountId);
-	const serviceId = clean(context.serviceId);
 	if (action === 'profile') {
 		await backend.updateProfile(required(data.display_name));
 		return 'Profile saved.';
 	}
 	if (action === 'account-create') {
-		await backend.createAccount(required(data.display_name));
+		const created = await backend.createAccount(required(data.display_name));
+		context.accountId = required(Array.isArray(created) ? created[0]?.customer_account_id : '');
 		return 'Customer account created.';
 	}
 	if (action === 'email-change') {
@@ -288,91 +312,6 @@ async function accountAction(action, data, context, identity, backend) {
 	if (action === 'password-change') {
 		await backend.changePassword(required(data.password));
 		return 'Password changed.';
-	}
-	if (action === 'admission-trial') {
-		await backend.requestTrialAdmission({
-			accountId,
-			planCode: required(data.plan_code),
-			siteType: required(data.site_type),
-			requestedCustomDomain: clean(data.requested_custom_domain),
-			idempotencyKey: crypto.randomUUID(),
-		});
-		return 'Trial request accepted.';
-	}
-	if (action === 'admission-paid') {
-		if (data.intent === 'migration' && data.site_type !== 'php') {
-			throw new Error('Existing-site imports use the PHP site type.');
-		}
-		const checkout = await backend.requestPaidAdmission({
-			accountId,
-			planCode: required(data.plan_code),
-			intent: required(data.intent),
-			siteType: required(data.site_type),
-			requestedCustomDomain: clean(data.requested_custom_domain),
-			idempotencyKey: crypto.randomUUID(),
-		});
-		if (checkout.state === 'ready' && checkout.url) {
-			location.assign(checkout.url);
-			return '';
-		}
-		return 'Stripe Checkout is preparing. Try again in a moment.';
-	}
-	if (action === 'service-website') {
-		await backend.addWebsite(required(serviceId), {
-			accountId,
-			siteType: required(data.site_type),
-			requestedCustomDomain: clean(data.requested_custom_domain),
-			idempotencyKey: crypto.randomUUID(),
-		});
-		return 'Website request accepted.';
-	}
-	if (action === 'migration-confirm') {
-		const handoff = context.state.migrationWorkspace?.[0];
-		await backend.confirmMigration(required(serviceId), {
-			accountId,
-			workspaceReadyOperationId: required(handoff?.workspace_ready_operation_id),
-			idempotencyKey: crypto.randomUUID(),
-		});
-		return 'Import completion recorded.';
-	}
-	if (action === 'domain-refresh') {
-		await backend.refreshDomain(required(serviceId), {
-			accountId,
-			websiteId: required(data.website_id),
-			hostname: required(data.hostname),
-			dnsRecordType: required(data.dns_record_type),
-			idempotencyKey: crypto.randomUUID(),
-		});
-		return 'Domain refresh requested.';
-	}
-	if (action === 'backup') {
-		await backend.requestBackup(required(serviceId), {
-			accountId,
-			idempotencyKey: crypto.randomUUID(),
-		});
-		return 'Backup requested.';
-	}
-	if (action === 'support-open') {
-		await backend.openSupportCase({
-			accountId,
-			serviceId: clean(data.service_id),
-			subject: required(data.subject),
-			message: required(data.message),
-			idempotencyKey: crypto.randomUUID(),
-		});
-		return 'Support case opened.';
-	}
-	if (action === 'support-reply') {
-		await backend.replyToSupportCase(
-			required(context.supportCaseId),
-			required(data.message),
-			crypto.randomUUID(),
-		);
-		return 'Reply sent.';
-	}
-	if (action === 'billing-portal') {
-		location.assign(await backend.billingPortal(accountId));
-		return '';
 	}
 	if (action === 'mfa-enroll') {
 		const enrollment = await identity.enrollTotp(clean(data.friendly_name) || 'Authenticator');
@@ -388,15 +327,101 @@ async function accountAction(action, data, context, identity, backend) {
 		await identity.verifyTotp(required(data.factor_id), required(data.code));
 		return 'Authenticator verified.';
 	}
+	const accountId = required(context.accountId);
+	const serviceId = clean(context.serviceId);
+	if (action === 'admission-trial') {
+		await backend.requestTrialAdmission({
+			accountId,
+			planCode: required(data.plan_code),
+			siteType: required(data.site_type),
+			requestedCustomDomain: clean(data.requested_custom_domain),
+			idempotencyKey: required(data.idempotency_key),
+		});
+		return 'Trial request accepted.';
+	}
+	if (action === 'admission-paid') {
+		if (data.intent === 'migration' && data.site_type !== 'php') {
+			throw new Error('Existing-site imports use the PHP site type.');
+		}
+		const checkout = await backend.requestPaidAdmission({
+			accountId,
+			planCode: required(data.plan_code),
+			intent: required(data.intent),
+			siteType: required(data.site_type),
+			requestedCustomDomain: clean(data.requested_custom_domain),
+			idempotencyKey: required(data.idempotency_key),
+		});
+		if (checkout.state === 'ready' && checkout.url) {
+			location.assign(checkout.url);
+			return '';
+		}
+		return { message: 'Stripe Checkout is preparing. Try again in a moment.', retry: true };
+	}
+	if (action === 'service-website') {
+		await backend.addWebsite(required(serviceId), {
+			accountId,
+			siteType: required(data.site_type),
+			requestedCustomDomain: clean(data.requested_custom_domain),
+			idempotencyKey: required(data.idempotency_key),
+		});
+		return 'Website request accepted.';
+	}
+	if (action === 'migration-confirm') {
+		const handoff = context.state.migrationWorkspace?.[0];
+		await backend.confirmMigration(required(serviceId), {
+			accountId,
+			workspaceReadyOperationId: required(handoff?.workspace_ready_operation_id),
+			idempotencyKey: required(data.idempotency_key),
+		});
+		return 'Import completion recorded.';
+	}
+	if (action === 'domain-refresh') {
+		await backend.refreshDomain(required(serviceId), {
+			accountId,
+			websiteId: required(data.website_id),
+			hostname: required(data.hostname),
+			dnsRecordType: required(data.dns_record_type),
+			idempotencyKey: required(data.idempotency_key),
+		});
+		return 'Domain refresh requested.';
+	}
+	if (action === 'backup') {
+		await backend.requestBackup(required(serviceId), {
+			accountId,
+			idempotencyKey: required(data.idempotency_key),
+		});
+		return 'Backup requested.';
+	}
+	if (action === 'support-open') {
+		await backend.openSupportCase({
+			accountId,
+			serviceId: clean(data.service_id),
+			subject: required(data.subject),
+			message: required(data.message),
+			idempotencyKey: required(data.idempotency_key),
+		});
+		return 'Support case opened.';
+	}
+	if (action === 'support-reply') {
+		await backend.replyToSupportCase(
+			required(context.supportCaseId),
+			required(data.message),
+			required(data.idempotency_key),
+		);
+		return 'Reply sent.';
+	}
+	if (action === 'billing-portal') {
+		location.assign(await backend.billingPortal(accountId));
+		return '';
+	}
 	throw new Error('Unsupported customer action.');
 }
 
 async function refreshSelectedAccount(backend, context) {
-	const state = await backend.accountState(required(context.accountId));
+	const state = context.serviceId
+		? await backend.serviceState(context.serviceId)
+		: await backend.accountState(required(context.accountId));
 	renderCustomerState(state, context, context.serviceId);
-	if (context.serviceId) {
-		renderCustomerState(await backend.serviceState(context.serviceId), context, context.serviceId);
-	}
 	if (context.supportCaseId) {
 		renderSupportDetail(await backend.supportCase(context.supportCaseId), context);
 	}
@@ -457,7 +482,9 @@ function renderCustomerState(state, context, preferredServiceId = '') {
 	populateSelect('[data-plan-select]', offers, {
 		value: (row) => row.plan_code,
 		label: (row) => offerLabel(row),
-		selected: '',
+		selected: offers.some((row) => row.plan_code === context.setupPlanCode)
+			? context.setupPlanCode
+			: '',
 		empty: 'No plan available',
 	});
 
