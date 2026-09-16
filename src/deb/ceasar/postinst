@@ -6,6 +6,16 @@ if [ "$1" != "configure" ] || [ ! -e "/usr/local/ceasar/data/users/" ]; then
 	exit 0
 fi
 
+# Existing installations predate the customer module's service-user access to
+# the protected configuration directory. Normalize only the directory itself;
+# individual configuration files retain their package/installer ownership and
+# modes.
+if [ -d "/usr/local/ceasar/conf" ] && [ ! -L "/usr/local/ceasar/conf" ] \
+	&& getent group ceasarweb > /dev/null; then
+	chown root:ceasarweb /usr/local/ceasar/conf
+	chmod 0750 /usr/local/ceasar/conf
+fi
+
 # shellcheck source=/etc/ceasar/ceasar.conf
 source /etc/ceasar/ceasar.conf
 # shellcheck source=/usr/local/ceasar/func/main.sh
