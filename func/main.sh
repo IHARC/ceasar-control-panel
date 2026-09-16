@@ -83,6 +83,22 @@ source_conf() {
 	done < "$1"
 }
 
+managed_services_enabled() {
+	[[ "${MANAGED_SERVICES:-no}" == 'yes' ]]
+}
+
+is_iharc_managed_user() {
+	local account=${1:-}
+	managed_services_enabled && [[ "$account" =~ ^ih[0-9a-f]{14}$ ]]
+}
+
+is_iharc_managed_authority_user() {
+	local account=${1:-}
+	managed_services_enabled || return 1
+	is_iharc_managed_user "$account" \
+		|| [[ -n "${ROOT_USER:-}" && "$account" == "$ROOT_USER" ]]
+}
+
 if [ -z "$user" ]; then
 	if [ -z "$ROOT_USER" ]; then
 		if [ -z "$CEASAR" ]; then

@@ -50,12 +50,12 @@ check_ceasar_demo_mode
 # Native identity removal is terminal-only. This verifier has no policy
 # issuance authority: it requires an already-published terminated policy and
 # an observed local blocked state before resource teardown can begin.
-if [[ "$user" =~ ^ih[0-9a-f]{14}$ && -x "$BIN/v-iharc-transfer-policy" ]]; then
+if is_iharc_managed_user "$user" && [[ -x "$BIN/v-iharc-transfer-policy" ]]; then
 	"$BIN/v-iharc-transfer-policy" "$user" terminal-ready > /dev/null \
 		|| check_result "$E_INVALID" "terminal transfer policy is not closed"
 fi
 
-if [[ "$user" =~ ^ih[0-9a-f]{14}$ ]]; then
+if is_iharc_managed_user "$user"; then
 	"$CEASAR/bin/iharc-customer-isolation" delete-prep "$user" "$CEASAR" > /dev/null \
 		|| check_result "$E_INVALID" "customer resource isolation deletion is not safe"
 fi
@@ -82,7 +82,7 @@ if [ -n "$MAIL_SYSTEM" ] && [ "$MAIL_SYSTEM" != 'no' ]; then
 fi
 
 # Deleting databases
-if [[ "$user" =~ ^ih[0-9a-f]{14}$ ]]; then
+if is_iharc_managed_user "$user"; then
 	"$CEASAR/bin/iharc-customer-isolation" delete-database-prep "$user" "$CEASAR" > /dev/null \
 		|| check_result "$E_DB" "customer database isolation could not prepare for deletion"
 fi
@@ -93,7 +93,7 @@ if [ -n "$DB_SYSTEM" ] && [ "$DB_SYSTEM" != 'no' ]; then
 fi
 
 # Unsuspend user just in case
-if [[ ! "$user" =~ ^ih[0-9a-f]{14}$ || ! -e "/run/iharc-customer-isolation/delete/$user" ]]; then
+if ! is_iharc_managed_user "$user" || [[ ! -e "/run/iharc-customer-isolation/delete/$user" ]]; then
 	$BIN/v-unsuspend-user "$user"
 fi
 
@@ -107,7 +107,7 @@ sed -i "/ $user$/d" "$CEASAR/data/queue/traffic.pipe"
 
 # Deleting sftp jail
 $BIN/v-delete-user-sftp-jail "$user"
-if [[ "$user" =~ ^ih[0-9a-f]{14}$ ]]; then
+if is_iharc_managed_user "$user"; then
 	"$CEASAR/bin/iharc-customer-isolation" delete-finalize "$user" "$CEASAR" > /dev/null \
 		|| check_result "$E_INVALID" "customer resource isolation deletion is not safe"
 fi

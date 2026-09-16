@@ -58,8 +58,9 @@ for service in $service_list; do
 		$BIN/v-update-firewall
 	elif [ "$restart" = "ssl" ] && [ "$service" = "nginx" ]; then
 		systemctl restart "$service" >> $log 2>&1
-		if [[ -x "$BIN/iharc-haproxy-cert-sync" ]]; then
-			"$BIN/iharc-haproxy-cert-sync" >> $log 2>&1
+		if managed_services_enabled && [[ -x "$BIN/iharc-haproxy-cert-sync" ]]; then
+			"$BIN/iharc-haproxy-cert-sync" >> $log 2>&1 \
+				|| check_result "$E_RESTART" "HAProxy authority synchronization could not complete"
 		fi
 	elif [ -z "$restart" -o "$restart" = "no" ] && [ \
 		"$service" = "nginx" -o \

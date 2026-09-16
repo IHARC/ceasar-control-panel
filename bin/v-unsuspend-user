@@ -57,7 +57,7 @@ decrease_user_value "$ROOT_USER" '$SUSPENDED_USERS'
 
 # The dedicated endpoint must be available before Ceasar's native database
 # unsuspend runs. Retention deletion carries a marker and must not reopen it.
-if [[ "$user" =~ ^ih[0-9a-f]{14}$ && ! -e "/run/iharc-customer-isolation/delete/$user" ]]; then
+if is_iharc_managed_user "$user" && [[ ! -e "/run/iharc-customer-isolation/delete/$user" ]]; then
 	"$CEASAR/bin/iharc-customer-isolation" resume-prep "$user" "$CEASAR" > /dev/null \
 		|| check_result "$E_DB" "customer database isolation could not prepare for unsuspend"
 fi
@@ -90,7 +90,7 @@ fi
 # Reconcile before Ceasar reloads shared web/proxy services. v-delete-user
 # temporarily calls this command; its delete-prep marker keeps that internal
 # transition from reopening account services before final purge.
-if [[ "$user" =~ ^ih[0-9a-f]{14}$ && ! -e "/run/iharc-customer-isolation/delete/$user" ]]; then
+if is_iharc_managed_user "$user" && [[ ! -e "/run/iharc-customer-isolation/delete/$user" ]]; then
 	"$CEASAR/bin/iharc-customer-isolation" reconcile "$user" "$CEASAR" > /dev/null \
 		|| check_result "$E_INVALID" "customer resource isolation could not be reconciled"
 fi

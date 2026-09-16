@@ -39,6 +39,12 @@ function setup() {
     source $CEASAR/func/ip.sh
 }
 
+@test "Managed: native IHARC hooks require explicit managed mode" {
+    run bash "$BATS_TEST_DIRNAME/managed-hooks.sh"
+    assert_success
+    assert_output 'Managed hook mode and source audit passed.'
+}
+
 function validate_web_domain() {
     local user=$1
     local domain=$2

@@ -124,7 +124,7 @@ fi
 # Rebuilding vhosts
 $BIN/v-rebuild-web-domains "$user" "$restart"
 
-if [[ ("$user" =~ ^ih[0-9a-f]{14}$ || "$user" == "$ROOT_USER") && -x "$BIN/iharc-haproxy-cert-sync" ]]; then
+if is_iharc_managed_authority_user "$user" && [[ -x "$BIN/iharc-haproxy-cert-sync" ]]; then
 	"$BIN/iharc-haproxy-cert-sync" \
 		|| check_result "$E_RESTART" "HAProxy authority synchronization could not complete"
 fi

@@ -159,7 +159,7 @@ check_backup_conditions
 # Manual backup API invocations do not necessarily inherit a usable HOME.
 # Keep canonical customer rclone/Restic operations on root's standard,
 # root-owned configuration and cache paths rather than caller-provided ones.
-if [[ "$user" =~ ^ih[0-9a-f]{14}$ ]]; then
+if is_iharc_managed_user "$user"; then
 	if [[ ! -d /root || -L /root || "$(stat -c '%U:%G:%a' /root)" != root:root:700 ]]; then
 		check_result "$E_INVALID" "root backup runtime is unavailable or unsafe"
 	fi
@@ -176,7 +176,7 @@ if [[ "$user" =~ ^ih[0-9a-f]{14}$ ]]; then
 	unset XDG_CONFIG_HOME RCLONE_CONFIG RESTIC_CACHE_DIR
 fi
 
-if [[ "$user" =~ ^ih[0-9a-f]{14}$ ]]; then
+if is_iharc_managed_user "$user"; then
 	"$CEASAR/bin/iharc-customer-isolation" backup-open "$user" "$CEASAR" > /dev/null \
 		|| check_result "$E_CONNECT" "customer database isolation could not open for backup"
 	trap '"$CEASAR/bin/iharc-customer-isolation" backup-close "$user" "$CEASAR" > /dev/null 2>&1 || exit 1' EXIT

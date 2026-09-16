@@ -47,7 +47,7 @@ is_object_unsuspended 'user' 'USER' "$user"
 is_object_valid 'web' 'DOMAIN' "$domain"
 is_object_unsuspended 'web' 'DOMAIN' "$domain"
 # Canonical IHARC sites retain their isolated Apache template during app setup.
-if [[ "$user" =~ ^ih[0-9a-f]{14}$ ]]; then
+if is_iharc_managed_user "$user"; then
 	template=iharc
 fi
 is_web_template_valid "$template"
@@ -84,7 +84,7 @@ fi
 # Changing tpl in config
 update_object_value 'web' 'DOMAIN' "$domain" '$TPL' "$template"
 
-if [[ "$user" =~ ^ih[0-9a-f]{14}$ ]]; then
+if is_iharc_managed_user "$user"; then
 	"$CEASAR/bin/iharc-customer-isolation" reconcile "$user" "$CEASAR" > /dev/null \
 		|| check_result "$E_RESTART" "customer resource isolation could not be reconciled"
 fi

@@ -992,7 +992,7 @@ $BIN/v-update-user-counters "$user"
 $BIN/v-update-user-counters "$ROOT_USER"
 $BIN/v-update-sys-ip-counters
 
-if [[ "$user" =~ ^ih[0-9a-f]{14}$ ]]; then
+if is_iharc_managed_user "$user"; then
 	"$CEASAR/bin/iharc-customer-isolation" reconcile "$user" "$CEASAR" > /dev/null \
 		|| check_result "$E_INVALID" "customer resource isolation could not be reconciled after restore"
 fi

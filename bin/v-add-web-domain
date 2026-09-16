@@ -96,7 +96,7 @@ source_conf "$USER_DATA/user.conf"
 
 # Canonical customer domains always use the reviewed paired templates. The
 # account boundary is not IP-derived and transfer fail-closed variables remain.
-if [[ "$user" =~ ^ih[0-9a-f]{14}$ ]]; then
+if is_iharc_managed_user "$user"; then
 	WEB_TEMPLATE=iharc
 	PROXY_TEMPLATE=iharc
 fi
@@ -255,7 +255,7 @@ syshealth_repair_web_config
 
 # Move the generated vhost/pool before Ceasar reloads shared Apache. This
 # prevents a rebuild race in which the shared master could retain it.
-if [[ "$user" =~ ^ih[0-9a-f]{14}$ && ! -e "/run/iharc-customer-isolation/delete/$user" ]]; then
+if is_iharc_managed_user "$user" && [[ ! -e "/run/iharc-customer-isolation/delete/$user" ]]; then
 	"$CEASAR/bin/iharc-customer-isolation" reconcile "$user" "$CEASAR" > /dev/null \
 		|| check_result "$E_RESTART" "customer resource isolation could not be reconciled"
 fi
@@ -268,7 +268,7 @@ check_result $? "Web restart failed" > /dev/null
 $BIN/v-restart-proxy "$restart"
 check_result $? "Proxy restart failed" > /dev/null
 
-if [[ ("$user" =~ ^ih[0-9a-f]{14}$ || "$user" == "$ROOT_USER") && -x "$BIN/iharc-haproxy-cert-sync" ]]; then
+if is_iharc_managed_authority_user "$user" && [[ -x "$BIN/iharc-haproxy-cert-sync" ]]; then
 	"$BIN/iharc-haproxy-cert-sync" \
 		|| check_result "$E_RESTART" "HAProxy authority synchronization could not complete"
 fi

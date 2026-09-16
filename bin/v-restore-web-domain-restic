@@ -241,7 +241,7 @@ fi
 
 # A newly restored canonical account leaves this native parent owned by the
 # account. Restore only its protected parent metadata before edge publication.
-if [[ "$new_user" == yes && "$user" =~ ^ih[0-9a-f]{14}$ ]]; then
+if [[ "$new_user" == yes ]] && is_iharc_managed_user "$user"; then
 	web_directory="$HOMEDIR/$user/web"
 	if [[ ! -d "$web_directory" || -L "$web_directory" || "$(readlink -e -- "$web_directory")" != "$web_directory" || "$(stat -c '%U:%G:%a' -- "$web_directory")" != "$user:$user:751" ]]; then
 		check_result "$E_INVALID" "restored customer web parent is unsafe"
@@ -264,11 +264,11 @@ $BIN/v-update-sys-ip-counters
 # A direct web restore bypasses ordinary domain hooks. Reconcile the canonical
 # private edge before publishing restored authority; either failure leaves the
 # queued restore in place for retry.
-if [[ "$defer_edge" != yes && "$user" =~ ^ih[0-9a-f]{14}$ ]]; then
+if [[ "$defer_edge" != yes ]] && is_iharc_managed_user "$user"; then
 	"$CEASAR/bin/iharc-customer-isolation" reconcile "$user" "$CEASAR" > /dev/null \
 		|| check_result "$E_INVALID" "customer resource isolation could not be reconciled after Restic restore"
 fi
-if [[ "$defer_edge" != yes && ("$user" =~ ^ih[0-9a-f]{14}$ || "$user" == "$ROOT_USER") && -x "$BIN/iharc-haproxy-cert-sync" ]]; then
+if [[ "$defer_edge" != yes ]] && is_iharc_managed_authority_user "$user" && [[ -x "$BIN/iharc-haproxy-cert-sync" ]]; then
 	"$BIN/iharc-haproxy-cert-sync" \
 		|| check_result "$E_RESTART" "HAProxy authority synchronization could not complete"
 fi

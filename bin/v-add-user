@@ -86,7 +86,7 @@ shell=$(grep -w "$shell_conf" /etc/shells | head -n1)
 
 # Adding user
 uid_floor_options=()
-if [[ "$user" =~ ^ih[0-9a-f]{14}$ ]]; then
+if is_iharc_managed_user "$user"; then
 	uid_floor=$("$BIN/iharc-transfer-uid-floor") || check_result $? "unable to establish retained transfer UID floor" "$E_INVALID"
 	if ! [[ "$uid_floor" =~ ^[1-9][0-9]*$ ]]; then
 		# An initialized ledger without a retained account has no historical
@@ -338,7 +338,7 @@ $BIN/v-add-user-sftp-jail $user
 # Canonical IHARC accounts receive their fixed cgroup boundary only after
 # Ceasar has recorded the native account and SFTP shape. Any failure is fatal:
 # a usable account without its aggregate boundary is not admitted.
-if [[ "$user" =~ ^ih[0-9a-f]{14}$ ]]; then
+if is_iharc_managed_user "$user"; then
 	"$CEASAR/bin/iharc-customer-isolation" reconcile "$user" "$CEASAR" > /dev/null \
 		|| check_result "$E_INVALID" "customer resource isolation could not be reconciled"
 fi
