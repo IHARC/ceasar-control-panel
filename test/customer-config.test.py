@@ -16,8 +16,9 @@ class CustomerConfigTests(unittest.TestCase):
     def run_php(self, config: dict) -> subprocess.CompletedProcess[str]:
         script = r'''
             set -eu
-            cat > /tmp/customer.json
-            CEASAR_CUSTOMER_CONFIG=/tmp/customer.json php -r '
+            install -d /usr/local/ceasar/conf
+            cat > /usr/local/ceasar/conf/customer.json
+            php -r '
                 $_SERVER["HTTP_HOST"] = "app.iharclabs.ca";
                 $_SERVER["HTTPS"] = "on";
                 require "/source/web/inc/customer.php";
@@ -71,6 +72,42 @@ class CustomerConfigTests(unittest.TestCase):
         self.assertEqual(public["callbackUrl"], "https://login.iharclabs.ca/auth/callback")
         self.assertEqual(public["accountUrl"], "https://app.iharclabs.ca/customer/account")
         self.assertEqual(public["workerApiBase"], "/api/iharc/v1/customer")
+
+    def test_production_module_reads_the_installed_ceasar_config(self):
+        script = r'''
+            set -eu
+            install -d /usr/local/ceasar/conf
+            cat > /usr/local/ceasar/conf/customer.json
+            printf "%s\n" "CUSTOMER_MODULE='yes'" > /usr/local/ceasar/conf/ceasar.conf
+            php -r '
+                $_SERVER["HTTP_HOST"] = "app.iharclabs.ca";
+                $_SERVER["HTTPS"] = "on";
+                require "/source/web/inc/customer.php";
+                echo customer_module_enabled(customer_config()) ? "enabled" : "disabled";
+            '
+        '''
+        result = subprocess.run(
+            [
+                DOCKER,
+                "run",
+                "--rm",
+                "--mount",
+                f"type=bind,source={ROOT},target=/source,readonly",
+                "-i",
+                "php:8.4-cli",
+                "sh",
+                "-euc",
+                script,
+            ],
+            cwd=ROOT,
+            input=json.dumps(self.config()),
+            capture_output=True,
+            text=True,
+            timeout=60,
+            check=False,
+        )
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertEqual(result.stdout, "enabled")
 
     def test_preserves_a_provider_owned_same_origin_worker_path(self):
         config = self.config()

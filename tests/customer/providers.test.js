@@ -55,10 +55,10 @@ describe('SupabaseIdentityProvider', () => {
 	it('requires public terms acceptance and preserves email confirmation', async () => {
 		const { identity, auth } = identityFixture();
 		await expect(
-			identity.signUp('customer@example.com', 'correct horse battery', false),
+			identity.signUp('customer@example.com', 'correct horse battery', false, config.callbackUrl),
 		).rejects.toThrow('Terms of Service');
 		await expect(
-			identity.signUp('customer@example.com', 'correct horse battery', true),
+			identity.signUp('customer@example.com', 'correct horse battery', true, config.callbackUrl),
 		).resolves.toEqual({
 			id: 'user-1',
 		});
@@ -79,7 +79,7 @@ describe('SupabaseIdentityProvider', () => {
 			}),
 		});
 		await expect(
-			identity.signUp('customer@example.com', 'correct horse battery', true),
+			identity.signUp('customer@example.com', 'correct horse battery', true, config.callbackUrl),
 		).rejects.toThrow('Email confirmation must be enabled');
 		expect(auth.signOut).toHaveBeenCalledOnce();
 	});

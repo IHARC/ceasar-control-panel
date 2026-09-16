@@ -4,6 +4,11 @@ setup() {
 	source "$BATS_TEST_DIRNAME/../func/package.sh"
 }
 
+@test "patch release 1.0.1 supersedes 1.0.0" {
+	run ceasar_version_is_newer '1.0.1-1+ubuntu24.04' '1.0.0-1+ubuntu24.04'
+	[ "$status" -eq 0 ]
+}
+
 @test "release 1.0.0 supersedes an RC" {
 	run ceasar_version_is_newer '1.0.0-1+ubuntu24.04' '1.0.0~rc1-1+ubuntu24.04'
 	[ "$status" -eq 0 ]
