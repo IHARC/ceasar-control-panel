@@ -60,7 +60,7 @@ import sys
 data = json.loads(pathlib.Path(sys.argv[1]).read_text(encoding="utf-8"))
 expected = {
     "schema": 1,
-    "version": "1.0.10",
+    "version": "1.0.11",
     "commit": sys.argv[2],
     "platform": "ubuntu24.04",
     "architecture": "amd64",
