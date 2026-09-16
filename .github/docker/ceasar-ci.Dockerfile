@@ -1,13 +1,25 @@
 FROM ubuntu:24.04@sha256:224a1869083a311ef3f13648a154ba79832fbef6364d31493642ca03082da254
 
+ARG NODEJS_DEB_VERSION=22.23.2-1nodesource1
 ENV DEBIAN_FRONTEND=noninteractive
 ENV container=docker
 
 RUN apt-get update \
-	&& apt-get install -y --no-install-recommends eatmydata \
+	&& apt-get install -y --no-install-recommends \
+		ca-certificates \
+		curl \
+		eatmydata \
+		gnupg \
 	&& EATMYDATA_SO="$(ldconfig -p | awk '/libeatmydata.so/{print $NF; exit}')" \
 	&& [ -n "${EATMYDATA_SO}" ] \
 	&& echo "${EATMYDATA_SO}" > /etc/ld.so.preload \
+	&& install -d -m 0755 /etc/apt/keyrings \
+	&& curl --fail --silent --show-error --location \
+		https://deb.nodesource.com/gpgkey/nodesource-repo.gpg.key \
+	| gpg --dearmor -o /etc/apt/keyrings/nodesource.gpg \
+	&& echo "deb [signed-by=/etc/apt/keyrings/nodesource.gpg] https://deb.nodesource.com/node_22.x nodistro main" \
+		> /etc/apt/sources.list.d/nodesource.list \
+	&& apt-get update \
 	&& apt-get full-upgrade -y \
 	&& apt-get install -y --no-install-recommends \
 		apt-utils \
@@ -29,6 +41,7 @@ RUN apt-get update \
 		netcat-openbsd \
 		netplan.io \
 		net-tools \
+		"nodejs=${NODEJS_DEB_VERSION}" \
 		rsync \
 		software-properties-common \
 		sudo \
@@ -38,6 +51,8 @@ RUN apt-get update \
 		tzdata \
 		vim \
 		wget \
+	&& node_version="$(node --version)" \
+	&& test "${node_version%%.*}" = 'v22' \
 	&& rm -rf /var/lib/apt/lists/*
 
 RUN locale-gen en_US.UTF-8 \

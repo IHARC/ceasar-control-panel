@@ -29,6 +29,26 @@ jobs:
             -t ceasar-ci:${{ github.sha }} \
             .
 
+      - name: Build pinned package environment
+        run: |
+          docker build --pull=false \
+            -f .github/docker/ceasar-package.Dockerfile \
+            -t ceasar-package-builder:${{ github.sha }} \
+            .
+
+      - name: Build four local Ceasar packages
+        run: |
+          mkdir -p dist/debs
+          docker run --rm \
+            --name "ceasar-bats-package-build-${GITHUB_RUN_ID}" \
+            -e GITHUB_SHA="${GITHUB_SHA}" \
+            -e BUILD_DIR=/tmp/ceasar-build \
+            -e DEB_DIR=/out \
+            -v "${GITHUB_WORKSPACE}:/src:ro" \
+            -v "${GITHUB_WORKSPACE}/dist/debs:/out" \
+            ceasar-package-builder:${{ github.sha }} \
+            bash -lc 'cd /src/src && bash ./ceasar_autocompile.sh --all --noinstall "~localsrc"'
+
       - name: Start CI container
         run: |
           docker run -d \
@@ -60,30 +80,33 @@ jobs:
           docker exec ceasar-ci bash -lc '
             set -euxo pipefail
             export TERM=xterm
-            cd /ceasar-git/src
-            bash ./ceasar_autocompile.sh --ceasar --noinstall --keepbuild "~localsrc"
-            DEB_PATH=""
-            if [[ -f "/tmp/ceasar-src/deb" ]]; then
-              pkg="$(dpkg-deb -f /tmp/ceasar-src/deb Package)"
-              ver="$(dpkg-deb -f /tmp/ceasar-src/deb Version)"
-              arch="$(dpkg-deb -f /tmp/ceasar-src/deb Architecture)"
-              DEB_PATH="/tmp/ceasar-src/debs"
-              mkdir -p "${DEB_PATH}"
-              cp /tmp/ceasar-src/deb "${DEB_PATH}/${pkg}_${ver}_${arch}.deb"
-            fi
-            if compgen -G "/tmp/ceasar-src/deb/ceasar_*.deb" >/dev/null; then
-              DEB_PATH="/tmp/ceasar-src/deb"
-            elif compgen -G "/tmp/ceasar-src/debs/ceasar_*.deb" >/dev/null; then
-              DEB_PATH="/tmp/ceasar-src/debs"
-            else
-              echo "No local ceasar debs found under /tmp/ceasar-src/{deb,debs}"
-              ls -la /tmp/ceasar-src || true
-              ls -la /tmp/ceasar-src/deb || true
-              ls -la /tmp/ceasar-src/debs || true
-              exit 1
-            fi
+            DEB_PATH=/ceasar-git/dist/debs
+            for package in ceasar ceasar-nginx ceasar-php ceasar-web-terminal; do
+              test "$(find "${DEB_PATH}" -maxdepth 1 -type f -name "${package}_*.deb" | wc -l)" -eq 1
+            done
+
+            # The local-package path still verifies the configured update key and
+            # repository. Serve a minimal loopback fixture so this pre-release test
+            # does not depend on the already-published Pages state.
+            APT_FIXTURE=/tmp/ceasar-apt-fixture
+            install -d "${APT_FIXTURE}/dists/noble"
+            printf "%s\n" "Origin: Ceasar CI" "Codename: noble" >"${APT_FIXTURE}/dists/noble/Release"
+            gpg --batch --yes --dearmor \
+              --output "${APT_FIXTURE}/ceasar-archive-keyring.gpg" \
+              /ceasar-git/release/ceasar-archive-keyring.asc
+            python3 -m http.server 18080 --bind 127.0.0.1 --directory "${APT_FIXTURE}" \
+              >/tmp/ceasar-apt-fixture.log 2>&1 &
+            apt_fixture_pid=$!
+            trap "kill ${apt_fixture_pid}" EXIT
+            for _ in {1..50}; do
+              curl --fail --silent http://127.0.0.1:18080/dists/noble/Release >/dev/null && break
+              sleep 0.1
+            done
+
             cd /ceasar-git
-            bash install/ceasar-install.sh \
+            CEASAR_APT_URL=http://127.0.0.1:18080 \
+            CEASAR_APT_KEY_URL=http://127.0.0.1:18080/ceasar-archive-keyring.gpg \
+              bash install/ceasar-install.sh \
               --hostname ceasar.local.test \
               --email admin@example.com \
               --username admin \
