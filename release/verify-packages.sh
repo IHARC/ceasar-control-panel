@@ -32,7 +32,6 @@ for required in \
 	'./usr/local/ceasar/vendor/phppgadmin/phppgadmin-7.14.6.tar.gz' \
 	'./usr/local/ceasar/web/inc/vendor/autoload.php' \
 	'./usr/local/ceasar/web/src/vendor/autoload.php' \
-	'./usr/local/ceasar/install/deb/filemanager/filegator/vendor/autoload.php' \
 	'./usr/local/ceasar/share/build-info.json'; do
 	grep -Fq "$required" <<< "$core_listing" || {
 		echo "Core package is missing $required" >&2
@@ -77,8 +76,7 @@ composer_bin="${COMPOSER_BIN:-$(command -v composer)}"
 [ -n "$composer_bin" ] && [ -f "$composer_bin" ]
 for tree in \
 	"$root/usr/local/ceasar/web/inc" \
-	"$root/usr/local/ceasar/web/src" \
-	"$root/usr/local/ceasar/install/deb/filemanager/filegator"; do
+	"$root/usr/local/ceasar/web/src"; do
 	"$php_bin" -c "$php_ini" "$composer_bin" \
 		--no-interaction --working-dir="$tree" check-platform-reqs --no-dev
 done
@@ -87,8 +85,14 @@ done
 	"require '$root/usr/local/ceasar/web/inc/vendor/autoload.php'; exit(function_exists('Ceasar\\Shell\\quoteshellarg') ? 0 : 1);"
 "$php_bin" -c "$php_ini" -r \
 	"require '$root/usr/local/ceasar/web/src/vendor/autoload.php'; exit(class_exists('Ceasar\\System\\CeasarApp') ? 0 : 1);"
+fm_root="$root/filemanager-runtime"
+mkdir -p "$fm_root"
+unzip -qq "$root/usr/local/ceasar/vendor/filegator/filegator_v7.15.1.zip" -d "$fm_root"
+cp -a "$root/usr/local/ceasar/install/deb/filemanager/filegator/." "$fm_root/filegator/"
+"$php_bin" -c "$php_ini" "$composer_bin" \
+	--no-interaction --working-dir="$fm_root/filegator" check-platform-reqs --no-dev
 "$php_bin" -c "$php_ini" -r \
-	"require '$root/usr/local/ceasar/install/deb/filemanager/filegator/vendor/autoload.php'; exit(class_exists('League\\Flysystem\\Filesystem') ? 0 : 1);"
+	"require '$fm_root/filegator/vendor/autoload.php'; exit(function_exists('Ceasar\\Shell\\quoteshellarg') && class_exists('Filegator\\App') && class_exists('Filegator\\Services\\Auth\\Adapters\\CeasarAuth') && class_exists('League\\Flysystem\\Filesystem') && class_exists('League\\Flysystem\\Sftp\\SftpAdapter') ? 0 : 1);"
 
 dpkg-deb -c "${package_files["ceasar-nginx"]}" | grep -Fq './usr/local/ceasar/nginx/sbin/ceasar-nginx'
 dpkg-deb -c "${package_files["ceasar-web-terminal"]}" | grep -Fq './usr/local/ceasar/web-terminal/server.js'

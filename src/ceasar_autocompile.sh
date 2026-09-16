@@ -828,7 +828,13 @@ if [ "$CEASAR_B" = true ]; then
 	npm run build
 	composer install --working-dir=web/inc --no-dev --no-interaction --no-progress --prefer-dist --classmap-authoritative --ignore-platform-req=php
 	composer install --working-dir=web/src --no-dev --no-interaction --no-progress --prefer-dist --classmap-authoritative --ignore-platform-req=php
-	composer install --working-dir=install/deb/filemanager/filegator --no-dev --no-interaction --no-progress --prefer-dist --classmap-authoritative --ignore-platform-req=php
+	filemanager_build="$(mktemp -d)"
+	unzip -qq vendor/filegator/filegator_v7.15.1.zip -d "$filemanager_build"
+	cp -a install/deb/filemanager/filegator/. "$filemanager_build/filegator/"
+	composer install --working-dir="$filemanager_build/filegator" --no-dev --no-interaction --no-progress --prefer-dist --classmap-authoritative --ignore-platform-req=php
+	rm -rf install/deb/filemanager/filegator/vendor
+	cp -a "$filemanager_build/filegator/vendor" install/deb/filemanager/filegator/vendor
+	rm -rf "$filemanager_build"
 	php -r "require 'web/inc/vendor/autoload.php'; exit(function_exists('Ceasar\\\\Shell\\\\quoteshellarg') ? 0 : 1);"
 	php -r "require 'web/src/vendor/autoload.php'; exit(class_exists('Ceasar\\\\System\\\\CeasarApp') ? 0 : 1);"
 	for BUILD_ARCH in $arch; do

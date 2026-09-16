@@ -35,6 +35,11 @@ function setup() {
     source $CEASAR/func/ip.sh
 }
 
+@test "packaged file manager autoloads the complete Ceasar runtime" {
+    run "$CEASAR/php/bin/php" -r "require '$CEASAR/web/fm/vendor/autoload.php'; exit(function_exists('Ceasar\\Shell\\quoteshellarg') && class_exists('Filegator\\App') && class_exists('Filegator\\Services\\Auth\\Adapters\\CeasarAuth') && class_exists('League\\Flysystem\\Filesystem') && class_exists('League\\Flysystem\\Sftp\\SftpAdapter') ? 0 : 1);"
+    assert_success
+}
+
 @test "is_hash_format_valid accesskey:secret valid" {
     run is_hash_format_valid 'bxDaKPyAfLPRgSkoqlkI:Pc8czGPRECp3GxTNMr3LF6zWc8cjfPrNHy_-=A' "hash"
     assert_success
