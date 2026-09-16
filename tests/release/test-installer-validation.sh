@@ -69,6 +69,30 @@ PY
 run_installer "$tmp_dir/noble" amd64 --managed-profile "$tmp_dir/customer-callback-host.json" \
 	| grep -Fq 'Ceasar platform validation passed: Ubuntu 24.04 amd64.'
 
+python3 - "$tmp_dir/customer-callback-host.json" "$tmp_dir/customer-provider-api.json" << 'PY'
+import json
+import pathlib
+import sys
+
+profile = json.loads(pathlib.Path(sys.argv[1]).read_text(encoding="utf-8"))
+profile["customer"]["worker_api_base"] = "/api/provider/v2/customer/"
+pathlib.Path(sys.argv[2]).write_text(json.dumps(profile), encoding="utf-8")
+PY
+run_installer "$tmp_dir/noble" amd64 --managed-profile "$tmp_dir/customer-provider-api.json" \
+	| grep -Fq 'Ceasar platform validation passed: Ubuntu 24.04 amd64.'
+
+python3 - "$tmp_dir/customer-callback-host.json" "$tmp_dir/customer-worker-api-invalid.json" << 'PY'
+import json
+import pathlib
+import sys
+
+profile = json.loads(pathlib.Path(sys.argv[1]).read_text(encoding="utf-8"))
+profile["customer"]["worker_api_base"] = "https://attacker.example/customer"
+pathlib.Path(sys.argv[2]).write_text(json.dumps(profile), encoding="utf-8")
+PY
+expect_failure 'customer.worker_api_base must be a same-origin path' \
+	run_installer "$tmp_dir/noble" amd64 --managed-profile "$tmp_dir/customer-worker-api-invalid.json"
+
 python3 - "$tmp_dir/customer-callback-host.json" "$tmp_dir/customer-account-origin-invalid.json" << 'PY'
 import json
 import pathlib

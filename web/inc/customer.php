@@ -59,15 +59,15 @@ function customer_config(): array {
 			"enabled" => false,
 			"supabase_url" => "https://disabled.invalid",
 			"supabase_publishable_key" => "",
-			"terms_url" => "https://iharclabs.ca/terms",
-			"privacy_url" => "https://iharclabs.ca/privacy",
+			"terms_url" => "https://example.invalid/terms",
+			"privacy_url" => "https://example.invalid/privacy",
 			"brand_name" => "Ceasar",
 			"passkeys_enabled" => false,
 			"passkey_rp_id" => "",
 			"login_url" => "",
 			"callback_url" => "",
 			"account_url" => "",
-			"worker_api_base" => "/api/iharc/v1/customer",
+			"worker_api_base" => "/api/customer/v1",
 			"fixture" => $fixture,
 		];
 
@@ -76,14 +76,14 @@ function customer_config(): array {
 
 	$supabaseUrl = $data["supabase_url"] ?? ($fixture ? customer_request_origin() : "");
 	$publishableKey = $data["supabase_publishable_key"] ?? "";
-	$terms = $data["terms_url"] ?? "https://iharclabs.ca/terms";
-	$privacy = $data["privacy_url"] ?? "https://iharclabs.ca/privacy";
+	$terms = $data["terms_url"] ?? "https://example.invalid/terms";
+	$privacy = $data["privacy_url"] ?? "https://example.invalid/privacy";
 	$rpId = $data["passkey_rp_id"] ?? "";
 	$requestOrigin = customer_request_origin();
 	$loginUrl = $data["login_url"] ?? $requestOrigin . "/customer/login";
 	$callbackUrl = $data["callback_url"] ?? $requestOrigin . "/auth/callback";
 	$accountUrl = $data["account_url"] ?? $requestOrigin . "/customer/account";
-	$workerApiBase = $data["worker_api_base"] ?? "/api/iharc/v1/customer";
+	$workerApiBase = $data["worker_api_base"] ?? "/api/customer/v1";
 	if (
 		!is_string($supabaseUrl) ||
 		!is_string($publishableKey) ||
@@ -92,8 +92,7 @@ function customer_config(): array {
 		!is_string($rpId) ||
 		!is_string($loginUrl) ||
 		!is_string($callbackUrl) ||
-		!is_string($accountUrl) ||
-		$workerApiBase !== "/api/iharc/v1/customer"
+		!is_string($accountUrl)
 	) {
 		throw new RuntimeException("Customer module configuration is invalid.");
 	}
@@ -110,6 +109,7 @@ function customer_config(): array {
 	$login = customer_require_customer_url($loginUrl, "/customer/login", $fixture);
 	$callback = customer_require_customer_url($callbackUrl, "/auth/callback", $fixture);
 	$account = customer_require_customer_url($accountUrl, "/customer/account", $fixture);
+	$workerApiBase = customer_require_worker_api_base($workerApiBase);
 	if (customer_url_origin($login) !== customer_url_origin($account)) {
 		throw new RuntimeException("Customer login and account URLs must share one origin.");
 	}
@@ -147,6 +147,24 @@ function customer_config(): array {
 	}
 
 	return $config;
+}
+
+function customer_require_worker_api_base(mixed $value): string {
+	if (
+		!is_string($value) ||
+		strlen($value) > 200 ||
+		preg_match("#^/[A-Za-z0-9][A-Za-z0-9._~!$&'()*+,;=:@/-]*/?$#D", $value) !== 1
+	) {
+		throw new RuntimeException("Customer worker API base must be a same-origin path.");
+	}
+	$normalized = rtrim($value, "/");
+	foreach (explode("/", substr($normalized, 1)) as $segment) {
+		if ($segment === "" || $segment === "." || $segment === "..") {
+			throw new RuntimeException("Customer worker API base must be a canonical path.");
+		}
+	}
+
+	return $normalized;
 }
 
 /** @param array<string, mixed> $config */

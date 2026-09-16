@@ -142,6 +142,42 @@ for relative in ("func/db.sh", "func/rebuild.sh"):
         nearby = lines[max(0, number - 7) : number]
         if not any("is_iharc_managed_user" in candidate for candidate in nearby):
             errors.append(f"{relative}:{number}: pooled database quota is not guarded by managed mode")
+
+for relative in ("bin/v-add-user", "bin/v-delete-user", "bin/v-update-user-quota"):
+    lines = (root / relative).read_text(encoding="utf-8").splitlines()
+    for number, line in enumerate(lines, start=1):
+        if "update_user_group_quota" not in line or line.lstrip().startswith("#"):
+            continue
+        nearby = lines[max(0, number - 7) : number]
+        if not any("is_iharc_managed_user" in candidate for candidate in nearby):
+            errors.append(f"{relative}:{number}: pooled group quota is not guarded by managed mode")
+
+managed_storage_markers = {
+    "bin/v-add-user": (
+        "quota_useradd_options=(-e 1)",
+        "usermod -e ''",
+        'setfacl -m "u:www-data:--x"',
+    ),
+    "func/rebuild.sh": (
+        "gpasswd -d",
+        'setfacl -m "u:www-data:--x"',
+    ),
+}
+for relative, markers in managed_storage_markers.items():
+    lines = (root / relative).read_text(encoding="utf-8").splitlines()
+    for number, line in enumerate(lines, start=1):
+        if not any(marker in line for marker in markers):
+            continue
+        nearby = lines[max(0, number - 12) : number]
+        if not any("is_iharc_managed_user" in candidate for candidate in nearby):
+            errors.append(f"{relative}:{number}: managed storage policy is not guarded by managed mode")
+
+database_sources = "\n".join(
+    (root / relative).read_text(encoding="utf-8")
+    for relative in ("func/db.sh", "bin/iharc-customer-isolation")
+)
+if "iharc-database-hosts.lock" in database_sources:
+    errors.append("native database inventory still uses the managed-service lock namespace")
 if errors:
     raise SystemExit("\n".join(errors))
 PY

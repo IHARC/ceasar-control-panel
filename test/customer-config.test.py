@@ -72,6 +72,28 @@ class CustomerConfigTests(unittest.TestCase):
         self.assertEqual(public["accountUrl"], "https://app.iharclabs.ca/customer/account")
         self.assertEqual(public["workerApiBase"], "/api/iharc/v1/customer")
 
+    def test_preserves_a_provider_owned_same_origin_worker_path(self):
+        config = self.config()
+        config["worker_api_base"] = "/api/provider/v2/customer/"
+        result = self.run_php(config)
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertEqual(json.loads(result.stdout)["workerApiBase"], "/api/provider/v2/customer")
+
+    def test_rejects_cross_origin_and_ambiguous_worker_paths(self):
+        for worker_api_base in (
+            "https://attacker.example/customer",
+            "//attacker.example/customer",
+            "/api/customer/../admin",
+            "/api//customer",
+            "/api/customer?admin=true",
+        ):
+            with self.subTest(worker_api_base=worker_api_base):
+                config = self.config()
+                config["worker_api_base"] = worker_api_base
+                result = self.run_php(config)
+                self.assertNotEqual(result.returncode, 0)
+                self.assertIn("worker API base", result.stdout + result.stderr)
+
     def test_rejects_account_origin_drift_and_callback_outside_rp(self):
         account_drift = self.config()
         account_drift["account_url"] = "https://other.iharclabs.ca/customer/account"

@@ -35,6 +35,10 @@
 		"login_url": { "type": "string", "format": "uri", "pattern": "^https://" },
 		"callback_url": { "type": "string", "format": "uri", "pattern": "^https://" },
 		"account_url": { "type": "string", "format": "uri", "pattern": "^https://" },
-		"worker_api_base": { "const": "/api/iharc/v1/customer" }
+		"worker_api_base": {
+			"type": "string",
+			"maxLength": 200,
+			"pattern": "^/[A-Za-z0-9][A-Za-z0-9._~!$&'()*+,;=:@/-]*/?$"
+		}
 	}
 }

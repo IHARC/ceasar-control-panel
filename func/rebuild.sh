@@ -77,23 +77,23 @@ rebuild_user_conf() {
 		groupadd --system "ceasar-users"
 	fi
 
-	# Keep the shared group and deny ACL for service identities; customer accounts
-	# remain primary-group-only so a group quota cannot be escaped via chgrp.
+	# Managed customer accounts remain primary-group-only so their pooled group
+	# quota cannot be escaped via a supplementary group. Standalone accounts keep
+	# Ceasar's native shared-group membership.
 	if [ "$user" = "$ROOT_USER" ]; then
 		setfacl -m "g:$ROOT_USER:r-x" "$HOMEDIR/$user"
-	else
+	elif is_iharc_managed_user "$user"; then
 		# Remove legacy customer and same-UID FTP identities from the shared
 		# group when an existing account is rebuilt under primary-only policy.
 		while read -r legacy_identity; do
 			gpasswd -d "$legacy_identity" ceasar-users > /dev/null 2>&1 || true
 		done < <(getent passwd | awk -F: -v uid="$(id -u "$user")" '$3 == uid {print $1}')
 		setfacl -m "u:$user:r-x" "$HOMEDIR/$user"
+	else
+		usermod -a -G "ceasar-users" "$user"
+		setfacl -m "u:$user:r-x" "$HOMEDIR/$user"
 	fi
 	setfacl -m "g:ceasar-users:---" "$HOMEDIR/$user"
-	chmod o-rwx "$HOMEDIR/$user"
-	if id www-data > /dev/null 2>&1; then
-		setfacl -m "u:www-data:--x" "$HOMEDIR/$user"
-	fi
 
 	# Update user shell
 	/usr/bin/chsh -s "$shell" "$user" &> /dev/null
@@ -119,7 +119,14 @@ rebuild_user_conf() {
 		$HOMEDIR/$user/.ssh \
 		$HOMEDIR/$user/.npm \
 		$HOMEDIR/$user/.wp-cli
-	chmod u+x,g+x $HOMEDIR/$user
+	if is_iharc_managed_user "$user"; then
+		chmod u+x,g+x "$HOMEDIR/$user"
+		if id www-data > /dev/null 2>&1; then
+			setfacl -m "u:www-data:--x" "$HOMEDIR/$user"
+		fi
+	else
+		chmod a+x "$HOMEDIR/$user"
+	fi
 	chmod a+x $HOMEDIR/$user/conf
 	chown --no-dereference $user:$user \
 		$HOMEDIR/$user \

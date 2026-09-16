@@ -401,7 +401,7 @@ ensure_database_host() {
 		# Share the exact config lock used by Ceasar's scoped host-counter patch and
 		# WordPress SQL-only recovery. Hold it across inventory read and native host
 		# creation, then let this subshell close the descriptor before returning.
-		lock="$ceasar/data/iharc-database-hosts.lock"
+		lock="$ceasar/data/database-hosts.lock"
 		if [[ -e "$lock" || -L "$lock" ]]; then
 			regular "$lock" && [[ $(stat -c '%U:%G:%a' "$lock") == root:root:600 ]] \
 				|| fail 'dedicated database host lock is unsafe'
@@ -437,7 +437,7 @@ remove_database_host() {
 		local mysql_conf lock
 		# Keep retirement serialized with Ceasar counter updates and any exact
 		# recovery write. This is a config-file lock only, never an account gate.
-		lock="$ceasar/data/iharc-database-hosts.lock"
+		lock="$ceasar/data/database-hosts.lock"
 		if [[ -e "$lock" || -L "$lock" ]]; then
 			regular "$lock" && [[ $(stat -c '%U:%G:%a' "$lock") == root:root:600 ]] \
 				|| fail 'dedicated database host lock is unsafe during deletion'

@@ -9,6 +9,7 @@ const config = {
 	supabasePublishableKey: 'sb_publishable_test',
 	callbackUrl: 'https://app.example.com/auth/callback/',
 	passkeysEnabled: true,
+	workerApiBase: '/api/provider/v1/customer',
 };
 
 function identityFixture(overrides = {}) {
@@ -106,6 +107,21 @@ describe('SupabaseIdentityProvider', () => {
 });
 
 describe('CustomerBusinessBackend', () => {
+	it('rejects cross-origin and ambiguous customer backend paths', () => {
+		const identity = {};
+		for (const value of [
+			'https://attacker.example/customer',
+			'//attacker.example/customer',
+			'/api/customer/../admin',
+			'/api//customer',
+			'/api/customer?admin=true',
+		]) {
+			expect(() => new CustomerBusinessBackend(identity, value)).toThrow(
+				'Customer backend path is invalid',
+			);
+		}
+	});
+
 	it('sends bearer tokens only to fixed same-origin customer routes', async () => {
 		const identity = {
 			session: vi.fn().mockResolvedValue({ access_token: 'customer-token' }),
@@ -125,13 +141,13 @@ describe('CustomerBusinessBackend', () => {
 				},
 			),
 		);
-		const backend = new CustomerBusinessBackend(identity, fetcher);
+		const backend = new CustomerBusinessBackend(identity, config.workerApiBase, fetcher);
 		await expect(backend.sessionState()).resolves.toEqual({
 			identity: { email: 'customer@example.com' },
 			state: { contexts: [], services: [] },
 		});
 		expect(fetcher).toHaveBeenCalledWith(
-			'/api/iharc/v1/customer/session',
+			'/api/provider/v1/customer/session',
 			expect.objectContaining({
 				method: 'GET',
 				headers: expect.objectContaining({
@@ -154,7 +170,7 @@ describe('CustomerBusinessBackend', () => {
 		);
 		vi.stubGlobal('fetch', fetcher);
 		try {
-			const backend = new CustomerBusinessBackend(identity);
+			const backend = new CustomerBusinessBackend(identity, config.workerApiBase);
 			await expect(backend.accountState('account-1')).resolves.toEqual({
 				contexts: [],
 				services: [],
@@ -186,7 +202,7 @@ describe('CustomerBusinessBackend', () => {
 				),
 			),
 		);
-		const backend = new CustomerBusinessBackend(identity, fetcher);
+		const backend = new CustomerBusinessBackend(identity, config.workerApiBase, fetcher);
 		await backend.accountState('account-1');
 		await backend.serviceState('service-1');
 		await backend.supportCase('case-1');
@@ -246,22 +262,22 @@ describe('CustomerBusinessBackend', () => {
 		await backend.requestEmailChange('new@example.com');
 		await backend.changePassword('correct horse battery staple');
 		expect(fetcher.mock.calls.map(([url]) => url)).toEqual([
-			'/api/iharc/v1/customer/accounts/account-1/state',
-			'/api/iharc/v1/customer/services/service-1/state',
-			'/api/iharc/v1/customer/support/case-1',
-			'/api/iharc/v1/customer/accounts',
-			'/api/iharc/v1/customer/profile',
-			'/api/iharc/v1/customer/admissions/trial',
-			'/api/iharc/v1/customer/billing/checkout-sessions',
-			'/api/iharc/v1/customer/services/service-1/websites',
-			'/api/iharc/v1/customer/migrations/service-1/confirm',
-			'/api/iharc/v1/customer/services/service-1/domain-refresh',
-			'/api/iharc/v1/customer/services/service-1/backups',
-			'/api/iharc/v1/customer/support',
-			'/api/iharc/v1/customer/support/case-1/replies',
-			'/api/iharc/v1/customer/support/case-1/close',
-			'/api/iharc/v1/customer/profile/email-change',
-			'/api/iharc/v1/customer/profile/password',
+			'/api/provider/v1/customer/accounts/account-1/state',
+			'/api/provider/v1/customer/services/service-1/state',
+			'/api/provider/v1/customer/support/case-1',
+			'/api/provider/v1/customer/accounts',
+			'/api/provider/v1/customer/profile',
+			'/api/provider/v1/customer/admissions/trial',
+			'/api/provider/v1/customer/billing/checkout-sessions',
+			'/api/provider/v1/customer/services/service-1/websites',
+			'/api/provider/v1/customer/migrations/service-1/confirm',
+			'/api/provider/v1/customer/services/service-1/domain-refresh',
+			'/api/provider/v1/customer/services/service-1/backups',
+			'/api/provider/v1/customer/support',
+			'/api/provider/v1/customer/support/case-1/replies',
+			'/api/provider/v1/customer/support/case-1/close',
+			'/api/provider/v1/customer/profile/email-change',
+			'/api/provider/v1/customer/profile/password',
 		]);
 		expect(JSON.parse(fetcher.mock.calls[5][1].body)).toEqual({
 			accountId: 'account-1',
@@ -284,7 +300,7 @@ describe('CustomerBusinessBackend', () => {
 			requireAal2: vi.fn().mockRejectedValue(new Error('step up')),
 		};
 		const fetcher = vi.fn();
-		const backend = new CustomerBusinessBackend(identity, fetcher);
+		const backend = new CustomerBusinessBackend(identity, config.workerApiBase, fetcher);
 		await expect(
 			backend.confirmMigration('service-1', {
 				accountId: 'account-1',

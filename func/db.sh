@@ -262,9 +262,9 @@ is_charset_valid() {
 # the active host row. Ceasar's stock broad substitutions can alter equal
 # counters on unrelated hosts. The lock is scoped to this subshell so it never
 # collides with a caller's operation locks or leaks into child commands.
-iharc_update_database_host_values() (
+ceasar_update_database_host_values() (
 	local type_name=$1 target_host=$2 change=$3 account=$4 lock conf temporary host_str new_dbbases new_users
-	lock="$CEASAR/data/iharc-database-hosts.lock"
+	lock="$CEASAR/data/database-hosts.lock"
 	if [ -e "$lock" ] || [ -L "$lock" ]; then
 		[ -f "$lock" ] && [ ! -L "$lock" ] && [ "$(stat -c '%U:%G:%a' "$lock")" = 'root:root:600' ] || exit 1
 	else
@@ -330,12 +330,12 @@ iharc_update_database_host_values() (
 
 # Increase database host value
 increase_dbhost_values() {
-	iharc_update_database_host_values "$type" "$host" increase "$user"
+	ceasar_update_database_host_values "$type" "$host" increase "$user"
 }
 
 # Decrease database host value
 decrease_dbhost_values() {
-	iharc_update_database_host_values "$TYPE" "$HOST" decrease "$user"
+	ceasar_update_database_host_values "$TYPE" "$HOST" decrease "$user"
 }
 # Prepare a newly-created schema for pooled primary-group accounting. MariaDB
 # owns the files, while the customer's primary group is inherited by tables

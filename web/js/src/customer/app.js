@@ -4,7 +4,7 @@ const configNode = document.querySelector('#customer-config');
 if (configNode) {
 	const config = JSON.parse(configNode.textContent);
 	const identity = new SupabaseIdentityProvider(config);
-	const backend = new CustomerBusinessBackend(identity);
+	const backend = new CustomerBusinessBackend(identity, config.workerApiBase);
 	boot(config, identity, backend).catch(showError);
 }
 

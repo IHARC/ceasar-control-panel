@@ -49,10 +49,11 @@ else
 	setquota $user $soft $hard 0 0 $mnt 2> /dev/null
 fi
 
-# Keep the customer's primary group quota in lockstep with the native user
-# quota. The group is also applied to the MariaDB filesystem so web and schema
-# files share one pooled allowance.
-update_user_group_quota "$user" "$quota" || check_result "$E_DISK" "group quota update failed"
+# Managed customer storage uses one primary-group allowance across web and
+# MariaDB data. Standalone accounts retain Ceasar's native per-user quota.
+if is_iharc_managed_user "$user"; then
+	update_user_group_quota "$user" "$quota" || check_result "$E_DISK" "group quota update failed"
+fi
 
 #----------------------------------------------------------#
 #                       Ceasar                             #

@@ -343,6 +343,18 @@ def https_url(value, field, expected_path=None):
         raise SystemExit(f"customer.{field} must use {expected_path}")
     return parsed
 
+def worker_api_path(value):
+    if (
+        not isinstance(value, str)
+        or len(value) > 200
+        or not re.fullmatch(r"/[A-Za-z0-9][A-Za-z0-9._~!$&'()*+,;=:@/-]*/?", value)
+    ):
+        raise SystemExit("customer.worker_api_base must be a same-origin path")
+    normalized = value.rstrip("/")
+    if any(segment in {"", ".", ".."} for segment in normalized[1:].split("/")):
+        raise SystemExit("customer.worker_api_base must be a canonical path")
+    return normalized
+
 customer = data.get("customer", {"enabled": False})
 if not isinstance(customer, dict) or not isinstance(customer.get("enabled", False), bool):
     raise SystemExit("customer profile must be an object with a boolean enabled value")
@@ -378,8 +390,7 @@ if customer_enabled:
     rp_hosts = {login.hostname, callback.hostname}
     if any(host != rp_id and not host.endswith("." + rp_id) for host in rp_hosts):
         raise SystemExit("customer.passkey_rp_id must cover the login, account, and callback hostnames")
-    if customer["worker_api_base"] != "/api/iharc/v1/customer":
-        raise SystemExit("customer.worker_api_base must be /api/iharc/v1/customer")
+    customer["worker_api_base"] = worker_api_path(customer["worker_api_base"])
     if not isinstance(customer["passkeys_enabled"], bool):
         raise SystemExit("customer.passkeys_enabled must be a boolean")
     customer_path.write_text(json.dumps(customer, indent=2) + "\n", encoding="utf-8")

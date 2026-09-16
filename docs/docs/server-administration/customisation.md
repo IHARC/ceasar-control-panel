@@ -15,6 +15,18 @@ root-owned account profile, transfer-policy data, service units, and HAProxy
 configuration. Those deployment bindings are intentionally outside this
 repository. Missing or unsafe deployment configuration makes the affected
 canonical-account operation fail; these commands have no fallback path.
+Managed behavior requires `MANAGED_SERVICES='yes'` and a canonical managed
+account. Ordinary usernames continue to use native Ceasar groups, permissions,
+database handling, and per-user quotas.
+
+## Customer account module
+
+The customer account pages are optional and disabled on a normal installation.
+Configure them through a validated install profile based on
+`install/common/customer/customer.example.json`. The module uses the configured
+Supabase project for identity and sends typed customer operations to the
+same-origin path in `worker_api_base`. The provider implements that API; Ceasar
+does not require or bundle a specific provider backend.
 
 ## Adding a new theme
 

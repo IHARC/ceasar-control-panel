@@ -11,5 +11,5 @@
 	"login_url": "https://app.example.com/customer/login",
 	"callback_url": "https://login.example.com/auth/callback",
 	"account_url": "https://app.example.com/customer/account",
-	"worker_api_base": "/api/iharc/v1/customer"
+	"worker_api_base": "/api/customer/v1"
 }

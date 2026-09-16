@@ -1,7 +1,5 @@
 import { createClient } from '@supabase/supabase-js';
 
-const CUSTOMER_API = '/api/iharc/v1/customer';
-
 export class SupabaseIdentityProvider {
 	constructor(config, clientFactory = createClient) {
 		this.config = config;
@@ -163,8 +161,13 @@ export class SupabaseIdentityProvider {
 }
 
 export class CustomerBusinessBackend {
-	constructor(identity, fetchImplementation = (...arguments_) => globalThis.fetch(...arguments_)) {
+	constructor(
+		identity,
+		apiBase,
+		fetchImplementation = (...arguments_) => globalThis.fetch(...arguments_),
+	) {
 		this.identity = identity;
+		this.apiBase = customerApiBase(apiBase);
 		this.fetch = fetchImplementation;
 	}
 
@@ -334,7 +337,7 @@ export class CustomerBusinessBackend {
 			options.headers['Content-Type'] = 'application/json';
 			options.body = JSON.stringify(payload);
 		}
-		const response = await this.fetch(`${CUSTOMER_API}${path}`, options);
+		const response = await this.fetch(`${this.apiBase}${path}`, options);
 		const contentType = response.headers.get('content-type') || '';
 		if (!contentType.includes('application/json')) {
 			throw new Error('Customer backend returned an invalid response.');
@@ -348,6 +351,22 @@ export class CustomerBusinessBackend {
 		}
 		return body.data;
 	}
+}
+
+function customerApiBase(value) {
+	if (
+		typeof value !== 'string' ||
+		value.length > 200 ||
+		!/^\/[A-Za-z0-9][A-Za-z0-9._~!$&'()*+,;=:@\/-]*\/?$/.test(value)
+	) {
+		throw new Error('Customer backend path is invalid.');
+	}
+	const normalized = value.replace(/\/$/, '');
+	const segments = normalized.slice(1).split('/');
+	if (segments.some((segment) => !segment || segment === '.' || segment === '..')) {
+		throw new Error('Customer backend path is invalid.');
+	}
+	return normalized;
 }
 
 function pathId(value) {

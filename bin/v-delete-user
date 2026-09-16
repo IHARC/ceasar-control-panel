@@ -113,7 +113,7 @@ if is_iharc_managed_user "$user"; then
 fi
 
 # Deleting system user
-if [ "$DISK_QUOTA" = 'yes' ]; then
+if [ "$DISK_QUOTA" = 'yes' ] && is_iharc_managed_user "$user"; then
 	update_user_group_quota "$user" 'unlimited' || check_result "$E_DISK" "group quota cleanup failed"
 fi
 /usr/sbin/userdel -f "$user" >> /dev/null 2>&1
