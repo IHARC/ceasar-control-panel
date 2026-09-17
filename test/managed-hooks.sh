@@ -204,6 +204,15 @@ if 'linux-modules-extra-$(uname -r)' not in quota_installer:
     errors.append("bin/v-add-sys-quota: running-kernel module package is not selected")
 if quota_installer.count("modprobe quota_v2") < 2:
     errors.append("bin/v-add-sys-quota: quota module is not retried after installation")
+
+for suffix in ("tpl", "stpl"):
+    managed_apache_template = root / f"install/deb/templates/web/apache2/iharc.{suffix}"
+    if not managed_apache_template.is_file():
+        errors.append(f"{managed_apache_template.relative_to(root)}: managed Apache template is missing")
+        continue
+    content = managed_apache_template.read_text(encoding="utf-8")
+    if "<VirtualHost " not in content or "%backend_lsnr%" not in content:
+        errors.append(f"{managed_apache_template.relative_to(root)}: managed Apache template cannot render a PHP vhost")
 if errors:
     raise SystemExit("\n".join(errors))
 PY

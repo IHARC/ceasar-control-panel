@@ -1,7 +1,7 @@
 # Ceasar release contract
 
-Ceasar 1.0.13 publishes one immutable Ubuntu 24.04 amd64 bundle named
-ceasar-1.0.13-ubuntu24.04-amd64.tar.zst.
+Ceasar 1.0.14 publishes one immutable Ubuntu 24.04 amd64 bundle named
+ceasar-1.0.14-ubuntu24.04-amd64.tar.zst.
 
 The archive root contains only executable `install.sh`, `ceasar-release.json`,
 and `packages/`. The package directory contains exactly one build of `ceasar`,
