@@ -1,7 +1,7 @@
 Source: ceasar
 Package: ceasar
 Priority: optional
-Version: 1.0.20
+Version: 1.0.21
 Section: admin
 Maintainer: IHARC Labs <support@iharc.ca>
 Homepage: https://github.com/IHARC/ceasar-control-panel

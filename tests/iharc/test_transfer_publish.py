@@ -5,6 +5,8 @@ import pathlib
 import sys
 import tempfile
 import unittest
+from types import SimpleNamespace
+from unittest import mock
 
 from support import LIBEXEC, encoded_policy, policy
 
@@ -92,6 +94,23 @@ class PublisherTests(unittest.TestCase):
             self.publisher.assert_terminal_ready(value["username"])
         self.rows[0]["application_state"] = "applied"
         self.publisher.assert_terminal_ready(value["username"])
+
+    @mock.patch("iharc_transfer_publish.subprocess.run")
+    def test_native_authority_sync_waits_for_the_existing_systemd_oneshot(self, run: mock.Mock) -> None:
+        run.return_value = SimpleNamespace(returncode=0)
+        self.publisher.native_authority_sync()
+        run.assert_called_once_with(
+            ["/usr/bin/systemctl", "start", "--wait", "iharc-haproxy-cert-sync.service"],
+            check=False,
+            timeout=20,
+            env={"PATH": "/usr/sbin:/usr/bin:/sbin:/bin", "LANG": "C"},
+        )
+
+    @mock.patch("iharc_transfer_publish.subprocess.run")
+    def test_native_authority_sync_fails_closed_when_the_systemd_oneshot_fails(self, run: mock.Mock) -> None:
+        run.return_value = SimpleNamespace(returncode=1)
+        with self.assertRaisesRegex(PolicyError, "HAProxy authority synchronization is unavailable"):
+            self.publisher.native_authority_sync()
 
 
 if __name__ == "__main__":

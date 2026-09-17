@@ -162,7 +162,11 @@ class Publisher:
 
     def native_authority_sync(self) -> None:
         result = subprocess.run(
-            ["/usr/local/ceasar/bin/iharc-haproxy-cert-sync"],
+            # Publishing replaces the watched policy document.  Start the
+            # existing oneshot unit and wait for it so the synchronous publish
+            # joins a pending PathChanged delivery instead of racing a second
+            # HAProxy reload.
+            ["/usr/bin/systemctl", "start", "--wait", "iharc-haproxy-cert-sync.service"],
             check=False,
             timeout=20,
             env={"PATH": "/usr/sbin:/usr/bin:/sbin:/bin", "LANG": "C"},

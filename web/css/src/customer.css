@@ -310,6 +310,10 @@ body.page-login[data-customer-page] :is(button, input, select, textarea, a):focu
 	grid-template-columns: minmax(0, 1fr) auto auto;
 }
 
+.customer-row > * {
+	min-width: 0;
+}
+
 button.customer-row {
 	cursor: pointer;
 }
@@ -335,6 +339,11 @@ button.customer-row:focus-visible .customer-row-title {
 
 .customer-row-title {
 	font-weight: 700;
+	overflow-wrap: anywhere;
+}
+
+.customer-service-detail > h3:first-child {
+	overflow-wrap: anywhere;
 }
 
 .customer-row-detail,
