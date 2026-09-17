@@ -38,6 +38,7 @@ check_ceasar_demo_mode
 PRVKEY_FILE="$HOMEDIR/$user/.ssh/ceasar-filemanager-key"
 PUBKEY_FILE="$HOMEDIR/$user/.ssh/ceasar-filemanager-key.pub"
 AUTHKEY_FILE="$HOMEDIR/$user/.ssh/authorized_keys"
+USER_HOME="$HOMEDIR/$user"
 SSH_DIR="$HOMEDIR/$user/.ssh"
 
 [ -z "$(readlink -f "$PRVKEY_FILE" | egrep "^$HOMEDIR/$user/.ssh/")" ] && check_result "$E_FORBIDEN" "Invalid private key file path"
@@ -73,9 +74,10 @@ fi
 chown ${user}: "${AUTHKEY_FILE}"
 chown "ceasarweb": "${PRVKEY_FILE}"
 
-# Ensure file manager service account can traverse user's .ssh folder
-# to read the dedicated private key.
+# Ensure the file manager service account can traverse the user home and .ssh
+# directories to read the dedicated private key.
 if command -v setfacl > /dev/null 2>&1; then
+	setfacl -m u:ceasarweb:--x "${USER_HOME}"
 	setfacl -m u:ceasarweb:--x "${SSH_DIR}" > /dev/null 2>&1
 else
 	echo "Error: 'setfacl' is not available."
