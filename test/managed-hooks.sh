@@ -178,6 +178,32 @@ database_sources = "\n".join(
 )
 if "iharc-database-hosts.lock" in database_sources:
     errors.append("native database inventory still uses the managed-service lock namespace")
+
+add_user_lines = (root / "bin/v-add-user").read_text(encoding="utf-8").splitlines()
+useradd_line = next(
+    (number for number, line in enumerate(add_user_lines, start=1) if "/usr/sbin/useradd" in line),
+    None,
+)
+if useradd_line is None:
+    errors.append("bin/v-add-user: missing useradd invocation")
+else:
+    pre_useradd = "\n".join(add_user_lines[: useradd_line - 1])
+    if "is_group_quota_enabled" not in pre_useradd:
+        errors.append("bin/v-add-user: managed group quota is not preflighted before useradd")
+    if '[ "$DISK_QUOTA" != \'yes\' ]' not in pre_useradd:
+        errors.append("bin/v-add-user: system disk quota state is not checked before useradd")
+
+main_source = (root / "func/main.sh").read_text(encoding="utf-8")
+if "is_group_quota_enabled()" not in main_source or 'quotaon -pa' not in main_source:
+    errors.append("func/main.sh: managed group quota status helper is missing")
+
+quota_installer = (root / "bin/v-add-sys-quota").read_text(encoding="utf-8")
+if "linux-image-extra-virtual" in quota_installer:
+    errors.append("bin/v-add-sys-quota: generic virtual-kernel quota fallback remains")
+if 'linux-modules-extra-$(uname -r)' not in quota_installer:
+    errors.append("bin/v-add-sys-quota: running-kernel module package is not selected")
+if quota_installer.count("modprobe quota_v2") < 2:
+    errors.append("bin/v-add-sys-quota: quota module is not retried after installation")
 if errors:
     raise SystemExit("\n".join(errors))
 PY

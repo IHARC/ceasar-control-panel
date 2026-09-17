@@ -99,6 +99,19 @@ is_iharc_managed_authority_user() {
 		|| [[ -n "${ROOT_USER:-}" && "$account" == "$ROOT_USER" ]]
 }
 
+# Report whether group quotas are active on a mounted customer filesystem.
+# Managed storage accounts use a primary-group quota because their database
+# files inherit that group from the MariaDB-owned schema directory.
+is_group_quota_enabled() {
+	local quota_mount=${1:-}
+
+	[ -n "$quota_mount" ] || return 1
+	quotaon -pa 2> /dev/null | awk -v mount="($quota_mount) is on" '
+		$1 == "group" && $2 == "quota" && $3 == "on" && index($0, mount) { enabled = 1 }
+		END { exit !enabled }
+	'
+}
+
 if [ -z "$user" ]; then
 	if [ -z "$ROOT_USER" ]; then
 		if [ -z "$CEASAR" ]; then

@@ -84,6 +84,16 @@ else
 fi
 shell=$(grep -w "$shell_conf" /etc/shells | head -n1)
 
+# Managed storage spans customer web files and MariaDB schemas through the
+# customer's primary group. Verify the enabled system quota before useradd so
+# a host configuration fault cannot leave an unmanaged OS identity behind.
+if [ "$disk_quota_enabled" = 'yes' ] && is_iharc_managed_user "$user"; then
+	quota_mount=$(df -P /home 2> /dev/null | awk 'END {print $6}')
+	if [ "$DISK_QUOTA" != 'yes' ] || ! is_group_quota_enabled "$quota_mount"; then
+		check_result "$E_DISK" "managed group quota is not enabled on ${quota_mount:-/home}"
+	fi
+fi
+
 # Adding user
 uid_floor_options=()
 if is_iharc_managed_user "$user"; then

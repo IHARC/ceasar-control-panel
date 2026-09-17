@@ -128,11 +128,13 @@ case "$fstype" in
 			log_history "Using external quota files for ext4 (Project quota not supported here)."
 
 			# Ensure kernel modules are available for external quotas
-			if ! find "/lib/modules/$(uname -r)" -type f -name '*quota_v*.ko*' | grep -q .; then
-				log_history "Installing required kernel modules for quota support..."
-				reboot_req="Y"
-				apt-get -qq install linux-image-extra-virtual -y
-				check_result $? "kernel module installation failed" "$E_UPDATE"
+			if ! modprobe quota_v2 > /dev/null 2>&1; then
+				kernel_modules_package="linux-modules-extra-$(uname -r)"
+				log_history "Installing $kernel_modules_package for external quota support."
+				apt-get -qq install --no-install-recommends "$kernel_modules_package" -y
+				check_result $? "kernel quota module installation failed" "$E_UPDATE"
+				modprobe quota_v2 > /dev/null 2>&1
+				check_result $? "kernel quota module is unavailable after installation" "$E_DISK"
 			fi
 
 			# External quotas: only user and group
