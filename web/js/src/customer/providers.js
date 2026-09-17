@@ -208,10 +208,9 @@ export class CustomerBusinessBackend {
 		return this.#hostedUrl(result.portalUrl || result.url);
 	}
 
-	openSupportCase({ accountId, serviceId, subject, message, idempotencyKey }) {
+	openSupportCase({ accountId, subject, message, idempotencyKey }) {
 		return this.#request('POST', '/support', {
 			accountId,
-			serviceId: serviceId || null,
 			subject,
 			message,
 			idempotencyKey,

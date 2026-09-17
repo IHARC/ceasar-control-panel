@@ -61,6 +61,38 @@ describe('customer recovery form', () => {
 		expect(identity.updatePassword).toHaveBeenCalledWith(' password with spaces ');
 	});
 
+	it('creates an account before opening support without requiring a hosting service', async () => {
+		const { accountAction } = await recoveryForm();
+		const context = {};
+		const backend = {
+			createAccount: vi.fn().mockResolvedValue([{ customer_account_id: 'account-1' }]),
+			openSupportCase: vi.fn().mockResolvedValue({}),
+		};
+		await accountAction(
+			'account-create',
+			{ display_name: 'Example account' },
+			context,
+			{},
+			{},
+			backend,
+		);
+		await accountAction(
+			'support-open',
+			{ subject: 'Help', message: 'Please help', idempotency_key: 'request-1' },
+			context,
+			{},
+			{},
+			backend,
+		);
+		expect(backend.createAccount).toHaveBeenCalledWith('Example account');
+		expect(backend.openSupportCase).toHaveBeenCalledWith({
+			accountId: 'account-1',
+			subject: 'Help',
+			message: 'Please help',
+			idempotencyKey: 'request-1',
+		});
+	});
+
 	it('shows a password mismatch without calling Supabase', async () => {
 		const { bindRecovery, form } = await recoveryForm();
 		const identity = { updatePassword: vi.fn() };

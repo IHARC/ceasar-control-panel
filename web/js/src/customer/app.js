@@ -342,7 +342,6 @@ export async function accountAction(action, data, context, config, identity, bac
 	if (action === 'support-open') {
 		await backend.openSupportCase({
 			accountId,
-			serviceId: clean(data.service_id),
 			subject: required(data.subject),
 			message: required(data.message),
 			idempotencyKey: required(data.idempotency_key),
@@ -380,6 +379,12 @@ function renderCustomerState(state, context, preferredServiceId = '') {
 		state.selectedAccountId || context.accountId || state.contexts?.[0]?.customer_account_id || '';
 
 	const accounts = state.contexts || [];
+	const needsAccount = accounts.length === 0;
+	document.querySelector('[data-account-onboarding]')?.classList.toggle('u-hidden', !needsAccount);
+	document
+		.querySelector('[data-support-account-required]')
+		?.classList.toggle('u-hidden', !needsAccount);
+	document.querySelector('[data-support-actions]')?.classList.toggle('u-hidden', needsAccount);
 	renderTable(
 		'[data-account-rows]',
 		accounts.map((row, index) => [
@@ -418,13 +423,6 @@ function renderCustomerState(state, context, preferredServiceId = '') {
 		selected: context.serviceId,
 		empty: 'No service yet',
 	});
-	populateSelect('[data-service-select-optional]', services, {
-		value: (row) => row.id,
-		label: (row, index) => row.provider_service_ref || `Hosting service ${index + 1}`,
-		selected: '',
-		empty: 'Account question',
-	});
-
 	const offers = state.offers || [];
 	populateSelect('[data-plan-select]', offers, {
 		value: (row) => row.plan_code,

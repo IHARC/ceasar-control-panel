@@ -157,13 +157,19 @@ class ManagedServiceProtocol(unittest.TestCase):
                 'columns' => [['key' => 'health', 'label' => 'Health']],
                 'rows' => [['health' => ['state' => '<ok>']]],
                 'trial_capacity' => ['running_count' => 2, 'reserved_count' => 3, 'waiting_count' => 4, 'concurrent_limit' => 5],
-                'support_case' => ['id' => $id, 'subject' => 'Case', 'messages' => [['native_actor' => 'admin', 'created_at' => '2026-09-14T00:00:00Z', 'message' => '<reply>']]],
+                'support_case' => ['id' => $id, 'subject' => 'Case', 'messages' => [['native_actor' => null, 'created_at' => '2026-09-14T00:00:00Z', 'message' => '<reply>']]],
             ];
             ob_start(); include '/usr/local/ceasar/web/templates/pages/list_managed.php'; $html = ob_get_clean();
             expect(strpos($html, '<img src=x') === false && strpos($html, '&lt;img src=x') !== false, 'error not escaped exactly once');
             expect(strpos($html, '{&quot;state&quot;:&quot;&lt;ok&gt;&quot;}') !== false, 'nested row value not safely rendered');
             expect(strpos($html, 'Running: 2') !== false && strpos($html, 'Reserved: 3') !== false && strpos($html, 'Waiting: 4') !== false, 'new trial count keys not rendered');
             expect(strpos($html, '&lt;reply&gt;') !== false && strpos($html, '2026-09-14T00:00:00Z') !== false, 'support case messages missing');
+            expect(strpos($html, '<strong>Customer</strong>') !== false, 'customer support sender missing');
+
+            $result['support_case']['status'] = 'closed';
+            ob_start(); include '/usr/local/ceasar/web/templates/pages/list_managed.php'; $html = ob_get_clean();
+            expect(strpos($html, 'name="operation" value="support_reply"') === false, 'closed case reply action rendered');
+            expect(strpos($html, 'name="operation" value="support_status"') === false, 'closed case status action rendered');
 
             $result['support_case'] = null;
             $result['rows'] = [['id' => $id]];

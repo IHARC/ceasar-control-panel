@@ -29,6 +29,13 @@
 			</div>
 			<p class="units-table-footer">Loading…</p>
 		</div>
+		<div id="account-onboarding" class="u-mb20 u-hidden" data-account-onboarding>
+			<p class="u-mb10">Create your account to start hosting or contact support.</p>
+			<form data-account-action="account-create">
+				<div class="u-mb20"><label class="form-label" for="account-name">New account name</label><input class="form-control" id="account-name" name="display_name" required></div>
+				<button class="button button-secondary" type="submit">Create account</button>
+			</form>
+		</div>
 
 		<h3 class="u-mb10">Your hosting services</h3>
 		<div class="units-table u-mb20" data-service-rows>
@@ -102,10 +109,6 @@
 			<div class="u-mb20"><label class="form-label" for="display-name">Display name</label><input class="form-control" id="display-name" name="display_name" autocomplete="name" required></div>
 			<button class="button" type="submit">Save profile</button>
 		</form>
-		<form class="u-mt20" data-account-action="account-create">
-			<div class="u-mb20"><label class="form-label" for="account-name">New account name</label><input class="form-control" id="account-name" name="display_name" required></div>
-			<button class="button button-secondary" type="submit">Create account</button>
-		</form>
 		<form class="u-mt20" data-account-action="email-change">
 			<div class="u-mb20"><label class="form-label" for="new-email">New email</label><input class="form-control" id="new-email" type="email" name="email" autocomplete="email" required></div>
 			<button class="button button-secondary" type="submit">Send email confirmation</button>
@@ -144,17 +147,19 @@
 			<div class="units-table-header"><div class="units-table-cell"></div><div class="units-table-cell">From</div><div class="units-table-cell">Message</div><div class="units-table-cell">Date</div></div>
 			<p class="units-table-footer">No case selected.</p>
 		</div>
-		<form data-account-action="support-open">
-			<div class="u-mb10"><label class="form-label" for="support-service">Service (optional)</label><select class="form-select" id="support-service" name="service_id" data-service-select-optional><option value="">Account question</option></select></div>
-			<div class="u-mb10"><label class="form-label" for="support-subject">Subject</label><input class="form-control" id="support-subject" name="subject" maxlength="240" required></div>
-			<div class="u-mb20"><label class="form-label" for="support-message">Message</label><textarea class="form-control" id="support-message" name="message" maxlength="10000" required></textarea></div>
-			<button class="button" type="submit">Open support case</button>
-		</form>
-		<form class="u-mt20" data-account-action="support-reply">
-			<div class="u-mb10"><label class="form-label" for="support-case">Case</label><select class="form-select" id="support-case" data-support-select required disabled><option>No support cases</option></select></div>
-			<div class="u-mb20"><label class="form-label" for="support-reply">Reply</label><textarea class="form-control" id="support-reply" name="message" maxlength="10000" required></textarea></div>
-			<button class="button button-secondary" type="submit">Send reply</button>
-			<button class="button button-secondary" type="button" data-support-close>Close selected case</button>
-		</form>
+		<div class="u-hidden" data-support-account-required><p>Create your account to start hosting or contact support. <a href="#account-onboarding">Create your account</a></p></div>
+		<div class="u-hidden" data-support-actions>
+			<form data-account-action="support-open">
+				<div class="u-mb10"><label class="form-label" for="support-subject">Subject</label><input class="form-control" id="support-subject" name="subject" maxlength="240" required></div>
+				<div class="u-mb20"><label class="form-label" for="support-message">Message</label><textarea class="form-control" id="support-message" name="message" maxlength="10000" required></textarea></div>
+				<button class="button" type="submit">Open support case</button>
+			</form>
+			<form class="u-mt20" data-account-action="support-reply">
+				<div class="u-mb10"><label class="form-label" for="support-case">Case</label><select class="form-select" id="support-case" data-support-select required disabled><option>No support cases</option></select></div>
+				<div class="u-mb20"><label class="form-label" for="support-reply">Reply</label><textarea class="form-control" id="support-reply" name="message" maxlength="10000" required></textarea></div>
+				<button class="button button-secondary" type="submit">Send reply</button>
+				<button class="button button-secondary" type="button" data-support-close>Close selected case</button>
+			</form>
+		</div>
 	</section>
 </div>

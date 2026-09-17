@@ -243,7 +243,6 @@ describe('CustomerBusinessBackend', () => {
 		});
 		await backend.openSupportCase({
 			accountId: 'account-1',
-			serviceId: 'service-1',
 			subject: 'Help',
 			message: 'Please help',
 			idempotencyKey: 'request-4',
@@ -274,6 +273,12 @@ describe('CustomerBusinessBackend', () => {
 			workspaceReadyOperationId: 'operation-1',
 			customerAttestsImportComplete: true,
 			idempotencyKey: 'request-3',
+		});
+		expect(JSON.parse(fetcher.mock.calls[7][1].body)).toEqual({
+			accountId: 'account-1',
+			subject: 'Help',
+			message: 'Please help',
+			idempotencyKey: 'request-4',
 		});
 	});
 
