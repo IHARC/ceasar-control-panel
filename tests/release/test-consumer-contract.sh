@@ -3,8 +3,26 @@
 set -euo pipefail
 
 repo_root="$(cd "$(dirname "$0")/../.." && pwd)"
+release_workflow="$repo_root/.github/workflows/release.yml"
 tmp_dir="$(mktemp -d)"
 trap 'rm -rf "$tmp_dir"' EXIT
+
+python3 - "$release_workflow" << 'PY'
+import pathlib
+import sys
+
+workflow = pathlib.Path(sys.argv[1]).read_text(encoding="utf-8")
+required = (
+    "id: draft_release",
+    "tag_name: v${{ steps.identity.outputs.version }}",
+    "RELEASE_ID: ${{ steps.draft_release.outputs.id }}",
+    "Publish verified immutable GitHub release",
+    'gh api --method PATCH "repos/${GITHUB_REPOSITORY}/releases/${RELEASE_ID}"',
+)
+for value in required:
+    if value not in workflow:
+        raise SystemExit(f"release workflow must publish the exact verified draft: {value}")
+PY
 
 deb_dir="$tmp_dir/debs"
 output_dir="$tmp_dir/output"
@@ -30,19 +48,19 @@ EOF
 	dpkg-deb --root-owner-group --build "$root" "$deb_dir/${name}_${version}_amd64.deb" > /dev/null
 }
 
-make_package ceasar '1.0.14-1+ubuntu24.04'
+make_package ceasar '1.0.15-1+ubuntu24.04'
 make_package ceasar-nginx '1.30.4-1+ubuntu24.04'
 make_package ceasar-php '8.5.9-1+ubuntu24.04'
-make_package ceasar-web-terminal '1.0.14-1+ubuntu24.04'
+make_package ceasar-web-terminal '1.0.15-1+ubuntu24.04'
 
 bash "$repo_root/release/build-release.sh" \
-	--version 1.0.14 \
+	--version 1.0.15 \
 	--commit "$commit" \
 	--deb-dir "$deb_dir" \
 	--output-dir "$output_dir" > /dev/null
 
 mkdir -p "$release_root"
-tar --zstd -xf "$output_dir/ceasar-1.0.14-ubuntu24.04-amd64.tar.zst" -C "$release_root"
+tar --zstd -xf "$output_dir/ceasar-1.0.15-ubuntu24.04-amd64.tar.zst" -C "$release_root"
 test -x "$release_root/install.sh"
 
 mapfile -t root_entries < <(find "$release_root" -mindepth 1 -maxdepth 1 -printf '%f\n' | sort)
@@ -64,7 +82,7 @@ expected_commit = sys.argv[2]
 manifest = json.loads((root / "ceasar-release.json").read_text(encoding="utf-8"))
 if set(manifest) != {"schemaVersion", "version", "commit", "platform", "packages"}:
     raise SystemExit("manifest top-level fields do not match the private v1 consumer")
-if manifest["schemaVersion"] != 1 or manifest["version"] != "1.0.14":
+if manifest["schemaVersion"] != 1 or manifest["version"] != "1.0.15":
     raise SystemExit("manifest version contract mismatch")
 if manifest["commit"] != expected_commit or not re.fullmatch(r"[0-9a-f]{40}", manifest["commit"]):
     raise SystemExit("manifest commit contract mismatch")

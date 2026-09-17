@@ -4,7 +4,7 @@ on:
   workflow_dispatch:
   push:
     tags:
-      - "v1.0.14"
+      - "v1.0.15"
 
 concurrency:
   group: ceasar-release
@@ -33,7 +33,7 @@ jobs:
         run: |
           set -euo pipefail
           version="$(awk '$1 == "Version:" {print $2}' src/deb/ceasar/control)"
-          test "$version" = "1.0.14"
+          test "$version" = "1.0.15"
           if [[ "${GITHUB_REF_TYPE}" == "tag" ]]; then
             test "${GITHUB_REF_NAME}" = "v${version}"
           fi
@@ -90,15 +90,41 @@ jobs:
           if-no-files-found: error
           retention-days: 30
 
-      - name: Publish immutable GitHub release
+      - name: Create immutable GitHub release draft
         if: github.ref_type == 'tag'
+        id: draft_release
         uses: softprops/action-gh-release@3bb12739c298aeb8a4eeaf626c5b8d85266b0e65 # v2
         with:
           draft: true
+          tag_name: v${{ steps.identity.outputs.version }}
           fail_on_unmatched_files: true
           generate_release_notes: true
           files: |
             dist/release/*
+
+      - name: Publish verified immutable GitHub release
+        if: github.ref_type == 'tag'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RELEASE_ID: ${{ steps.draft_release.outputs.id }}
+          VERSION: ${{ steps.identity.outputs.version }}
+        run: |
+          set -euo pipefail
+          test -n "$RELEASE_ID"
+          draft="$(gh api "repos/${GITHUB_REPOSITORY}/releases/${RELEASE_ID}")"
+          test "$(jq -r '.draft' <<< "$draft")" = true
+          test "$(jq -r '.tag_name' <<< "$draft")" = "v${VERSION}"
+          expected_assets=$(printf '%s\n' \
+            "SHA256SUMS" \
+            "ceasar-${VERSION}-ubuntu24.04-amd64.tar.zst" \
+            "ceasar-release-lock.json")
+          actual_assets="$(jq -r '.assets[].name' <<< "$draft" | sort)"
+          test "$actual_assets" = "$expected_assets"
+          gh api --method PATCH "repos/${GITHUB_REPOSITORY}/releases/${RELEASE_ID}" \
+            -f draft=false > /dev/null
+          published="$(gh api "repos/${GITHUB_REPOSITORY}/releases/${RELEASE_ID}")"
+          test "$(jq -r '.draft' <<< "$published")" = false
+          test "$(jq -r '.tag_name' <<< "$published")" = "v${VERSION}"
 
   apt:
     name: Sign and verify APT repository
