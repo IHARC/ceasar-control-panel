@@ -38,6 +38,11 @@
 		</div>
 
 		<h3 class="u-mb10">Your hosting services</h3>
+		<div class="u-mb20 u-hidden" data-pending-hosting aria-live="polite">
+			<h3 class="u-mb10">Hosting setup in progress</h3>
+			<div data-pending-hosting-rows></div>
+			<p>Refresh this page to check progress. If you need help, <a href="#support">contact support</a>.</p>
+		</div>
 		<div class="units-table u-mb20" data-service-rows>
 			<div class="units-table-header">
 				<div class="units-table-cell"></div>

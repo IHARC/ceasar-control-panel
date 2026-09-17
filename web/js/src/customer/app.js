@@ -401,6 +401,7 @@ function renderCustomerState(state, context, preferredServiceId = '') {
 	});
 
 	const services = state.services || [];
+	renderPendingHosting(state.pendingRequests || []);
 	context.serviceId =
 		(preferredServiceId && services.some((row) => row.id === preferredServiceId)
 			? preferredServiceId
@@ -457,6 +458,44 @@ function renderCustomerState(state, context, preferredServiceId = '') {
 	const migrationButton = document.querySelector('[data-migration-confirm]');
 	if (migrationButton) migrationButton.disabled = !handoff?.workspace_ready_operation_id;
 	renderNativeAccess(state.serviceNativeAccess || []);
+}
+
+export function renderPendingHosting(rows) {
+	const container = document.querySelector('[data-pending-hosting]');
+	const target = document.querySelector('[data-pending-hosting-rows]');
+	if (!container || !target) return;
+	container.classList.toggle('u-hidden', rows.length === 0);
+	target.replaceChildren();
+	for (const row of rows) {
+		const message = document.createElement('p');
+		message.className = 'u-mb10';
+		const label = row.kind === 'trial' ? 'Trial hosting' : 'Paid hosting';
+		message.textContent =
+			row.status === 'provisioning'
+				? `${label}: preparing your service.`
+				: `${label}: waiting for checkout or setup to finish.`;
+		target.append(message);
+		if (typeof row.checkoutUrl === 'string') {
+			let url;
+			try {
+				url = new URL(row.checkoutUrl);
+			} catch {
+				continue;
+			}
+			if (
+				url.protocol !== 'https:' ||
+				url.username ||
+				url.password ||
+				(url.hostname !== 'stripe.com' && !url.hostname.endsWith('.stripe.com'))
+			)
+				continue;
+			const link = document.createElement('a');
+			link.className = 'button button-secondary u-mb10';
+			link.href = url.toString();
+			link.textContent = 'Continue Stripe Checkout';
+			target.append(link);
+		}
+	}
 }
 
 function renderNativeAccess(rows) {
