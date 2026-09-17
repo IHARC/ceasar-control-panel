@@ -4,7 +4,7 @@ on:
   workflow_dispatch:
   push:
     tags:
-      - "v1.0.17"
+      - "v1.0.18"
 
 concurrency:
   group: ceasar-release
@@ -33,7 +33,7 @@ jobs:
         run: |
           set -euo pipefail
           version="$(awk '$1 == "Version:" {print $2}' src/deb/ceasar/control)"
-          test "$version" = "1.0.17"
+          test "$version" = "1.0.18"
           if [[ "${GITHUB_REF_TYPE}" == "tag" ]]; then
             test "${GITHUB_REF_NAME}" = "v${version}"
           fi

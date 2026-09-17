@@ -129,8 +129,16 @@ prepare_web_backend() {
 	if [ "$WEB_BACKEND_POOL" = 'user' ]; then
 		backend_type="$user"
 	fi
-	if [ -e "$pool/$backend_type.conf" ]; then
-		backend_lsnr=$(grep "listen =" $pool/$backend_type.conf)
+	local backend_pool="$pool/$backend_type.conf"
+	# Customer isolation holds the native pool while its dedicated PHP-FPM
+	# manager is serving the account.  Native domain edits still need the
+	# original listener when rendering the source vhost; the reconciler swaps
+	# that listener for the account-private socket before it is exposed.
+	if [[ ! -f "$backend_pool" ]] && is_iharc_managed_user "$user"; then
+		backend_pool="$backend_pool.disabled-by-iharc-$user"
+	fi
+	if [[ -f "$backend_pool" && ! -L "$backend_pool" ]]; then
+		backend_lsnr=$(grep "listen =" "$backend_pool")
 		backend_lsnr=$(echo "$backend_lsnr" | cut -f 2 -d = | sed "s/ //")
 		if [ -n "$(echo $backend_lsnr | grep /)" ]; then
 			backend_lsnr="unix:$backend_lsnr"

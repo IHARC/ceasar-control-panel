@@ -33,6 +33,26 @@ touch "$WEBTPL/apache2/iharc.tpl" "$WEBTPL/apache2/iharc.stpl"
 source "$repo_root/func/domain.sh"
 is_web_template_valid iharc
 
+# A domain edit must retain the native listener while IHARC isolation holds
+# the global pool for the account-private PHP-FPM manager.
+php_pool="$fixture/php-pool"
+mkdir -p "$php_pool"
+domain=example.test
+user=ih0123456789abcd
+MANAGED_SERVICES=yes
+WEB_BACKEND_POOL=domain
+backend_lsnr=
+find() {
+	printf '%s\n' "$php_pool"
+}
+cat > "$php_pool/$domain.conf.disabled-by-iharc-$user" << 'EOF'
+[example.test]
+listen = /run/php/php8.5-fpm-example.test.sock
+EOF
+prepare_web_backend PHP-8_5
+[[ "$backend_lsnr" == 'unix:/run/php/php8.5-fpm-example.test.sock' ]]
+unset -f find
+
 marker="$fixture/invoked"
 fake_hook() {
 	printf '%s\n' "${hook_label:?}" >> "$marker"
@@ -235,6 +255,15 @@ for suffix in ("tpl", "stpl"):
     content = managed_apache_template.read_text(encoding="utf-8")
     if "<VirtualHost " not in content or "%backend_lsnr%" not in content:
         errors.append(f"{managed_apache_template.relative_to(root)}: managed Apache template cannot render a PHP vhost")
+
+domain_source = (root / "func/domain.sh").read_text(encoding="utf-8")
+if '.disabled-by-iharc-$user' not in domain_source:
+    errors.append("func/domain.sh: managed held PHP pool is not used for native vhost rendering")
+
+for relative in ("bin/v-add-web-domain-alias", "bin/v-delete-web-domain-alias"):
+    content = (root / relative).read_text(encoding="utf-8")
+    if '"$CEASAR/bin/iharc-customer-isolation" reconcile "$user" "$CEASAR"' not in content:
+        errors.append(f"{relative}: managed alias change does not reconcile the private origin")
 if errors:
     raise SystemExit("\n".join(errors))
 PY
