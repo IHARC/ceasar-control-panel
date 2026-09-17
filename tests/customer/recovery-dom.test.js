@@ -23,10 +23,13 @@ async function recoveryForm() {
 	globalThis.FormData = dom.window.FormData;
 	globalThis.Node = dom.window.Node;
 	globalThis.Event = dom.window.Event;
-	const { accountAction, bindRecovery } = await import('../../web/js/src/customer/app.js');
+	const { accountAction, bindRecovery, renderSupportDetail, syncMigrationSiteType } =
+		await import('../../web/js/src/customer/app.js');
 	return {
 		accountAction,
 		bindRecovery,
+		renderSupportDetail,
+		syncMigrationSiteType,
 		dom,
 		form: document.querySelector('[data-customer-recovery]'),
 	};
@@ -91,6 +94,33 @@ describe('customer recovery form', () => {
 			message: 'Please help',
 			idempotencyKey: 'request-1',
 		});
+	});
+
+	it('uses PHP for existing-site imports and disables closed-case reply controls', async () => {
+		const { renderSupportDetail, syncMigrationSiteType } = await recoveryForm();
+		document.body.innerHTML = `
+			<form data-account-action="admission-paid"><select name="intent"><option value="migration" selected>Import</option></select><select name="site_type"><option value="wordpress" selected>WordPress</option><option value="php">PHP</option></select></form>
+			<form data-account-action="support-reply"><textarea></textarea><button type="submit">Send</button><button type="button" data-support-close>Close</button></form>
+			<div data-support-case-detail></div><div data-support-message-rows></div>
+		`;
+		const admission = document.querySelector('[data-account-action="admission-paid"]');
+		syncMigrationSiteType(admission);
+		expect(admission.querySelector('[name=site_type]').value).toBe('php');
+		renderSupportDetail(
+			{ supportCase: { subject: 'Done', status: 'closed' } },
+			{ userId: 'user-1' },
+		);
+		for (const control of document.querySelectorAll(
+			'[data-account-action="support-reply"] textarea, [data-account-action="support-reply"] button',
+		)) {
+			expect(control.disabled).toBe(true);
+		}
+		renderSupportDetail({}, { userId: 'user-1' });
+		for (const control of document.querySelectorAll(
+			'[data-account-action="support-reply"] textarea, [data-account-action="support-reply"] button',
+		)) {
+			expect(control.disabled).toBe(true);
+		}
 	});
 
 	it('shows a password mismatch without calling Supabase', async () => {

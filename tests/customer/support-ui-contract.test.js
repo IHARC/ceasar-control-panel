@@ -31,4 +31,9 @@ describe('customer support UI contract', () => {
 		expect(app).toContain("'[data-support-account-required]'");
 		expect(app).toContain("'[data-support-actions]'");
 	});
+
+	it('hydrates every matching display-name field so the profile input is not skipped', async () => {
+		const app = await source('../../web/js/src/customer/app.js');
+		expect(app).toContain('for (const element of document.querySelectorAll(selector))');
+	});
 });

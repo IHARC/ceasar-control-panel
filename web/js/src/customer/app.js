@@ -143,6 +143,11 @@ async function bindAccount(config, identity, backend) {
 	document.querySelector('[data-customer-sign-out]')?.classList.remove('u-hidden');
 	setText('[data-customer-email]', user.email || '');
 	setValue('[name=intent]', setup.intent);
+	const paidAdmission = document.querySelector('[data-account-action="admission-paid"]');
+	syncMigrationSiteType(paidAdmission);
+	paidAdmission?.querySelector('[name=intent]')?.addEventListener('change', () => {
+		syncMigrationSiteType(paidAdmission);
+	});
 
 	for (const form of document.querySelectorAll('[data-account-action]')) {
 		form.addEventListener('input', () => submissionKeys.clear(form));
@@ -549,7 +554,7 @@ function renderNativeAccess(rows) {
 	}
 }
 
-function renderSupportDetail(state, context) {
+export function renderSupportDetail(state, context) {
 	const detail = document.querySelector('[data-support-case-detail]');
 	if (detail) {
 		detail.replaceChildren();
@@ -575,6 +580,19 @@ function renderSupportDetail(state, context) {
 			formatDate(row.created_at),
 		]),
 	);
+	const replyEnabled =
+		Boolean(state.supportCase) && clean(state.supportCase.status).toLowerCase() !== 'closed';
+	for (const control of document.querySelectorAll(
+		'[data-account-action="support-reply"] textarea, [data-account-action="support-reply"] button[type="submit"], [data-support-close]',
+	)) {
+		control.disabled = !replyEnabled;
+	}
+}
+
+export function syncMigrationSiteType(form) {
+	if (form?.querySelector('[name=intent]')?.value === 'migration') {
+		setValueIn(form, '[name=site_type]', 'php');
+	}
 }
 
 async function loadPasskeys(identity, config) {
@@ -675,7 +693,13 @@ function setText(selector, value) {
 }
 
 function setValue(selector, value) {
-	const element = document.querySelector(selector);
+	for (const element of document.querySelectorAll(selector)) {
+		element.value = value;
+	}
+}
+
+function setValueIn(container, selector, value) {
+	const element = container?.querySelector(selector);
 	if (element) element.value = value;
 }
 
