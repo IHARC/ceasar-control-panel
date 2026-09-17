@@ -22,6 +22,14 @@ it('shows every durable setup state and fetches checkout only when the customer 
 				status: 'checkout',
 				nextAction: 'continue_checkout',
 			},
+			{
+				requestId: 'setup-import',
+				kind: 'paid',
+				serviceId: 'service-import',
+				planCode: 'starter',
+				status: 'import_ready',
+				nextAction: 'view_service',
+			},
 		],
 		{},
 	);
@@ -34,6 +42,9 @@ it('shows every durable setup state and fetches checkout only when the customer 
 		'setup-checkout',
 	);
 	expect(document.querySelector('[data-setup-status] [data-state="checkout"]')).toBeNull();
+	expect(document.body.textContent).toContain('Import workspace is ready.');
+	expect(document.querySelector('[data-view-service]').dataset.viewService).toBe('service-import');
+	expect(document.querySelector('[data-setup-status] [data-state="import_ready"]')).toBeNull();
 	renderSetups([], {});
 	expect(document.querySelector('[data-setup-status-section]').classList.contains('u-hidden')).toBe(
 		true,

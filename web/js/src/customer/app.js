@@ -177,13 +177,12 @@ async function bindAccount(config, identity, backend) {
 
 	try {
 		await loadCustomerState(backend, context);
-	} catch (error) {
-		showError(error);
-		renderCustomerState(emptyState(), context);
+	} catch {
+		renderInitialCustomerStateFailure(context);
 	} finally {
 		await loadPasskeys(identity, config);
 	}
-	await loadSupport(backend, context);
+	if (!context.initialStateUnavailable) await loadSupport(backend, context);
 	renderCurrentView(context, false);
 }
 
@@ -207,7 +206,7 @@ function bindNavigation(context) {
 	});
 }
 
-function bindAccountControls(config, identity, backend, context) {
+export function bindAccountControls(config, identity, backend, context) {
 	document.querySelector('[data-open-setup]')?.addEventListener('click', () => {
 		clearNotice();
 		if (!context.accountId) {
@@ -224,36 +223,53 @@ function bindAccountControls(config, identity, backend, context) {
 		location.hash = 'hosting';
 	});
 	document.querySelector('[data-refresh-setup]')?.addEventListener('click', async (event) => {
+		const control = event.currentTarget;
 		try {
-			event.currentTarget.disabled = true;
+			control.disabled = true;
 			await refreshCustomerState(backend, context);
 		} catch (error) {
 			showError(error);
 		} finally {
-			event.currentTarget.disabled = false;
+			control.disabled = false;
 		}
 	});
 	document.querySelector('[data-hosting-read-retry]')?.addEventListener('click', async (event) => {
+		const control = event.currentTarget;
 		try {
-			event.currentTarget.disabled = true;
+			control.disabled = true;
 			clearNotice();
 			await refreshCustomerState(backend, context);
 		} catch (error) {
-			showError(error);
+			if (context.initialStateUnavailable) renderInitialCustomerStateFailure(context);
+			else showError(error);
 		} finally {
-			event.currentTarget.disabled = false;
+			control.disabled = false;
 		}
 	});
 	document.querySelector('[data-support-retry]')?.addEventListener('click', async (event) => {
+		const control = event.currentTarget;
 		try {
-			event.currentTarget.disabled = true;
+			control.disabled = true;
 			clearNotice();
-			await loadSupport(backend, context);
+			if (context.initialStateUnavailable) await refreshCustomerState(backend, context);
+			else await loadSupport(backend, context);
+		} catch (error) {
+			if (context.initialStateUnavailable) renderInitialCustomerStateFailure(context);
+			else showError(error);
 		} finally {
-			event.currentTarget.disabled = false;
+			control.disabled = false;
 		}
 	});
 	document.querySelector('[data-setup-status]')?.addEventListener('click', async (event) => {
+		const view = event.target.closest('[data-view-service]');
+		if (view) {
+			clearNotice();
+			await refreshSelectedServiceDetail(backend, context, required(view.dataset.viewService), {
+				clear: true,
+				focus: true,
+			});
+			return;
+		}
 		const control = event.target.closest('[data-resume-checkout]');
 		if (!control) return;
 		const accountId = required(context.accountId);
@@ -294,36 +310,10 @@ function bindAccountControls(config, identity, backend, context) {
 	document.querySelector('[data-service-list]')?.addEventListener('click', async (event) => {
 		const row = event.target.closest('[data-service-id]');
 		if (!row) return;
-		const accountId = context.accountId;
-		const serviceId = required(row.dataset.serviceId);
-		const token = ++context.serviceRequestToken;
-		try {
-			context.serviceId = serviceId;
-			renderServiceDetail(undefined, context);
-			const state = await backend.serviceState(serviceId);
-			if (
-				token !== context.serviceRequestToken ||
-				accountId !== context.accountId ||
-				serviceId !== context.serviceId
-			)
-				return;
-			const selectedService =
-				state.service || state.services?.find((item) => item.serviceId === serviceId);
-			const services = selectedService
-				? context.state.services.map((item) =>
-						item.serviceId === selectedService.serviceId ? { ...item, ...selectedService } : item,
-					)
-				: state.services || context.state.services;
-			renderCustomerState({ ...context.state, ...state, services }, context);
-			focusServiceDetail();
-		} catch (error) {
-			if (
-				token === context.serviceRequestToken &&
-				accountId === context.accountId &&
-				serviceId === context.serviceId
-			)
-				showError(error);
-		}
+		await refreshSelectedServiceDetail(backend, context, required(row.dataset.serviceId), {
+			clear: true,
+			focus: true,
+		});
 	});
 
 	document.querySelector('[data-support-case-list]')?.addEventListener('click', async (event) => {
@@ -596,6 +586,7 @@ export async function accountAction(action, data, context, config, identity, bac
 
 async function loadCustomerState(backend, context) {
 	const sessionState = await backend.sessionState();
+	context.initialStateUnavailable = false;
 	context.identityState = sessionState.identity;
 	context.accounts = sessionState.accounts || [];
 	context.userId = sessionState.identity?.userId || context.userId;
@@ -686,6 +677,53 @@ async function refreshCustomerState(backend, context) {
 		loadAccountState(backend, context, accountId, token),
 		loadSupport(backend, context, accountId, token),
 	]);
+	if (
+		token !== context.accountRequestToken ||
+		accountId !== context.accountId ||
+		!context.serviceId
+	)
+		return;
+	await refreshSelectedServiceDetail(backend, context, context.serviceId, { quiet: true });
+}
+
+export async function refreshSelectedServiceDetail(
+	backend,
+	context,
+	serviceId,
+	{ clear = false, focus = false, quiet = false } = {},
+) {
+	const accountId = context.accountId;
+	const token = ++context.serviceRequestToken;
+	context.serviceId = serviceId;
+	if (clear) renderServiceDetail(undefined, context);
+	try {
+		const state = await backend.serviceState(serviceId);
+		if (
+			token !== context.serviceRequestToken ||
+			accountId !== context.accountId ||
+			serviceId !== context.serviceId
+		)
+			return false;
+		const selectedService =
+			state.service || state.services?.find((item) => item.serviceId === serviceId);
+		const services = selectedService
+			? context.state.services.map((item) =>
+					item.serviceId === selectedService.serviceId ? { ...item, ...selectedService } : item,
+				)
+			: state.services || context.state.services;
+		renderCustomerState({ ...context.state, ...state, services }, context);
+		if (focus) focusServiceDetail();
+		return true;
+	} catch (error) {
+		if (
+			token === context.serviceRequestToken &&
+			accountId === context.accountId &&
+			serviceId === context.serviceId &&
+			!quiet
+		)
+			showError(error);
+		return false;
+	}
 }
 
 async function loadSupport(
@@ -737,6 +775,8 @@ function renderCustomerState(state, context) {
 		.querySelector('[data-support-account-required]')
 		?.classList.toggle('u-hidden', !needsAccount);
 	document.querySelector('[data-support-actions]')?.classList.toggle('u-hidden', needsAccount);
+	document.querySelector('[data-setup-load-failure]')?.toggleAttribute('hidden', true);
+	document.querySelector('[data-setup-form]')?.toggleAttribute('hidden', false);
 	populateSelect('[data-account-select]', accounts, {
 		value: (row) => row.accountId,
 		label: (row) => row.displayName || 'Customer account',
@@ -759,6 +799,60 @@ function renderCustomerState(state, context) {
 		context,
 	);
 	startSetupPolling(context);
+}
+
+export function renderInitialCustomerStateFailure(context) {
+	context.initialStateUnavailable = true;
+	context.accountId = '';
+	context.accounts = [];
+	context.state = emptyState();
+	document.querySelector('[data-account-onboarding]')?.classList.add('u-hidden');
+	document.querySelector('[data-account-switcher]')?.classList.add('u-hidden');
+	document.querySelector('[data-support-account-required]')?.classList.add('u-hidden');
+	document.querySelector('[data-support-actions]')?.classList.add('u-hidden');
+	const accountSelect = document.querySelector('[data-account-select]');
+	if (accountSelect) {
+		const unavailable = document.createElement('option');
+		unavailable.textContent = 'Account unavailable';
+		accountSelect.replaceChildren(unavailable);
+		accountSelect.disabled = true;
+	}
+	const serviceList = document.querySelector('[data-service-list]');
+	if (serviceList) serviceList.replaceChildren();
+	const serviceEmpty = document.querySelector('[data-service-empty]');
+	if (serviceEmpty) {
+		serviceEmpty.hidden = false;
+		serviceEmpty.textContent = 'Account information could not be loaded right now.';
+	}
+	document.querySelector('[data-open-setup]')?.toggleAttribute('hidden', true);
+	document.querySelector('[data-hosting-read-retry]')?.toggleAttribute('hidden', false);
+	renderServiceDetail(undefined, context);
+	renderSetups([]);
+	const billing = document.querySelector('[data-billing-summary]');
+	if (billing) {
+		billing.replaceChildren(
+			element(
+				'p',
+				{ className: 'customer-empty' },
+				'Billing information is unavailable right now.',
+			),
+		);
+	}
+	document.querySelector('[data-billing-portal]')?.classList.add('u-hidden');
+	const cases = document.querySelector('[data-support-case-list]');
+	if (cases) {
+		cases.replaceChildren(
+			element(
+				'p',
+				{ className: 'customer-empty' },
+				'Account information is unavailable right now.',
+			),
+		);
+	}
+	document.querySelector('[data-support-retry]')?.toggleAttribute('hidden', false);
+	renderSupportDetail({}, context);
+	document.querySelector('[data-setup-load-failure]')?.toggleAttribute('hidden', false);
+	document.querySelector('[data-setup-form]')?.toggleAttribute('hidden', true);
 }
 
 function renderServices(services, context) {
@@ -822,7 +916,9 @@ function renderServiceDetail(service, context) {
 	target.append(details);
 
 	const access = service.nativeAccess;
-	if (access?.accessState === 'ready') {
+	const migrationReady =
+		service.migration?.status === 'ready' && service.migration.workspaceReadyOperationId;
+	if (!migrationReady && access?.accessState === 'ready') {
 		const accessHeading = element('h3', {}, 'Hosting access');
 		const accessDetails = document.createElement('dl');
 		accessDetails.className = 'customer-detail-grid';
@@ -841,7 +937,7 @@ function renderServiceDetail(service, context) {
 			actions.append(hostingAccessLink(access.panelOrigin, '/reset/', 'Set hosting password'));
 			target.append(actions);
 		}
-	} else {
+	} else if (!migrationReady) {
 		target.append(
 			element(
 				'p',
@@ -851,7 +947,7 @@ function renderServiceDetail(service, context) {
 		);
 	}
 
-	if (service.migration?.status === 'ready' && service.migration.workspaceReadyOperationId) {
+	if (migrationReady) {
 		const migration = service.migration;
 		const migrationHeading = element('h3', {}, 'Import workspace');
 		const migrationDetails = document.createElement('dl');
@@ -911,7 +1007,8 @@ export function renderSetups(setups) {
 				setupMessage(setup),
 			),
 		);
-		if (setup.nextAction !== 'continue_checkout') row.append(statusNode(setup.status));
+		if (setup.nextAction !== 'continue_checkout' && setup.status !== 'import_ready')
+			row.append(statusNode(setup.status));
 		if (setup.nextAction === 'continue_checkout') {
 			const actions = document.createElement('div');
 			actions.className = 'customer-actions';
@@ -921,6 +1018,17 @@ export function renderSetups(setups) {
 			resume.dataset.resumeCheckout = setup.requestId;
 			resume.textContent = 'Continue checkout';
 			actions.append(resume);
+			row.append(actions);
+		}
+		if (setup.nextAction === 'view_service' && setup.serviceId) {
+			const actions = document.createElement('div');
+			actions.className = 'customer-actions';
+			const view = document.createElement('button');
+			view.className = 'button button-secondary';
+			view.type = 'button';
+			view.dataset.viewService = setup.serviceId;
+			view.textContent = 'View hosting';
+			actions.append(view);
 			row.append(actions);
 		}
 		target.append(row);
@@ -1538,6 +1646,7 @@ function terminalSetup(status) {
 
 function setupMessage(setup) {
 	const action = setup.nextAction;
+	if (setup.status === 'import_ready') return 'Import workspace is ready.';
 	if (action === 'continue_checkout') return 'Checkout is ready to continue.';
 	if (action === 'view_service') return 'Hosting is ready.';
 	if (action === 'start_new_setup') return 'This setup ended. You can start a new one.';

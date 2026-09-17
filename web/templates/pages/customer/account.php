@@ -39,6 +39,7 @@
 <section class="customer-view" data-customer-view="setup" hidden>
 	<h1 class="customer-view-heading" tabindex="-1">Add hosting</h1>
 	<p class="customer-view-intro">Choose a plan, tell us what you are hosting, then review before continuing.</p>
+	<p class="customer-empty" data-setup-load-failure hidden>Hosting options are unavailable right now. Return to hosting and try again.</p>
 	<form class="customer-form" data-account-action="hosting-setup" data-setup-form data-request-key="hosting-setup">
 		<fieldset class="customer-setup-step">
 			<legend>1. Choose a plan</legend>
