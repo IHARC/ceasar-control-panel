@@ -106,8 +106,9 @@ is_group_quota_enabled() {
 	local quota_mount=${1:-}
 
 	[ -n "$quota_mount" ] || return 1
-	quotaon -pa 2> /dev/null | awk -v mount="($quota_mount) is on" '
-		$1 == "group" && $2 == "quota" && $3 == "on" && index($0, mount) { enabled = 1 }
+	# quotaon can return nonzero while reporting active quota state.
+	{ quotaon -pa 2> /dev/null || :; } | awk -v mount="$quota_mount" '
+		$1 == "group" && $2 == "quota" && $3 == "on" && $4 == mount && $NF == "on" { enabled = 1 }
 		END { exit !enabled }
 	'
 }

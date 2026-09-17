@@ -13,9 +13,16 @@
 # Web template check
 is_web_template_valid() {
 	if [ -n "$WEB_SYSTEM" ]; then
-		tpl="$WEBTPL/$WEB_SYSTEM/$WEB_BACKEND/$1.tpl"
-		stpl="$WEBTPL/$WEB_SYSTEM/$WEB_BACKEND/$1.stpl"
-		if [ ! -e "$tpl" ] || [ ! -e "$stpl" ]; then
+		local template_root="$WEBTPL/$WEB_SYSTEM"
+		local template_backend="$template_root/$WEB_BACKEND"
+		local tpl="$template_backend/$1.tpl"
+		local stpl="$template_backend/$1.stpl"
+
+		if [ ! -f "$tpl" ] || [ ! -f "$stpl" ]; then
+			tpl="$template_root/$1.tpl"
+			stpl="$template_root/$1.stpl"
+		fi
+		if [ ! -f "$tpl" ] || [ ! -f "$stpl" ]; then
 			check_result "$E_NOTEXIST" "$1 web template doesn't exist"
 		fi
 	fi

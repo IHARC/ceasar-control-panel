@@ -11,6 +11,28 @@ export ROOT_USER=admin
 export user=fixture
 source "$repo_root/func/main.sh"
 
+quotaon() {
+	printf '%s\n' 'group quota on / (/dev/root) is on'
+	return 1
+}
+is_group_quota_enabled /
+
+quotaon() {
+	printf '%s\n' 'group quota on /other (/dev/root) is on'
+}
+if is_group_quota_enabled /; then
+	echo 'group quota helper accepted a different mount' >&2
+	exit 1
+fi
+
+WEBTPL="$fixture/templates/web"
+WEB_SYSTEM=apache2
+WEB_BACKEND=php-fpm
+mkdir -p "$WEBTPL/apache2"
+touch "$WEBTPL/apache2/iharc.tpl" "$WEBTPL/apache2/iharc.stpl"
+source "$repo_root/func/domain.sh"
+is_web_template_valid iharc
+
 marker="$fixture/invoked"
 fake_hook() {
 	printf '%s\n' "${hook_label:?}" >> "$marker"
