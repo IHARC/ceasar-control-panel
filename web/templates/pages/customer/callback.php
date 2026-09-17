@@ -1,6 +1,6 @@
 <div class="login">
 	<a href="/customer/login/" class="u-block u-mb40">
-		<img src="/images/logo.svg" alt="<?= htmlspecialchars((string) $config['brand_name'], ENT_QUOTES) ?>" width="100" height="120">
+		<img src="<?= htmlspecialchars($customerLogo, ENT_QUOTES) ?>" alt="<?= htmlspecialchars((string) $config['brand_name'], ENT_QUOTES) ?>">
 	</a>
 	<div>
 		<h1 class="login-title">Secure confirmation</h1>
@@ -8,11 +8,12 @@
 		<form class="u-hidden" data-customer-recovery>
 			<div class="u-mb20">
 				<label for="recovery-password" class="form-label">New password</label>
-				<input class="form-control" id="recovery-password" type="password" name="password" autocomplete="new-password" minlength="12" required autofocus>
+				<input class="form-control" id="recovery-password" type="password" name="password" autocomplete="new-password" required autofocus data-password-input>
+				<p class="customer-form-help" data-password-help></p>
 			</div>
 			<div class="u-mb20">
 				<label for="recovery-password-confirm" class="form-label">Confirm new password</label>
-				<input class="form-control" id="recovery-password-confirm" type="password" name="password_confirm" autocomplete="new-password" minlength="12" required>
+				<input class="form-control" id="recovery-password-confirm" type="password" name="password_confirm" autocomplete="new-password" required data-password-input>
 			</div>
 			<button class="button" type="submit">Set new password</button>
 		</form>

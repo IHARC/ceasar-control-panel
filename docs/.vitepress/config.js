@@ -20,14 +20,14 @@ export default defineConfig({
 
 		nav: nav(),
 
-		socialLinks: [{ icon: 'github', link: 'https://github.com/iharc-jordan/ceasar-control-panel' }],
+		socialLinks: [{ icon: 'github', link: 'https://github.com/IHARC/ceasar-control-panel' }],
 
 		sidebar: { '/docs/': sidebarDocs() },
 
 		outline: [2, 3],
 
 		editLink: {
-			pattern: 'https://github.com/iharc-jordan/ceasar-control-panel/edit/main/docs/:path',
+			pattern: 'https://github.com/IHARC/ceasar-control-panel/edit/main/docs/:path',
 			text: 'Edit this page on GitHub',
 		},
 

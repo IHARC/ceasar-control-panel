@@ -138,7 +138,8 @@ describe('CustomerBusinessBackend', () => {
 				JSON.stringify({
 					data: {
 						identity: { email: 'customer@example.com' },
-						state: { contexts: [], services: [] },
+						accounts: [],
+						selectedAccountId: null,
 					},
 				}),
 				{
@@ -150,7 +151,8 @@ describe('CustomerBusinessBackend', () => {
 		const backend = new CustomerBusinessBackend(identity, config.workerApiBase, fetcher);
 		await expect(backend.sessionState()).resolves.toEqual({
 			identity: { email: 'customer@example.com' },
-			state: { contexts: [], services: [] },
+			accounts: [],
+			selectedAccountId: null,
 		});
 		expect(fetcher).toHaveBeenCalledWith(
 			'/api/provider/v1/customer/session',
@@ -167,8 +169,17 @@ describe('CustomerBusinessBackend', () => {
 		const identity = {
 			session: vi.fn().mockResolvedValue({ access_token: 'customer-token' }),
 		};
+		const state = {
+			accounts: [],
+			selectedAccountId: null,
+			offers: [],
+			trialEligibility: null,
+			services: [],
+			setups: [],
+			billing: [],
+		};
 		const fetcher = vi.fn().mockResolvedValue(
-			new Response(JSON.stringify({ data: { contexts: [], services: [] } }), {
+			new Response(JSON.stringify({ data: state }), {
 				status: 200,
 				headers: { 'content-type': 'application/json' },
 			}),
@@ -176,10 +187,7 @@ describe('CustomerBusinessBackend', () => {
 		vi.stubGlobal('fetch', fetcher);
 		try {
 			const backend = new CustomerBusinessBackend(identity, config.workerApiBase);
-			await expect(backend.accountState('account-1')).resolves.toEqual({
-				contexts: [],
-				services: [],
-			});
+			await expect(backend.accountState('account-1')).resolves.toEqual(state);
 			expect(fetcher).toHaveBeenCalledOnce();
 		} finally {
 			vi.unstubAllGlobals();
@@ -195,8 +203,8 @@ describe('CustomerBusinessBackend', () => {
 				new Response(
 					JSON.stringify({
 						data: {
-							state: 'ready',
-							url: 'https://checkout.stripe.com/session',
+							requestId: 'setup-1',
+							checkoutUrl: 'https://checkout.stripe.com/session',
 						},
 					}),
 					{
@@ -209,8 +217,13 @@ describe('CustomerBusinessBackend', () => {
 		const backend = new CustomerBusinessBackend(identity, config.workerApiBase, fetcher);
 		await backend.accountState('account-1');
 		await backend.serviceState('service-1');
+		await expect(backend.setupCheckout('account-1', 'setup-1')).resolves.toEqual({
+			requestId: 'setup-1',
+			checkoutUrl: 'https://checkout.stripe.com/session',
+		});
+		await backend.supportCases('account-1');
 		await backend.supportCase('case-1');
-		await backend.createAccount('Example account');
+		await backend.createAccount('Example account', 'request-0');
 		await expect(
 			backend.requestTrialAdmission({
 				accountId: 'account-1',
@@ -219,8 +232,8 @@ describe('CustomerBusinessBackend', () => {
 				idempotencyKey: 'request-1',
 			}),
 		).resolves.toEqual({
-			state: 'ready',
-			url: 'https://checkout.stripe.com/session',
+			requestId: 'setup-1',
+			checkoutUrl: 'https://checkout.stripe.com/session',
 		});
 		await expect(
 			backend.requestPaidAdmission({
@@ -231,8 +244,8 @@ describe('CustomerBusinessBackend', () => {
 				idempotencyKey: 'request-2',
 			}),
 		).resolves.toEqual({
-			state: 'ready',
-			url: 'https://checkout.stripe.com/session',
+			requestId: 'setup-1',
+			checkoutUrl: 'https://checkout.stripe.com/session',
 		});
 		await backend.confirmMigration('service-1', {
 			accountId: 'account-1',
@@ -250,6 +263,8 @@ describe('CustomerBusinessBackend', () => {
 		expect(fetcher.mock.calls.map(([url]) => url)).toEqual([
 			'/api/provider/v1/customer/accounts/account-1/state',
 			'/api/provider/v1/customer/services/service-1/state',
+			'/api/provider/v1/customer/accounts/account-1/setups/setup-1/checkout',
+			'/api/provider/v1/customer/support?accountId=account-1',
 			'/api/provider/v1/customer/support/case-1',
 			'/api/provider/v1/customer/accounts',
 			'/api/provider/v1/customer/admissions/trial',
@@ -259,24 +274,44 @@ describe('CustomerBusinessBackend', () => {
 			'/api/provider/v1/customer/support/case-1/replies',
 			'/api/provider/v1/customer/support/case-1/close',
 		]);
-		expect(JSON.parse(fetcher.mock.calls[4][1].body)).toEqual({
+		expect(JSON.parse(fetcher.mock.calls[6][1].body)).toEqual({
 			accountId: 'account-1',
 			planCode: 'starter',
 			siteType: 'wordpress',
 			idempotencyKey: 'request-1',
 		});
-		expect(JSON.parse(fetcher.mock.calls[6][1].body)).toEqual({
+		expect(JSON.parse(fetcher.mock.calls[5][1].body)).toEqual({
+			displayName: 'Example account',
+			idempotencyKey: 'request-0',
+		});
+		expect(JSON.parse(fetcher.mock.calls[8][1].body)).toEqual({
 			accountId: 'account-1',
 			workspaceReadyOperationId: 'operation-1',
 			customerAttestsImportComplete: true,
 			idempotencyKey: 'request-3',
 		});
-		expect(JSON.parse(fetcher.mock.calls[7][1].body)).toEqual({
+		expect(JSON.parse(fetcher.mock.calls[9][1].body)).toEqual({
 			accountId: 'account-1',
 			subject: 'Help',
 			message: 'Please help',
 			idempotencyKey: 'request-4',
 		});
+	});
+
+	it('maps customer API codes to actionable copy without showing internal codes', async () => {
+		const identity = {
+			session: vi.fn().mockResolvedValue({ access_token: 'customer-token' }),
+		};
+		const fetcher = vi.fn().mockResolvedValue(
+			new Response(JSON.stringify({ error: { code: 'upstream_rejected' } }), {
+				status: 409,
+				headers: { 'content-type': 'application/json' },
+			}),
+		);
+		const backend = new CustomerBusinessBackend(identity, config.workerApiBase, fetcher);
+		await expect(backend.supportCases('account-1')).rejects.toThrow(
+			'That request could not be completed.',
+		);
 	});
 
 	it('does not require an MFA step-up before migration confirmation and billing portal calls', async () => {

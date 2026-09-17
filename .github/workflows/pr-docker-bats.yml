@@ -55,7 +55,7 @@ jobs:
           previous="${RUNNER_TEMP}/ceasar-1.0.1"
           mkdir -p "$previous"
           curl --fail --silent --show-error --location \
-            https://github.com/iharc-jordan/ceasar-control-panel/releases/download/v1.0.1/ceasar-1.0.1-ubuntu24.04-amd64.tar.zst \
+            https://github.com/IHARC/ceasar-control-panel/releases/download/v1.0.1/ceasar-1.0.1-ubuntu24.04-amd64.tar.zst \
             --output "${RUNNER_TEMP}/ceasar-1.0.1.tar.zst"
           tar --zstd -xf "${RUNNER_TEMP}/ceasar-1.0.1.tar.zst" -C "$previous"
           old_package=$(find "$previous/packages" -maxdepth 1 -type f -name 'ceasar-nginx_*.deb' -print -quit)

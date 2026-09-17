@@ -33,31 +33,31 @@ fi
 if [ -f "$CEASAR/web/images/custom/logo.svg" ]; then
 	cp -f "$CEASAR/web/images/custom/logo.svg" "$CEASAR/web/images/logo.svg"
 elif [ ! -f "$CEASAR/web/images/custom/logo.svg" ] && [ "$download" = "yes" ]; then
-	download_file "https://raw.githubusercontent.com/iharc-jordan/ceasar-control-panel/release/web/images/logo.svg" "$CEASAR/web/images/logo.svg"
+	download_file "https://raw.githubusercontent.com/IHARC/ceasar-control-panel/release/web/images/logo.svg" "$CEASAR/web/images/logo.svg"
 fi
 
 if [ -f "$CEASAR/web/images/custom/logo.png" ]; then
 	cp -f "$CEASAR/web/images/custom/logo.png" "$CEASAR/web/images/logo.png"
 elif [ ! -f "$CEASAR/web/images/custom/logo.png" ] && [ "$download" = "yes" ]; then
-	download_file "https://raw.githubusercontent.com/iharc-jordan/ceasar-control-panel/release/web/images/logo.png" "$CEASAR/web/images/logo.png"
+	download_file "https://raw.githubusercontent.com/IHARC/ceasar-control-panel/release/web/images/logo.png" "$CEASAR/web/images/logo.png"
 fi
 
 if [ -f "$CEASAR/web/images/custom/logo-header.svg" ]; then
 	cp -f "$CEASAR/web/images/custom/logo-header.svg" "$CEASAR/web/images/logo-header.svg"
 elif [ ! -f "$CEASAR/web/images/custom/logo-header.svg" ] && [ "$download" = "yes" ]; then
-	download_file "https://raw.githubusercontent.com/iharc-jordan/ceasar-control-panel/release/web/images/logo-header.svg" "$CEASAR/web/images/logo-header.svg"
+	download_file "https://raw.githubusercontent.com/IHARC/ceasar-control-panel/release/web/images/logo-header.svg" "$CEASAR/web/images/logo-header.svg"
 fi
 
 if [ -f "$CEASAR/web/images/custom/favicon.png" ]; then
 	cp -f "$CEASAR/web/images/custom/favicon.png" "$CEASAR/web/images/favicon.png"
 elif [ ! -f "$CEASAR/web/images/custom/favicon.png" ] && [ "$download" = "yes" ]; then
-	download_file "https://raw.githubusercontent.com/iharc-jordan/ceasar-control-panel/release/web/images/favicon.png" "$CEASAR/web/images/favicon.png"
+	download_file "https://raw.githubusercontent.com/IHARC/ceasar-control-panel/release/web/images/favicon.png" "$CEASAR/web/images/favicon.png"
 fi
 
 if [ -f "$CEASAR/web/images/custom/favicon.ico" ]; then
 	cp -f "$CEASAR/web/images/custom/favicon.ico" "$CEASAR/web/favicon.ico"
 elif [ ! -f "$CEASAR/web/images/custom/favicon.ico" ] && [ "$download" = "yes" ]; then
-	download_file "https://raw.githubusercontent.com/iharc-jordan/ceasar-control-panel/release/web/favicon.ico" "$CEASAR/web/favicon.ico"
+	download_file "https://raw.githubusercontent.com/IHARC/ceasar-control-panel/release/web/favicon.ico" "$CEASAR/web/favicon.ico"
 fi
 
 #----------------------------------------------------------#

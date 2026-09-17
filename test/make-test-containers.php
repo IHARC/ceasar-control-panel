@@ -14,7 +14,7 @@
 # CONFIG HOST STEPS:
 #   export SHARED_HOST_FOLDER="/home/myuser/projectfiles"
 #   mkdir -p $SHARED_HOST_FOLDER
-#   cd $SHARED_HOST_FOLDER && git clone https://github.com/iharc-jordan/ceasar-control-panel.git && cd ceasar && git checkout ..branch..
+#   cd $SHARED_HOST_FOLDER && git clone https://github.com/IHARC/ceasar-control-panel.git && cd ceasar && git checkout ..branch..
 #
 
 /*
@@ -262,7 +262,7 @@ function getCeasarVersion($branch) {
 		$control_file = file_get_contents(SHARED_HOST_FOLDER . "/ceasar/src/deb/ceasar/control");
 	} else {
 		$control_file = file_get_contents(
-			"https://raw.githubusercontent.com/iharc-jordan/ceasar-control-panel/${branch}/src/deb/ceasar/control",
+			"https://raw.githubusercontent.com/IHARC/ceasar-control-panel/${branch}/src/deb/ceasar/control",
 		);
 	}
 

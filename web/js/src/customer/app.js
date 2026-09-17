@@ -17,6 +17,7 @@ async function boot(config, identity, backend) {
 		location.assign(config.loginUrl);
 	});
 
+	configurePasswordInputs(config);
 	const page = document.body.dataset.customerPage;
 	if (page === 'login') {
 		bindLogin(config, identity);
@@ -32,7 +33,7 @@ function bindLogin(config, identity) {
 	const accountUrl = customerSetupUrl(config.accountUrl, setup);
 	const callbackUrl = customerSetupUrl(config.callbackUrl, setup, '');
 	for (const control of document.querySelectorAll('[data-auth-view]')) {
-		control.addEventListener('click', () => showAuthView(control.dataset.authView));
+		control.addEventListener('click', () => showAuthView(control.dataset.authView, config));
 	}
 	for (const form of document.querySelectorAll('[data-customer-auth-form]')) {
 		form.addEventListener('submit', async (event) => {
@@ -40,6 +41,7 @@ function bindLogin(config, identity) {
 			clearNotice();
 			const data = new FormData(form);
 			try {
+				setSubmitting(form, true);
 				if (form.dataset.customerAuthForm === 'sign-in') {
 					await identity.signIn(String(data.get('email')), String(data.get('password')));
 					location.assign(accountUrl);
@@ -52,7 +54,7 @@ function bindLogin(config, identity) {
 					);
 					showNotice('Check your email and confirm your address before signing in.', 'success');
 					form.reset();
-					showAuthView('sign-in');
+					showAuthView('sign-in', config);
 				} else {
 					await identity.requestRecovery(String(data.get('email')));
 					showNotice(
@@ -62,6 +64,8 @@ function bindLogin(config, identity) {
 				}
 			} catch (error) {
 				showError(error);
+			} finally {
+				setSubmitting(form, false);
 			}
 		});
 	}
@@ -71,19 +75,26 @@ function bindLogin(config, identity) {
 		passkey.classList.remove('u-hidden');
 		passkey.addEventListener('click', async () => {
 			try {
+				passkey.disabled = true;
 				await identity.signInWithPasskey();
 				location.assign(accountUrl);
 			} catch (error) {
 				showError(error);
+				passkey.disabled = false;
 			}
 		});
 	}
 }
 
-function showAuthView(view) {
+function showAuthView(view, config) {
 	for (const form of document.querySelectorAll('[data-customer-auth-form]')) {
 		const active = form.dataset.customerAuthForm === view;
 		form.classList.toggle('u-hidden', !active);
+		if (active) {
+			form.querySelector('input')?.focus();
+			const heading = form.querySelector('h1')?.textContent?.trim();
+			if (heading) document.title = `${heading} · ${config.brandName || 'Customer account'}`;
+		}
 	}
 }
 
@@ -108,6 +119,7 @@ export function bindRecovery(config, identity) {
 	form.addEventListener('submit', async (event) => {
 		event.preventDefault();
 		try {
+			setSubmitting(form, true);
 			const data = new FormData(form);
 			const password = passwordValue(data.get('password'));
 			if (password !== passwordValue(data.get('password_confirm'))) {
@@ -119,15 +131,16 @@ export function bindRecovery(config, identity) {
 			setTimeout(() => location.replace(config.loginUrl), 1000);
 		} catch (error) {
 			showError(error);
+			setSubmitting(form, false);
 		}
 	});
 }
 
 async function bindAccount(config, identity, backend) {
-	const setup = customerSetupSelection(location.search);
+	const setupSelection = customerSetupSelection(location.search);
 	const session = await identity.session();
 	if (!session) {
-		location.replace(customerSetupUrl(config.loginUrl, setup, ''));
+		location.replace(customerSetupUrl(config.loginUrl, setupSelection, ''));
 		return;
 	}
 
@@ -136,120 +149,319 @@ async function bindAccount(config, identity, backend) {
 		serviceId: '',
 		supportCaseId: '',
 		userId: '',
-		setupPlanCode: setup.planCode,
-		state: {},
+		state: emptyState(),
+		setupPlanCode: setupSelection.planCode,
+		setupIntent: setupSelection.intent,
+		pollTimer: undefined,
+		pollDeadline: 0,
+		pollAccountId: '',
+		pollInFlight: false,
+		accounts: [],
+		identityState: undefined,
+		accountRequestToken: 0,
+		accountContextToken: 0,
+		checkoutRequestToken: 0,
+		serviceRequestToken: 0,
+		supportRequestToken: 0,
+		supportDetailRequestToken: 0,
+		backend,
+		config,
+		identityProvider: identity,
 	};
 	const user = await identity.user();
 	document.querySelector('[data-customer-sign-out]')?.classList.remove('u-hidden');
 	setText('[data-customer-email]', user.email || '');
-	setValue('[name=intent]', setup.intent);
-	const paidAdmission = document.querySelector('[data-account-action="admission-paid"]');
-	syncMigrationSiteType(paidAdmission);
-	paidAdmission?.querySelector('[name=intent]')?.addEventListener('change', () => {
-		syncMigrationSiteType(paidAdmission);
+	configureSupportFallback(config);
+	bindNavigation(context);
+	bindAccountControls(config, identity, backend, context);
+
+	try {
+		await loadCustomerState(backend, context);
+	} catch (error) {
+		showError(error);
+		renderCustomerState(emptyState(), context);
+	} finally {
+		await loadPasskeys(identity, config);
+	}
+	await loadSupport(backend, context);
+	renderCurrentView(context, false);
+}
+
+function bindNavigation(context) {
+	window.addEventListener('hashchange', () => {
+		clearNotice();
+		renderCurrentView(context, true);
+		if (currentView() === 'hosting' && !document.hidden) startSetupPolling(context);
+	});
+	document.addEventListener('visibilitychange', () => {
+		if (!document.hidden && currentView() === 'hosting') startSetupPolling(context);
+	});
+	for (const link of document.querySelectorAll('[data-customer-view-link]')) {
+		link.addEventListener('click', () => {
+			clearNotice();
+			if (link.dataset.customerViewLink === currentView()) renderCurrentView(context, true);
+		});
+	}
+	document.querySelector('[data-open-onboarding]')?.addEventListener('click', () => {
+		setTimeout(() => document.querySelector('#account-name')?.focus(), 0);
+	});
+}
+
+function bindAccountControls(config, identity, backend, context) {
+	document.querySelector('[data-open-setup]')?.addEventListener('click', () => {
+		clearNotice();
+		if (!context.accountId) {
+			showNotice('Set up your customer account before adding hosting.');
+			location.hash = 'hosting';
+			document.querySelector('#account-name')?.focus();
+			return;
+		}
+		const setupForm = document.querySelector('[data-setup-form]');
+		if (setupForm) submissionKeys.clear(setupForm);
+		location.hash = 'setup';
+	});
+	document.querySelector('[data-back-to-hosting]')?.addEventListener('click', () => {
+		location.hash = 'hosting';
+	});
+	document.querySelector('[data-refresh-setup]')?.addEventListener('click', async (event) => {
+		try {
+			event.currentTarget.disabled = true;
+			await refreshCustomerState(backend, context);
+		} catch (error) {
+			showError(error);
+		} finally {
+			event.currentTarget.disabled = false;
+		}
+	});
+	document.querySelector('[data-hosting-read-retry]')?.addEventListener('click', async (event) => {
+		try {
+			event.currentTarget.disabled = true;
+			clearNotice();
+			await refreshCustomerState(backend, context);
+		} catch (error) {
+			showError(error);
+		} finally {
+			event.currentTarget.disabled = false;
+		}
+	});
+	document.querySelector('[data-support-retry]')?.addEventListener('click', async (event) => {
+		try {
+			event.currentTarget.disabled = true;
+			clearNotice();
+			await loadSupport(backend, context);
+		} finally {
+			event.currentTarget.disabled = false;
+		}
+	});
+	document.querySelector('[data-setup-status]')?.addEventListener('click', async (event) => {
+		const control = event.target.closest('[data-resume-checkout]');
+		if (!control) return;
+		const accountId = required(context.accountId);
+		const requestId = required(control.dataset.resumeCheckout);
+		const token = ++context.checkoutRequestToken;
+		const accountContextToken = context.accountContextToken;
+		try {
+			control.disabled = true;
+			const checkout = await backend.setupCheckout(accountId, requestId);
+			if (
+				token !== context.checkoutRequestToken ||
+				accountId !== context.accountId ||
+				accountContextToken !== context.accountContextToken
+			)
+				return;
+			location.assign(checkedHostedUrl(checkout.checkoutUrl));
+		} catch (error) {
+			if (
+				token === context.checkoutRequestToken &&
+				accountId === context.accountId &&
+				accountContextToken === context.accountContextToken
+			) {
+				showError(error);
+				control.disabled = false;
+			}
+		}
+	});
+
+	document.querySelector('[data-account-select]')?.addEventListener('change', async (event) => {
+		try {
+			clearNotice();
+			await selectCustomerAccount(backend, context, required(event.currentTarget.value));
+		} catch (error) {
+			showError(error);
+		}
+	});
+
+	document.querySelector('[data-service-list]')?.addEventListener('click', async (event) => {
+		const row = event.target.closest('[data-service-id]');
+		if (!row) return;
+		const accountId = context.accountId;
+		const serviceId = required(row.dataset.serviceId);
+		const token = ++context.serviceRequestToken;
+		try {
+			context.serviceId = serviceId;
+			renderServiceDetail(undefined, context);
+			const state = await backend.serviceState(serviceId);
+			if (
+				token !== context.serviceRequestToken ||
+				accountId !== context.accountId ||
+				serviceId !== context.serviceId
+			)
+				return;
+			const selectedService =
+				state.service || state.services?.find((item) => item.serviceId === serviceId);
+			const services = selectedService
+				? context.state.services.map((item) =>
+						item.serviceId === selectedService.serviceId ? { ...item, ...selectedService } : item,
+					)
+				: state.services || context.state.services;
+			renderCustomerState({ ...context.state, ...state, services }, context);
+			focusServiceDetail();
+		} catch (error) {
+			if (
+				token === context.serviceRequestToken &&
+				accountId === context.accountId &&
+				serviceId === context.serviceId
+			)
+				showError(error);
+		}
+	});
+
+	document.querySelector('[data-support-case-list]')?.addEventListener('click', async (event) => {
+		const row = event.target.closest('[data-support-case-id]');
+		if (!row) return;
+		const accountId = context.accountId;
+		const caseId = required(row.dataset.supportCaseId);
+		const token = ++context.supportDetailRequestToken;
+		try {
+			context.supportCaseId = caseId;
+			renderSupportDetail({}, context);
+			const detail = await backend.supportCase(caseId);
+			if (
+				token !== context.supportDetailRequestToken ||
+				accountId !== context.accountId ||
+				caseId !== context.supportCaseId
+			)
+				return;
+			renderSupportDetail(detail, context);
+		} catch (error) {
+			if (
+				token === context.supportDetailRequestToken &&
+				accountId === context.accountId &&
+				caseId === context.supportCaseId
+			)
+				showError(error);
+		}
+	});
+
+	document.querySelector('[data-support-close]')?.addEventListener('click', async (event) => {
+		const control = event.currentTarget;
+		const submission = actionScope('support-close', context);
+		const requestScope = requestKeyScope('support-close', context);
+		const caseId = required(context.supportCaseId);
+		try {
+			control.disabled = true;
+			control.dataset.requestKey = requestScope;
+			await backend.closeSupportCase(caseId, submissionKeys.current(control));
+			submissionKeys.clear(control, requestScope);
+			if (!actionScopeIsCurrent(context, submission)) return;
+			showNotice('Support case closed.', 'success');
+			await loadSupport(backend, context);
+		} catch (error) {
+			if (actionScopeIsCurrent(context, submission)) {
+				showError(error);
+				control.disabled = false;
+			}
+		}
 	});
 
 	for (const form of document.querySelectorAll('[data-account-action]')) {
-		form.addEventListener('input', () => submissionKeys.clear(form));
+		let formSubmissionToken = 0;
+		form.addEventListener('input', () => {
+			if (usesDurableFormDraft(form.dataset.accountAction)) submissionKeys.clear(form);
+		});
 		form.addEventListener('submit', async (event) => {
 			event.preventDefault();
 			clearNotice();
+			const action = form.dataset.accountAction;
 			const data = Object.fromEntries(new FormData(form));
+			prepareFormRequest(form, data, context);
+			const requestScope = form.dataset.requestKey;
+			const submission = actionScope(action, context);
+			const formToken = ++formSubmissionToken;
 			data.idempotency_key = submissionKeys.current(form);
 			try {
+				setSubmitting(form, true);
 				const result = await accountAction(
-					form.dataset.accountAction,
+					action,
 					data,
 					context,
 					config,
 					identity,
 					backend,
+					submission,
 				);
-				const message = typeof result === 'string' ? result : result.message;
-				if (typeof result === 'string' || !result.retry) submissionKeys.clear(form);
-				if (message) showNotice(message, 'success');
-				if (['support-open', 'support-reply'].includes(form.dataset.accountAction)) {
-					for (const field of form.querySelectorAll('input:not([type="hidden"]), textarea')) {
-						field.value = '';
+				if (!result?.retainKey && action !== 'hosting-setup')
+					submissionKeys.clear(form, requestScope);
+				if (result?.stale || !actionScopeIsCurrent(context, submission)) return;
+				if (result?.message) showNotice(result.message, 'success');
+				if (action === 'support-open') {
+					form.reset();
+					await loadSupport(backend, context);
+				} else if (action === 'account-create') {
+					await loadCustomerState(backend, context);
+					await loadSupport(backend, context);
+				} else if (action === 'support-reply') {
+					form.reset();
+					if (context.supportCaseId) {
+						const detail = await backend.supportCase(context.supportCaseId);
+						if (actionScopeIsCurrent(context, submission)) renderSupportDetail(detail, context);
 					}
-				}
-				if (
-					context.accountId &&
-					!['admission-trial', 'admission-paid', 'billing-portal'].includes(
-						form.dataset.accountAction,
-					)
+				} else if (
+					!['profile', 'email-change', 'password-change', 'billing-portal'].includes(action)
 				) {
-					await refreshSelectedAccount(backend, context);
+					await refreshCustomerState(backend, context);
+					if (result?.terminal) location.hash = 'hosting';
 				}
 			} catch (error) {
-				showError(error);
+				if (formToken === formSubmissionToken && actionScopeIsCurrent(context, submission))
+					showError(error);
+			} finally {
+				if (formToken === formSubmissionToken) setSubmitting(form, false);
 			}
 		});
 	}
 
-	document.querySelector('[data-account-select]')?.addEventListener('change', async (event) => {
-		try {
-			context.accountId = required(event.currentTarget.value);
-			context.serviceId = '';
-			context.supportCaseId = '';
-			renderCustomerState(await backend.accountState(context.accountId), context);
-		} catch (error) {
-			showError(error);
-		}
+	const setupForm = document.querySelector('[data-setup-form]');
+	setupForm?.querySelectorAll('[name=intent]').forEach((control) => {
+		control.addEventListener('change', () => {
+			syncMigrationSiteType(setupForm);
+			renderSetupReview(context);
+		});
 	});
-	document.querySelector('[data-service-select]')?.addEventListener('change', async (event) => {
-		try {
-			context.serviceId = clean(event.currentTarget.value);
-			if (context.serviceId) {
-				renderCustomerState(
-					await backend.serviceState(context.serviceId),
-					context,
-					context.serviceId,
-				);
-			} else {
-				renderCustomerState(context.state, context);
-			}
-		} catch (error) {
-			showError(error);
-		}
-	});
-	document.querySelector('[data-support-select]')?.addEventListener('change', async (event) => {
-		context.supportCaseId = clean(event.currentTarget.value);
-		try {
-			if (context.supportCaseId) {
-				renderSupportDetail(await backend.supportCase(context.supportCaseId), context);
-			} else {
-				renderSupportDetail({}, context);
-			}
-		} catch (error) {
-			showError(error);
-		}
-	});
-	const supportClose = document.querySelector('[data-support-close]');
-	supportClose?.addEventListener('click', async () => {
-		try {
-			await backend.closeSupportCase(
-				required(context.supportCaseId),
-				submissionKeys.current(supportClose),
-			);
-			submissionKeys.clear(supportClose);
-			showNotice('Support case closed.', 'success');
-			await refreshSelectedAccount(backend, context);
-		} catch (error) {
-			showError(error);
-		}
-	});
+	setupForm
+		?.querySelectorAll('[name=plan_code], [name=site_type], [name=setup_mode]')
+		.forEach((control) => {
+			control.addEventListener('change', () => renderSetupReview(context));
+		});
+	if (context.setupIntent === 'migration') {
+		setValueIn(setupForm, '[name=intent]', 'migration');
+		syncMigrationSiteType(setupForm);
+		renderSetupReview(context);
+	}
 
 	const passkey = document.querySelector('[data-passkey-register]');
 	if (passkey && config.passkeysEnabled) {
 		passkey.classList.remove('u-hidden');
 		passkey.addEventListener('click', async () => {
 			try {
+				passkey.disabled = true;
 				await identity.registerPasskey();
 				showNotice('Passkey registered.', 'success');
 				await loadPasskeys(identity, config);
 			} catch (error) {
 				showError(error);
+			} finally {
+				passkey.disabled = false;
 			}
 		});
 	} else {
@@ -265,82 +477,96 @@ async function bindAccount(config, identity, backend) {
 			showNotice('Passkey removed.', 'success');
 			await loadPasskeys(identity, config);
 		} catch (error) {
-			control.disabled = false;
 			showError(error);
+			control.disabled = false;
 		}
 	});
-
-	const result = await backend.sessionState();
-	context.userId = result.identity?.userId || '';
-	setValue('[name=display_name]', result.identity?.displayName || '');
-	renderCustomerState(result.state || {}, context);
-	if (context.serviceId) {
-		renderCustomerState(await backend.serviceState(context.serviceId), context, context.serviceId);
-	}
-	if (context.supportCaseId) {
-		renderSupportDetail(await backend.supportCase(context.supportCaseId), context);
-	}
-	await loadPasskeys(identity, config);
 }
 
-export async function accountAction(action, data, context, config, identity, backend) {
+export async function accountAction(action, data, context, config, identity, backend, submission) {
 	if (action === 'profile') {
 		await identity.updateProfile(required(data.display_name));
-		return 'Profile saved.';
+		return { message: 'Profile saved.' };
 	}
 	if (action === 'account-create') {
-		const created = await backend.createAccount(required(data.display_name));
-		context.accountId = required(Array.isArray(created) ? created[0]?.customer_account_id : '');
-		return 'Customer account created.';
+		const created = await backend.createAccount(
+			required(data.display_name),
+			required(data.idempotency_key),
+		);
+		if (!actionScopeIsCurrent(context, submission)) return { stale: true, retainKey: true };
+		context.accountId = required(created.accountId);
+		return { message: 'Customer account created.' };
 	}
 	if (action === 'email-change') {
 		await identity.updateEmail(required(data.email), config.callbackUrl);
-		return 'Check the new address to confirm the change.';
+		return { message: 'Follow the confirmation instructions sent to your email addresses.' };
 	}
 	if (action === 'password-change') {
 		await identity.updatePassword(passwordValue(data.password));
-		return 'Password changed.';
+		return { message: 'Password changed.' };
 	}
 	const accountId = required(context.accountId);
-	const serviceId = clean(context.serviceId);
-	if (action === 'admission-trial') {
-		const checkout = await backend.requestTrialAdmission({
-			accountId,
-			planCode: required(data.plan_code),
-			siteType: required(data.site_type),
-			idempotencyKey: required(data.idempotency_key),
-		});
-		if (checkout.state === 'ready' && checkout.url) {
-			location.assign(checkout.url);
-			return '';
-		}
-		return { message: 'Secure trial checkout is preparing. Try again in a moment.', retry: true };
-	}
-	if (action === 'admission-paid') {
+	if (action === 'hosting-setup') {
 		if (data.intent === 'migration' && data.site_type !== 'php') {
 			throw new Error('Existing-site imports use the PHP site type.');
 		}
-		const checkout = await backend.requestPaidAdmission({
-			accountId,
-			planCode: required(data.plan_code),
-			intent: required(data.intent),
-			siteType: required(data.site_type),
-			idempotencyKey: required(data.idempotency_key),
-		});
-		if (checkout.state === 'ready' && checkout.url) {
-			location.assign(checkout.url);
-			return '';
+		const planCode = required(data.plan_code);
+		const offer = context.state.offers?.find((candidate) => candidate.planCode === planCode);
+		if (!offer) throw new Error('Choose an available plan.');
+		if (typeof context.state.trialEligibility?.canStartTrial !== 'boolean')
+			throw new Error('Hosting options are unavailable right now. Try again.');
+		if (!['trial', 'paid'].includes(data.setup_mode))
+			throw new Error('Choose how you want to continue.');
+		const isTrial = data.setup_mode === 'trial';
+		if (
+			isTrial &&
+			(context.state.trialEligibility?.canStartTrial !== true || offer.trialAvailable !== true)
+		)
+			throw new Error('A trial is not available for this plan.');
+		if ((!isTrial || data.intent === 'migration') && offer.paidAvailable !== true)
+			throw new Error('Paid hosting is not available for this plan.');
+		const setup = isTrial
+			? await backend.requestTrialAdmission({
+					accountId,
+					planCode,
+					siteType: required(data.site_type),
+					idempotencyKey: required(data.idempotency_key),
+				})
+			: await backend.requestPaidAdmission({
+					accountId,
+					planCode,
+					intent: required(data.intent),
+					siteType: required(data.site_type),
+					idempotencyKey: required(data.idempotency_key),
+				});
+		if (!actionScopeIsCurrent(context, submission)) return { stale: true, retainKey: true };
+		context.state.setups = [
+			setup,
+			...(context.state.setups || []).filter((row) => row.requestId !== setup.requestId),
+		];
+		renderSetups(context.state.setups, context);
+		startSetupPolling(context);
+		if (setup.status === 'checkout' && setup.checkoutUrl) {
+			location.assign(checkedHostedUrl(setup.checkoutUrl));
+			return { retainKey: true };
 		}
-		return { message: 'Stripe Checkout is preparing. Try again in a moment.', retry: true };
+		return {
+			message: setupMessage(setup),
+			retainKey: !terminalSetup(setup.status),
+			terminal: terminalSetup(setup.status),
+		};
 	}
 	if (action === 'migration-confirm') {
-		const handoff = context.state.migrationWorkspace?.[0];
-		await backend.confirmMigration(required(serviceId), {
+		const migration = context.state.services.find(
+			(service) => service.serviceId === context.serviceId,
+		)?.migration;
+		await backend.confirmMigration(required(context.serviceId), {
 			accountId,
-			workspaceReadyOperationId: required(handoff?.workspace_ready_operation_id),
+			workspaceReadyOperationId: required(migration?.workspaceReadyOperationId),
 			idempotencyKey: required(data.idempotency_key),
 		});
-		return 'Import completion recorded.';
+		if (!actionScopeIsCurrent(context, submission)) return { stale: true, retainKey: true };
+		return { message: 'Import completion recorded.' };
 	}
 	if (action === 'support-open') {
 		await backend.openSupportCase({
@@ -349,7 +575,7 @@ export async function accountAction(action, data, context, config, identity, bac
 			message: required(data.message),
 			idempotencyKey: required(data.idempotency_key),
 		});
-		return 'Support case opened.';
+		return { message: 'Support case opened.' };
 	}
 	if (action === 'support-reply') {
 		await backend.replyToSupportCase(
@@ -357,298 +583,857 @@ export async function accountAction(action, data, context, config, identity, bac
 			required(data.message),
 			required(data.idempotency_key),
 		);
-		return 'Reply sent.';
+		return { message: 'Reply sent.' };
 	}
 	if (action === 'billing-portal') {
-		location.assign(await backend.billingPortal(accountId));
-		return '';
+		const portalUrl = await backend.billingPortal(accountId);
+		if (!actionScopeIsCurrent(context, submission)) return { stale: true, retainKey: true };
+		location.assign(portalUrl);
+		return { retainKey: true };
 	}
 	throw new Error('Unsupported customer action.');
 }
 
-async function refreshSelectedAccount(backend, context) {
-	const state = context.serviceId
-		? await backend.serviceState(context.serviceId)
-		: await backend.accountState(required(context.accountId));
-	renderCustomerState(state, context, context.serviceId);
-	if (context.supportCaseId) {
-		renderSupportDetail(await backend.supportCase(context.supportCaseId), context);
+async function loadCustomerState(backend, context) {
+	const sessionState = await backend.sessionState();
+	context.identityState = sessionState.identity;
+	context.accounts = sessionState.accounts || [];
+	context.userId = sessionState.identity?.userId || context.userId;
+	if (sessionState.identity?.displayName)
+		setValue('[name=display_name]', sessionState.identity.displayName);
+	const accountId = sessionState.selectedAccountId || context.accounts[0]?.accountId || '';
+	if (context.accountId !== accountId) {
+		context.accountContextToken += 1;
+		context.checkoutRequestToken += 1;
+	}
+	context.accountId = accountId;
+	renderCustomerState(
+		{ identity: sessionState.identity, accounts: context.accounts, selectedAccountId: accountId },
+		context,
+	);
+	if (accountId) await loadAccountState(backend, context, accountId, ++context.accountRequestToken);
+}
+
+async function selectCustomerAccount(backend, context, accountId) {
+	const token = ++context.accountRequestToken;
+	context.accountContextToken += 1;
+	context.checkoutRequestToken += 1;
+	context.accountId = accountId;
+	context.serviceId = '';
+	context.supportCaseId = '';
+	context.serviceRequestToken += 1;
+	context.supportDetailRequestToken += 1;
+	context.supportRequestToken += 1;
+	for (const form of document.querySelectorAll('[data-account-action]')) setSubmitting(form, false);
+	renderCustomerState(
+		{ identity: context.identityState, accounts: context.accounts, selectedAccountId: accountId },
+		context,
+	);
+	renderSupportCases([], context);
+	await Promise.all([
+		loadAccountState(backend, context, accountId, token),
+		loadSupport(backend, context, accountId, token),
+	]);
+}
+
+async function loadAccountState(backend, context, accountId, accountToken) {
+	try {
+		const accountState = await backend.accountState(accountId);
+		if (accountToken !== context.accountRequestToken || accountId !== context.accountId) return;
+		context.hostingUnavailable = false;
+		const selectedDetail = context.state.services?.find(
+			(service) => service.serviceId === context.serviceId,
+		);
+		const services = (accountState.services || []).map((service) =>
+			service.serviceId === selectedDetail?.serviceId
+				? {
+						...service,
+						...(selectedDetail.nativeAccess ? { nativeAccess: selectedDetail.nativeAccess } : {}),
+						...(selectedDetail.migration ? { migration: selectedDetail.migration } : {}),
+					}
+				: service,
+		);
+		renderCustomerState(
+			{
+				...accountState,
+				services,
+				identity: context.identityState,
+				accounts: context.accounts,
+				selectedAccountId: accountId,
+			},
+			context,
+		);
+	} catch (error) {
+		if (accountToken !== context.accountRequestToken || accountId !== context.accountId) return;
+		context.hostingUnavailable = true;
+		renderCustomerState(
+			{ identity: context.identityState, accounts: context.accounts, selectedAccountId: accountId },
+			context,
+		);
+		showNotice('Hosting details are unavailable right now. Try again or use support.');
 	}
 }
 
-function renderCustomerState(state, context, preferredServiceId = '') {
-	context.state = state;
-	context.accountId =
-		state.selectedAccountId || context.accountId || state.contexts?.[0]?.customer_account_id || '';
+async function refreshCustomerState(backend, context) {
+	if (!context.accountId) {
+		await loadCustomerState(backend, context);
+		await loadSupport(backend, context);
+		return;
+	}
+	const accountId = context.accountId;
+	const token = ++context.accountRequestToken;
+	await Promise.all([
+		loadAccountState(backend, context, accountId, token),
+		loadSupport(backend, context, accountId, token),
+	]);
+}
 
-	const accounts = state.contexts || [];
+async function loadSupport(
+	backend,
+	context,
+	accountId = context.accountId,
+	accountToken = context.accountRequestToken,
+) {
+	if (!accountId) {
+		if (accountToken === context.accountRequestToken) renderSupportCases([], context);
+		return;
+	}
+	const token = ++context.supportRequestToken;
+	try {
+		const result = await backend.supportCases(accountId);
+		if (
+			token !== context.supportRequestToken ||
+			accountToken !== context.accountRequestToken ||
+			accountId !== context.accountId ||
+			result.accountId !== accountId
+		)
+			return;
+		renderSupportCases(result.cases || [], context);
+	} catch (error) {
+		if (
+			token !== context.supportRequestToken ||
+			accountToken !== context.accountRequestToken ||
+			accountId !== context.accountId
+		)
+			return;
+		renderSupportFailure(error, context);
+	}
+}
+
+function renderCustomerState(state, context) {
+	context.state = { ...emptyState(), ...state };
+	context.accountId =
+		context.state.selectedAccountId ||
+		context.accountId ||
+		context.state.accounts?.[0]?.accountId ||
+		'';
+	const accounts = context.state.accounts || [];
 	const needsAccount = accounts.length === 0;
 	document.querySelector('[data-account-onboarding]')?.classList.toggle('u-hidden', !needsAccount);
+	document
+		.querySelector('[data-account-switcher]')
+		?.classList.toggle('u-hidden', accounts.length < 2);
 	document
 		.querySelector('[data-support-account-required]')
 		?.classList.toggle('u-hidden', !needsAccount);
 	document.querySelector('[data-support-actions]')?.classList.toggle('u-hidden', needsAccount);
-	renderTable(
-		'[data-account-rows]',
-		accounts.map((row, index) => [
-			' ',
-			row.display_name || `Customer account ${index + 1}`,
-			row.membership_role || row.role || 'member',
-		]),
-	);
 	populateSelect('[data-account-select]', accounts, {
-		value: (row) => row.customer_account_id,
-		label: (row, index) => row.display_name || `Customer account ${index + 1}`,
+		value: (row) => row.accountId,
+		label: (row) => row.displayName || 'Customer account',
 		selected: context.accountId,
 		empty: 'No customer account',
 	});
-
-	const services = state.services || [];
-	renderPendingHosting(state.pendingRequests || []);
-	context.serviceId =
-		(preferredServiceId && services.some((row) => row.id === preferredServiceId)
-			? preferredServiceId
-			: services.some((row) => row.id === context.serviceId)
-				? context.serviceId
-				: services[0]?.id) || '';
-	renderTable(
-		'[data-service-rows]',
-		services.map((row, index) => [
-			' ',
-			`Hosting service ${index + 1}`,
-			row.status || 'pending',
-			row.provider_service_ref || 'Preparing',
-		]),
+	renderServices(context.state.services || [], context);
+	renderSetups(context.state.setups || [], context);
+	renderOffers(context.state.offers || [], context);
+	renderBilling(context.state.billing || [], context);
+	restoreSetupDraft(context);
+	restoreFormDraft(
+		document.querySelector('[data-account-action="account-create"]'),
+		'account-create',
+		context,
 	);
-	populateSelect('[data-service-select]', services, {
-		value: (row) => row.id,
-		label: (row, index) =>
-			`${row.provider_service_ref || `Hosting service ${index + 1}`} · ${row.status || 'pending'}`,
-		selected: context.serviceId,
-		empty: 'No service yet',
-	});
-	const offers = state.offers || [];
-	populateSelect('[data-plan-select]', offers, {
-		value: (row) => row.plan_code,
-		label: (row) => offerLabel(row),
-		selected: offers.some((row) => row.plan_code === context.setupPlanCode)
-			? context.setupPlanCode
-			: '',
-		empty: 'No plan available',
-	});
-
-	const supportCases = state.supportCases || [];
-	context.supportCaseId = supportCases.some((row) => row.id === context.supportCaseId)
-		? context.supportCaseId
-		: supportCases[0]?.id || '';
-	renderTable(
-		'[data-support-rows]',
-		supportCases.map((row) => [
-			' ',
-			row.subject || 'Support case',
-			row.status || 'open',
-			formatDate(row.updated_at),
-		]),
+	restoreFormDraft(
+		document.querySelector('[data-account-action="support-open"]'),
+		'support-open',
+		context,
 	);
-	populateSelect('[data-support-select]', supportCases, {
-		value: (row) => row.id,
-		label: (row) => `${row.subject || 'Support case'} · ${row.status || 'open'}`,
-		selected: context.supportCaseId,
-		empty: 'No support cases',
-	});
-
-	const handoff = state.migrationWorkspace?.[0];
-	const migrationButton = document.querySelector('[data-migration-confirm]');
-	if (migrationButton) migrationButton.disabled = !handoff?.workspace_ready_operation_id;
-	renderNativeAccess(state.serviceNativeAccess || []);
+	startSetupPolling(context);
 }
 
-export function renderPendingHosting(rows) {
-	const container = document.querySelector('[data-pending-hosting]');
-	const target = document.querySelector('[data-pending-hosting-rows]');
-	if (!container || !target) return;
-	container.classList.toggle('u-hidden', rows.length === 0);
+function renderServices(services, context) {
+	const target = document.querySelector('[data-service-list]');
+	const empty = document.querySelector('[data-service-empty]');
+	if (!target || !empty) return;
 	target.replaceChildren();
-	for (const row of rows) {
-		const message = document.createElement('p');
-		message.className = 'u-mb10';
-		const label = row.kind === 'trial' ? 'Trial hosting' : 'Paid hosting';
-		message.textContent =
-			row.status === 'provisioning'
-				? `${label}: preparing your service.`
-				: `${label}: waiting for checkout or setup to finish.`;
-		target.append(message);
-		if (typeof row.checkoutUrl === 'string') {
-			let url;
-			try {
-				url = new URL(row.checkoutUrl);
-			} catch {
-				continue;
-			}
-			if (
-				url.protocol !== 'https:' ||
-				url.username ||
-				url.password ||
-				(url.hostname !== 'stripe.com' && !url.hostname.endsWith('.stripe.com'))
-			)
-				continue;
-			const link = document.createElement('a');
-			link.className = 'button button-secondary u-mb10';
-			link.href = url.toString();
-			link.textContent = 'Continue Stripe Checkout';
-			target.append(link);
-		}
+	const unavailable = context.hostingUnavailable === true;
+	empty.hidden = services.length > 0 && !unavailable;
+	empty.textContent = unavailable
+		? 'Hosting details are unavailable right now.'
+		: services.length
+			? ''
+			: 'No hosting services yet.';
+	document.querySelector('[data-open-setup]')?.toggleAttribute('hidden', unavailable);
+	document.querySelector('[data-hosting-read-retry]')?.toggleAttribute('hidden', !unavailable);
+	if (unavailable) {
+		context.serviceId = '';
+		renderServiceDetail(undefined, context);
+		return;
 	}
+	if (!services.some((service) => service.serviceId === context.serviceId)) context.serviceId = '';
+	for (const service of services) {
+		const row = document.createElement('div');
+		row.className = 'customer-row customer-service-row';
+		const view = document.createElement('button');
+		view.type = 'button';
+		view.className = 'customer-row-action';
+		view.dataset.serviceId = service.serviceId;
+		view.textContent = 'View hosting';
+		view.setAttribute('aria-expanded', String(service.serviceId === context.serviceId));
+		row.append(
+			rowPrimary(service.hostname || 'Hosting service', titleCase(service.planCode || 'Hosting')),
+			statusNode(service.status),
+			view,
+		);
+		target.append(row);
+	}
+	renderServiceDetail(
+		services.find((service) => service.serviceId === context.serviceId),
+		context,
+	);
 }
 
-function renderNativeAccess(rows) {
-	const target = document.querySelector('[data-native-access]');
+function renderServiceDetail(service, context) {
+	const target = document.querySelector('[data-service-detail]');
 	if (!target) return;
 	target.replaceChildren();
-	const row = rows[0];
-	if (!row || row.access_state !== 'ready') return;
-	const candidate = row.panel_origin;
-	if (typeof candidate !== 'string') return;
-	try {
-		const origin = new URL(candidate);
-		const hostname = typeof row.sftp_hostname === 'string' ? row.sftp_hostname : '';
-		const port = Number(row.sftp_port);
-		const username = typeof row.provider_username === 'string' ? row.provider_username : '';
-		if (
-			origin.protocol !== 'https:' ||
-			origin.username ||
-			origin.password ||
-			origin.pathname !== '/' ||
-			origin.search ||
-			origin.hash ||
-			!hostname ||
-			!Number.isInteger(port) ||
-			port < 1 ||
-			port > 65535 ||
-			!username
-		)
-			return;
-		const heading = document.createElement('h3');
-		heading.className = 'u-mb10';
-		heading.textContent = 'Native hosting access';
-		const credentials = document.createElement('p');
-		credentials.className = 'u-mb10';
-		credentials.textContent = `Username: ${username} · SFTP: ${hostname}:${port}`;
-		const controls = document.createElement('p');
-		const login = document.createElement('a');
-		login.className = 'button button-secondary';
-		login.href = new URL('/login/', origin).toString();
-		login.rel = 'noopener';
-		login.target = '_blank';
-		login.textContent = 'Open hosting controls';
-		const reset = document.createElement('a');
-		reset.className = 'button button-secondary';
-		reset.href = new URL('/reset/', origin).toString();
-		reset.rel = 'noopener';
-		reset.target = '_blank';
-		reset.textContent = 'Set or reset hosting password';
-		controls.append(login, document.createTextNode(' '), reset);
-		target.append(heading, credentials, controls);
-	} catch {
-		// The backend did not provide a usable native access URL.
+	if (!service) {
+		target.classList.add('u-hidden');
+		return;
 	}
+	target.classList.remove('u-hidden');
+	target.append(element('h3', {}, service.hostname || 'Hosting service'));
+	const details = document.createElement('dl');
+	details.className = 'customer-detail-grid';
+	appendDetail(details, 'Plan', titleCase(service.planCode || '—'));
+	appendDetail(details, 'Status', readableStatus(service.status));
+	if (service.retentionDueAt)
+		appendDetail(details, 'Retention date', formatDate(service.retentionDueAt));
+	target.append(details);
+
+	const access = service.nativeAccess;
+	if (access?.accessState === 'ready') {
+		const accessHeading = element('h3', {}, 'Hosting access');
+		const accessDetails = document.createElement('dl');
+		accessDetails.className = 'customer-detail-grid';
+		appendDetail(accessDetails, 'Username', access.providerUsername || '—');
+		appendDetail(
+			accessDetails,
+			'SFTP',
+			access.sftpHostname && access.sftpPort ? `${access.sftpHostname}:${access.sftpPort}` : '—',
+		);
+		target.append(accessHeading, accessDetails);
+		target.append(accessHelp());
+		if (access.panelOrigin) {
+			const actions = document.createElement('div');
+			actions.className = 'customer-actions';
+			actions.append(hostingAccessLink(access.panelOrigin, '/login/', 'Open hosting controls'));
+			actions.append(hostingAccessLink(access.panelOrigin, '/reset/', 'Set hosting password'));
+			target.append(actions);
+		}
+	} else {
+		target.append(
+			element(
+				'p',
+				{ className: 'customer-form-help' },
+				'Hosting access will appear here when setup is complete.',
+			),
+		);
+	}
+
+	if (service.migration?.status === 'ready' && service.migration.workspaceReadyOperationId) {
+		const migration = service.migration;
+		const migrationHeading = element('h3', {}, 'Import workspace');
+		const migrationDetails = document.createElement('dl');
+		migrationDetails.className = 'customer-detail-grid';
+		appendDetail(migrationDetails, 'Preview address', migration.previewHostname || '—');
+		appendDetail(migrationDetails, 'Username', migration.providerUsername || '—');
+		appendDetail(
+			migrationDetails,
+			'SFTP',
+			migration.sftpHostname && migration.sftpPort
+				? `${migration.sftpHostname}:${migration.sftpPort}`
+				: '—',
+		);
+		target.append(migrationHeading, migrationDetails);
+		target.append(accessHelp());
+		const form = document.createElement('form');
+		form.className = 'customer-form customer-section';
+		form.dataset.accountAction = 'migration-confirm';
+		const copy = element('p', {}, 'Finish the import in the workspace, then confirm it here.');
+		const actions = document.createElement('div');
+		actions.className = 'customer-actions';
+		if (migration.panelOrigin) {
+			actions.append(hostingAccessLink(migration.panelOrigin, '/login/', 'Open import workspace'));
+			actions.append(hostingAccessLink(migration.panelOrigin, '/reset/', 'Set hosting password'));
+		}
+		const confirm = document.createElement('button');
+		confirm.className = 'button button-secondary';
+		confirm.type = 'submit';
+		confirm.textContent = 'Confirm import is complete';
+		actions.append(confirm);
+		form.append(copy, actions);
+		bindDynamicAction(form, context);
+		target.append(form);
+	}
+}
+
+function accessHelp() {
+	return element(
+		'p',
+		{ className: 'customer-form-help' },
+		'Hosting controls and SFTP use this hosting username. Before first access, set a hosting password. It is separate from your customer account sign-in.',
+	);
+}
+
+export function renderSetups(setups) {
+	const section = document.querySelector('[data-setup-status-section]');
+	const target = document.querySelector('[data-setup-status]');
+	if (!section || !target) return;
+	target.replaceChildren();
+	section.classList.toggle('u-hidden', setups.length === 0);
+	for (const setup of setups) {
+		const row = document.createElement('div');
+		row.className = 'customer-row';
+		row.append(
+			rowPrimary(
+				setup.hostname || titleCase(setup.planCode || 'Hosting setup'),
+				setupMessage(setup),
+			),
+		);
+		if (setup.nextAction !== 'continue_checkout') row.append(statusNode(setup.status));
+		if (setup.nextAction === 'continue_checkout') {
+			const actions = document.createElement('div');
+			actions.className = 'customer-actions';
+			const resume = document.createElement('button');
+			resume.className = 'button button-secondary';
+			resume.type = 'button';
+			resume.dataset.resumeCheckout = setup.requestId;
+			resume.textContent = 'Continue checkout';
+			actions.append(resume);
+			row.append(actions);
+		}
+		target.append(row);
+	}
+}
+
+function renderOffers(offers, context) {
+	populateSelect('[data-plan-select]', offers, {
+		value: (row) => row.planCode,
+		label: offerLabel,
+		selected: offers.some((offer) => offer.planCode === context.setupPlanCode)
+			? context.setupPlanCode
+			: offers[0]?.planCode || '',
+		empty: 'No plan available',
+	});
+	const trial = document.querySelector('[data-trial-choice]');
+	const trialInput = trial?.querySelector('input');
+	const paid = document.querySelector('[data-paid-choice]');
+	const paidInput = paid?.querySelector('input');
+	const form = document.querySelector('[data-setup-form]');
+	const selectedOffer = offers.find((offer) => offer.planCode === form?.elements.plan_code?.value);
+	const limits = document.querySelector('[data-plan-limits]');
+	if (limits) {
+		const summary = offerLimits(selectedOffer);
+		limits.textContent = summary;
+		limits.hidden = !summary;
+	}
+	const eligibilityKnown =
+		context.state.trialEligibility !== null &&
+		typeof context.state.trialEligibility?.canStartTrial === 'boolean';
+	const trialAvailable =
+		eligibilityKnown &&
+		context.state.trialEligibility.canStartTrial === true &&
+		selectedOffer?.trialAvailable === true;
+	const paidAvailable = eligibilityKnown && selectedOffer?.paidAvailable === true;
+	if (form) {
+		form.dataset.trialEligible = String(trialAvailable);
+		form.dataset.paidAvailable = String(paidAvailable);
+		form.dataset.setupAvailable = String(trialAvailable || paidAvailable);
+		const submit = form.querySelector('button[type="submit"]');
+		if (submit) submit.disabled = !trialAvailable && !paidAvailable;
+	}
+	if (trial) trial.hidden = !trialAvailable;
+	if (trialInput) trialInput.disabled = !trialAvailable;
+	if (paid) paid.hidden = !(trialAvailable && paidAvailable);
+	if (paidInput) paidInput.disabled = !paidAvailable;
+	if (trialAvailable && !paidAvailable && trialInput) trialInput.checked = true;
+	if (paidAvailable && !trialAvailable && paidInput) paidInput.checked = true;
+	syncMigrationSiteType(form);
+	renderSetupReview(context);
+}
+
+function restoreSetupDraft(context) {
+	const form = document.querySelector('[data-setup-form]');
+	if (!form || !context.accountId) return;
+	form.dataset.requestKey = requestKeyScope('hosting-setup', context);
+	const draft = submissionKeys.read(form);
+	if (!draft || draft.userId !== context.userId || draft.accountId !== context.accountId) return;
+	setValueIn(form, '[name=plan_code]', draft.planCode || '');
+	setCheckedValue(form, 'intent', draft.intent || 'new_site');
+	setValueIn(form, '[name=site_type]', draft.siteType || 'wordpress');
+	setCheckedValue(form, 'setup_mode', draft.setupMode || '');
+	syncMigrationSiteType(form);
+	renderSetupReview(context);
+}
+
+function renderSetupReview(context) {
+	const form = document.querySelector('[data-setup-form]');
+	const review = document.querySelector('[data-setup-review]');
+	if (!form || !review) return;
+	const planCode = form.elements.plan_code?.value || '';
+	const offer = context.state.offers?.find((candidate) => candidate.planCode === planCode);
+	const intent = form.querySelector('[name=intent]:checked')?.value || 'new_site';
+	const siteType = form.elements.site_type?.value || '';
+	const setupMode = form.querySelector('[name=setup_mode]:checked')?.value || '';
+	if (
+		form.dataset.setupAvailable !== 'true' ||
+		(intent === 'migration' && form.dataset.paidAvailable !== 'true')
+	) {
+		review.textContent = planCode
+			? 'This plan is not available right now. Choose another plan.'
+			: 'Choose a plan to continue.';
+		return;
+	}
+	if (!['trial', 'paid'].includes(setupMode)) {
+		review.textContent = 'Choose how you want to continue.';
+		return;
+	}
+	const plan = offerLabel(offer || { planCode });
+	const site =
+		intent === 'migration'
+			? 'Import an existing PHP site'
+			: `Start a new ${siteTypeLabel(siteType)}`;
+	const route = setupMode === 'trial' ? 'Start a free trial' : 'Continue to secure checkout';
+	const limits = offerLimits(offer);
+	review.textContent = [plan, site, route, limits].filter(Boolean).join(' · ');
+}
+
+function siteTypeLabel(siteType) {
+	switch (siteType) {
+		case 'wordpress':
+			return 'WordPress site';
+		case 'php':
+			return 'PHP site';
+		case 'static':
+			return 'static site';
+		default:
+			return 'website';
+	}
+}
+
+function focusServiceDetail() {
+	const heading = document.querySelector('[data-service-detail] h3');
+	if (!heading) return;
+	heading.tabIndex = -1;
+	heading.focus();
+}
+
+function offerLimits(offer) {
+	if (!offer) return '';
+	const items = [];
+	if (Number.isFinite(Number(offer.websiteLimit))) {
+		const count = Number(offer.websiteLimit);
+		items.push(`${count} ${count === 1 ? 'website' : 'websites'}`);
+	}
+	if (Number.isFinite(Number(offer.storageBytes)) && Number(offer.storageBytes) > 0)
+		items.push(`${formatBytes(offer.storageBytes)} storage`);
+	if (Number.isFinite(Number(offer.transferBytes)) && Number(offer.transferBytes) > 0)
+		items.push(`${formatBytes(offer.transferBytes)} transfer`);
+	return items.length ? `Includes ${items.join(', ')}` : '';
+}
+
+function prepareSetupDraft(form, data, context) {
+	form.dataset.requestKey = requestKeyScope('hosting-setup', context);
+	submissionKeys.save(form, {
+		userId: context.userId,
+		accountId: context.accountId,
+		planCode: clean(data.plan_code),
+		intent: clean(data.intent),
+		siteType: clean(data.site_type),
+		setupMode: clean(data.setup_mode),
+	});
+}
+
+function prepareFormRequest(form, data, context) {
+	const action = form.dataset.accountAction || '';
+	if (action === 'hosting-setup') {
+		prepareSetupDraft(form, data, context);
+		return;
+	}
+	form.dataset.requestKey = requestKeyScope(action, context);
+	if (['account-create', 'support-open', 'support-reply'].includes(action)) {
+		submissionKeys.save(form, {
+			userId: context.userId,
+			accountId: context.accountId,
+			supportCaseId: context.supportCaseId,
+			values: data,
+		});
+	}
+}
+
+function usesDurableFormDraft(action) {
+	return ['hosting-setup', 'account-create', 'support-open', 'support-reply'].includes(action);
+}
+
+function actionScope(action, context) {
+	return {
+		action,
+		userId: context.userId,
+		accountId: context.accountId,
+		serviceId: context.serviceId,
+		supportCaseId: context.supportCaseId,
+		accountContextToken: context.accountContextToken,
+	};
+}
+
+function actionScopeIsCurrent(context, submission) {
+	if (!submission) return true;
+	if (submission.userId !== context.userId) return false;
+	if (submission.action === 'account-create') return true;
+	if (
+		submission.accountId !== context.accountId ||
+		submission.accountContextToken !== context.accountContextToken
+	)
+		return false;
+	if (['support-reply', 'support-close'].includes(submission.action))
+		return submission.supportCaseId === context.supportCaseId;
+	if (submission.action === 'migration-confirm') return submission.serviceId === context.serviceId;
+	return true;
+}
+
+function restoreFormDraft(form, action, context) {
+	if (!form) return;
+	form.dataset.requestKey = requestKeyScope(action, context);
+	const draft = submissionKeys.read(form);
+	if (!draft || draft.userId !== context.userId || draft.accountId !== context.accountId) return;
+	if (action === 'support-reply' && draft.supportCaseId !== context.supportCaseId) return;
+	for (const [name, value] of Object.entries(draft.values || {})) {
+		const control = form.elements.namedItem(name);
+		if (control && !control.value) control.value = value;
+	}
+}
+
+function requestKeyScope(action, context) {
+	const identity = scopePart(context.userId || 'customer');
+	const account = scopePart(context.accountId || 'new-account');
+	const supportCase = scopePart(context.supportCaseId || 'no-case');
+	if (action === 'account-create') return `account-create:${identity}`;
+	if (action === 'support-open') return `support-open:${identity}:${account}`;
+	if (action === 'support-reply' || action === 'support-close')
+		return `${action}:${identity}:${account}:${supportCase}`;
+	if (action === 'migration-confirm')
+		return `${action}:${identity}:${account}:${scopePart(context.serviceId || 'no-service')}`;
+	return `${action}:${identity}:${account}`;
+}
+
+function scopePart(value) {
+	return encodeURIComponent(String(value));
+}
+
+function renderBilling(billing, context) {
+	const target = document.querySelector('[data-billing-summary]');
+	const portal = document.querySelector('[data-billing-portal]');
+	if (!target || !portal) return;
+	target.replaceChildren();
+	const rows = Array.isArray(billing) ? billing : billing ? [billing] : [];
+	if (!rows.length) {
+		target.append(element('p', { className: 'customer-empty' }, 'No current subscription.'));
+		portal.classList.add('u-hidden');
+		return;
+	}
+	portal.classList.toggle('u-hidden', !context.accountId);
+	for (const subscription of rows) {
+		const row = document.createElement('div');
+		row.className = 'customer-row';
+		const price = currency(subscription.monthlyPriceCadCents);
+		const timing = subscription.cancellationEffectiveAt
+			? `Ends ${formatDate(subscription.cancellationEffectiveAt)}`
+			: subscription.nextChargeAt
+				? `Next charge ${formatDate(subscription.nextChargeAt)}`
+				: 'Subscription details available in billing';
+		row.append(
+			rowPrimary(
+				titleCase(subscription.planCode || 'Hosting plan'),
+				`${price}${price && timing ? ' · ' : ''}${timing}`,
+			),
+			statusNode(subscription.subscriptionStatus),
+		);
+		target.append(row);
+	}
+}
+
+function renderSupportCases(cases, context) {
+	const target = document.querySelector('[data-support-case-list]');
+	if (!target) return;
+	document.querySelector('[data-support-retry]')?.toggleAttribute('hidden', true);
+	target.replaceChildren();
+	if (!cases.length) {
+		context.supportCaseId = '';
+		target.append(element('p', { className: 'customer-empty' }, 'No support cases yet.'));
+		renderSupportDetail({}, context);
+		return;
+	}
+	if (!cases.some((item) => item.caseId === context.supportCaseId)) context.supportCaseId = '';
+	for (const supportCase of cases) {
+		const button = document.createElement('button');
+		button.type = 'button';
+		button.className = 'customer-case';
+		button.dataset.supportCaseId = supportCase.caseId;
+		button.setAttribute('aria-current', String(supportCase.caseId === context.supportCaseId));
+		button.append(
+			rowPrimary(supportCase.subject || 'Support case', formatDate(supportCase.updatedAt)),
+			statusNode(supportCase.status),
+		);
+		target.append(button);
+	}
+}
+
+function renderSupportFailure(_error, context) {
+	context.supportCaseId = '';
+	const target = document.querySelector('[data-support-case-list]');
+	if (target) {
+		target.replaceChildren();
+		target.append(
+			element('p', { className: 'customer-empty' }, 'Support cases could not be loaded right now.'),
+		);
+	}
+	document.querySelector('[data-support-retry]')?.toggleAttribute('hidden', false);
+	renderSupportDetail({}, context);
+	showNotice('Support cases could not be loaded. Try again or use the contact link.');
 }
 
 export function renderSupportDetail(state, context) {
 	const detail = document.querySelector('[data-support-case-detail]');
-	if (detail) {
-		detail.replaceChildren();
-		if (state.supportCase) {
-			const heading = document.createElement('h3');
-			heading.className = 'u-mb10';
-			heading.textContent = state.supportCase.subject || 'Support case';
-			const status = document.createElement('p');
-			status.textContent = `Status: ${state.supportCase.status || 'open'}`;
-			detail.append(heading, status);
-		} else {
-			const empty = document.createElement('p');
-			empty.textContent = 'Select a support case to read its messages.';
-			detail.append(empty);
-		}
+	const messages = document.querySelector('[data-support-message-list]');
+	const reply = document.querySelector('[data-support-reply-form]');
+	if (!detail || !messages || !reply) return;
+	detail.replaceChildren();
+	messages.replaceChildren();
+	const supportCase = state.supportCase;
+	if (!supportCase) {
+		detail.append(
+			element('p', { className: 'customer-empty' }, 'Choose a case to read the conversation.'),
+		);
+		reply.hidden = true;
+		return;
 	}
-	renderTable(
-		'[data-support-message-rows]',
-		(state.supportMessages || []).map((row) => [
-			' ',
-			row.author_user_id === context.userId ? 'You' : 'IHARC support',
-			row.message || '',
-			formatDate(row.created_at),
-		]),
+	detail.append(
+		element('h2', {}, supportCase.subject || 'Support case'),
+		statusNode(supportCase.status),
 	);
-	const replyEnabled =
-		Boolean(state.supportCase) && clean(state.supportCase.status).toLowerCase() !== 'closed';
-	for (const control of document.querySelectorAll(
-		'[data-account-action="support-reply"] textarea, [data-account-action="support-reply"] button[type="submit"], [data-support-close]',
-	)) {
-		control.disabled = !replyEnabled;
+	for (const message of state.messages || []) {
+		const item = document.createElement('article');
+		item.className = 'customer-message';
+		item.append(
+			element(
+				'p',
+				{ className: 'customer-message-meta' },
+				`${message.author === 'customer' ? 'You' : `${context.config?.brandName || 'Support'} support`} · ${formatDate(message.createdAt)}`,
+			),
+			element('p', { className: 'customer-message-copy' }, message.message || ''),
+		);
+		messages.append(item);
 	}
+	const closed = String(supportCase.status || '').toLowerCase() === 'closed';
+	reply.hidden = closed;
+	for (const control of reply.querySelectorAll('textarea, button')) control.disabled = closed;
+	restoreFormDraft(reply, 'support-reply', context);
+}
+
+function startSetupPolling(context) {
+	clearInterval(context.pollTimer);
+	if (!context.state.setups?.some((setup) => pendingSetup(setup.status))) {
+		context.pollDeadline = 0;
+		context.pollAccountId = '';
+		return;
+	}
+	if (context.pollAccountId !== context.accountId || !context.pollDeadline) {
+		context.pollAccountId = context.accountId;
+		context.pollDeadline = Date.now() + 120000;
+	}
+	if (Date.now() >= context.pollDeadline || document.hidden || currentView() !== 'hosting') return;
+	context.pollTimer = setInterval(async () => {
+		if (Date.now() >= context.pollDeadline || document.hidden || currentView() !== 'hosting') {
+			clearInterval(context.pollTimer);
+			return;
+		}
+		if (context.pollInFlight) return;
+		try {
+			const backend = context.backend;
+			context.pollInFlight = true;
+			if (backend) await refreshCustomerState(backend, context);
+		} catch {
+			// Keep the manual refresh action available without repeating an error notice.
+		} finally {
+			context.pollInFlight = false;
+		}
+	}, 12000);
+}
+
+function bindDynamicAction(form, context) {
+	let formSubmissionToken = 0;
+	form.addEventListener('submit', async (event) => {
+		event.preventDefault();
+		const backend = context.backend;
+		if (!backend) return;
+		let submission;
+		let formToken;
+		try {
+			setSubmitting(form, true);
+			const data = Object.fromEntries(new FormData(form));
+			form.dataset.requestKey = requestKeyScope('migration-confirm', context);
+			const requestScope = form.dataset.requestKey;
+			submission = actionScope('migration-confirm', context);
+			formToken = ++formSubmissionToken;
+			data.idempotency_key = submissionKeys.current(form);
+			const result = await accountAction(
+				'migration-confirm',
+				data,
+				context,
+				context.config,
+				context.identityProvider,
+				backend,
+				submission,
+			);
+			submissionKeys.clear(form, requestScope);
+			if (result?.stale || !actionScopeIsCurrent(context, submission)) return;
+			showNotice(result.message, 'success');
+			await refreshCustomerState(backend, context);
+		} catch (error) {
+			if (formToken === formSubmissionToken && actionScopeIsCurrent(context, submission))
+				showError(error);
+		} finally {
+			if (formToken === formSubmissionToken) setSubmitting(form, false);
+		}
+	});
 }
 
 export function syncMigrationSiteType(form) {
-	if (form?.querySelector('[name=intent]')?.value === 'migration') {
+	if (!form) return;
+	const migration = form.querySelector('[name=intent]:checked')?.value === 'migration';
+	const siteType = form.querySelector('[name=site_type]');
+	const siteTypeLabel = form.querySelector('[data-site-type-label]');
+	const migrationSiteType = form.querySelector('[data-migration-site-type]');
+	const trialChoice = form.querySelector('[data-trial-choice]');
+	const trial = trialChoice?.querySelector('input');
+	const paidChoice = form.querySelector('[data-paid-choice]');
+	const paid = paidChoice?.querySelector('input');
+	const paidAvailable = form.dataset.paidAvailable === 'true';
+	const submit = form.querySelector('button[type="submit"]');
+	if (migration) {
 		setValueIn(form, '[name=site_type]', 'php');
+		if (siteType) siteType.hidden = true;
+		if (siteTypeLabel) siteTypeLabel.hidden = true;
+		if (migrationSiteType) migrationSiteType.hidden = false;
+		if (trialChoice) trialChoice.hidden = true;
+		if (trial) trial.disabled = true;
+		if (paidChoice) paidChoice.hidden = true;
+		if (paid) paid.checked = true;
+		if (submit) submit.disabled = !paidAvailable;
+		return;
 	}
+	if (siteType) siteType.hidden = false;
+	if (siteTypeLabel) siteTypeLabel.hidden = false;
+	if (migrationSiteType) migrationSiteType.hidden = true;
+	const canStartTrial = form.dataset.trialEligible === 'true';
+	if (trialChoice) trialChoice.hidden = !canStartTrial;
+	if (trial) trial.disabled = !canStartTrial;
+	if (paidChoice) paidChoice.hidden = !(canStartTrial && paidAvailable);
+	if (paid) paid.disabled = !paidAvailable;
+	if (submit) submit.disabled = !canStartTrial && !paidAvailable;
 }
 
 async function loadPasskeys(identity, config) {
-	if (config.passkeysEnabled) {
-		const passkeys = await identity.listPasskeys();
-		renderTable(
-			'[data-passkey-rows]',
-			(passkeys || []).map((row) => [
-				' ',
-				row.friendly_name || 'Passkey',
-				formatDate(row.last_used_at || row.created_at),
-				removeControl('Remove', 'passkeyRemove', row.id, row.friendly_name || 'passkey'),
-			]),
-		);
-	}
-}
-
-function removeControl(label, datasetName, id, itemName) {
-	const button = document.createElement('button');
-	button.className = 'button button-secondary';
-	button.type = 'button';
-	button.dataset[datasetName] = String(id || '');
-	button.textContent = label;
-	button.setAttribute('aria-label', `${label} ${itemName}`);
-	return button;
-}
-
-function renderTable(selector, rows) {
-	const target = document.querySelector(selector);
-	if (!target) return;
-	const header = target.querySelector(':scope > .units-table-header');
+	if (!config.passkeysEnabled) return;
+	const rows = await identity.listPasskeys();
+	const target = document.querySelector('[data-passkey-rows]');
+	const empty = document.querySelector('[data-passkey-empty]');
+	if (!target || !empty) return;
 	target.replaceChildren();
-	if (header) target.append(header);
-	if (!rows.length) {
-		const empty = document.createElement('p');
-		empty.className = 'units-table-footer';
-		empty.textContent = 'Nothing to show yet.';
-		target.append(empty);
-		return;
+	empty.hidden = Boolean(rows?.length);
+	for (const passkey of rows || []) {
+		const row = document.createElement('div');
+		row.className = 'customer-row';
+		const remove = document.createElement('button');
+		remove.type = 'button';
+		remove.className = 'button button-secondary';
+		remove.dataset.passkeyRemove = String(passkey.id || '');
+		remove.textContent = 'Remove';
+		remove.setAttribute('aria-label', `Remove ${passkey.friendly_name || 'passkey'}`);
+		row.append(
+			rowPrimary(
+				passkey.friendly_name || 'Passkey',
+				`Last used ${formatDate(passkey.last_used_at || passkey.created_at)}`,
+			),
+			remove,
+		);
+		target.append(row);
 	}
-	for (const row of rows) {
-		const item = document.createElement('div');
-		item.className = 'units-table-row';
-		for (const [index, entry] of row.entries()) {
-			const value = document.createElement('div');
-			value.className =
-				index === 0 ? 'units-table-cell units-table-heading-cell u-text-bold' : 'units-table-cell';
-			if (entry instanceof Node) {
-				value.append(entry);
-			} else {
-				value.textContent = String(entry || '—');
-			}
-			item.append(value);
+}
+
+function renderCurrentView(context, focus) {
+	const view = currentView();
+	for (const element of document.querySelectorAll('[data-customer-view]')) {
+		const visible = element.dataset.customerView === view;
+		element.hidden = !visible;
+		if (visible && focus) element.querySelector('h1')?.focus();
+	}
+	for (const link of document.querySelectorAll('[data-customer-view-link]')) {
+		if (link.dataset.customerViewLink === view) {
+			link.setAttribute('aria-current', 'page');
+		} else {
+			link.removeAttribute('aria-current');
 		}
-		target.append(item);
 	}
+	const brand = context.config?.brandName || 'Customer account';
+	document.title = `${readableStatus(view)} · ${brand}`;
+}
+
+function currentView() {
+	const candidate = location.hash.slice(1).toLowerCase();
+	return ['hosting', 'billing', 'support', 'profile', 'security', 'setup'].includes(candidate)
+		? candidate
+		: 'hosting';
+}
+
+function configurePasswordInputs(config) {
+	const minimum = passwordMinimum(config);
+	for (const control of document.querySelectorAll('[data-password-input]')) {
+		control.minLength = minimum;
+	}
+	for (const help of document.querySelectorAll('[data-password-help]')) {
+		help.textContent = `Use at least ${minimum} characters.`;
+	}
+}
+
+function configureSupportFallback(config) {
+	const link = document.querySelector('[data-support-contact]');
+	const fallback = document.querySelector('[data-support-fallback]');
+	if (!link || !fallback || typeof config.supportUrl !== 'string') return;
+	try {
+		const url = new URL(config.supportUrl);
+		if (url.protocol !== 'https:' || url.username || url.password) return;
+		link.href = url.toString();
+		fallback.classList.remove('u-hidden');
+	} catch {
+		// Omit an invalid operator contact URL from the customer page.
+	}
+}
+
+function passwordMinimum(config) {
+	const value = Number(config.passwordMinLength);
+	return Number.isInteger(value) && value >= 6 && value <= 128 ? value : 6;
 }
 
 function populateSelect(selector, rows, options) {
@@ -659,19 +1444,133 @@ function populateSelect(selector, rows, options) {
 			select.disabled = true;
 			continue;
 		}
-		rows.forEach((row, index) => {
-			const option = new Option(options.label(row, index), options.value(row));
+		for (const row of rows) {
+			const option = new Option(options.label(row), options.value(row));
 			option.selected = option.value === options.selected;
 			select.append(option);
-		});
+		}
 		select.disabled = false;
 	}
 }
 
-function offerLabel(row) {
-	const name = row.display_name || titleCase(row.plan_code || 'Hosting');
-	const price = Number(row.monthly_price_cad_cents);
-	return Number.isFinite(price) ? `${name} · $${(price / 100).toFixed(2)} CAD/month` : name;
+function rowPrimary(title, detail) {
+	const primary = document.createElement('div');
+	primary.append(
+		element('div', { className: 'customer-row-title' }, title),
+		element('div', { className: 'customer-row-detail' }, detail),
+	);
+	return primary;
+}
+
+function statusNode(status) {
+	return element(
+		'span',
+		{ className: 'customer-status', dataset: { state: String(status || '').toLowerCase() } },
+		readableStatus(status),
+	);
+}
+
+function element(name, options = {}, content = '') {
+	const node = document.createElement(name);
+	if (options.className) node.className = options.className;
+	if (options.dataset) Object.assign(node.dataset, options.dataset);
+	if (content) node.textContent = content;
+	return node;
+}
+
+function appendDetail(target, term, description) {
+	target.append(element('dt', {}, term), element('dd', {}, description));
+}
+
+function hostingAccessLink(originValue, path, label) {
+	const origin = new URL(originValue);
+	if (
+		origin.protocol !== 'https:' ||
+		origin.username ||
+		origin.password ||
+		origin.pathname !== '/' ||
+		origin.search ||
+		origin.hash
+	) {
+		throw new Error('Hosting access is unavailable.');
+	}
+	const link = document.createElement('a');
+	link.className = 'button button-secondary';
+	link.href = new URL(path, origin).toString();
+	link.target = '_blank';
+	link.rel = 'noopener';
+	link.textContent = label;
+	return link;
+}
+
+function checkedHostedUrl(value) {
+	const url = new URL(value);
+	if (
+		url.protocol !== 'https:' ||
+		url.username ||
+		url.password ||
+		(url.hostname !== 'stripe.com' && !url.hostname.endsWith('.stripe.com'))
+	) {
+		throw new Error('Checkout is unavailable.');
+	}
+	return url.toString();
+}
+
+function emptyState() {
+	return {
+		accounts: [],
+		selectedAccountId: '',
+		offers: [],
+		trialEligibility: { canStartTrial: false },
+		services: [],
+		setups: [],
+		billing: [],
+	};
+}
+
+function pendingSetup(status) {
+	return ['preparing', 'checkout', 'provisioning'].includes(String(status).toLowerCase());
+}
+
+function terminalSetup(status) {
+	return ['completed', 'failed', 'expired', 'cancelled'].includes(String(status).toLowerCase());
+}
+
+function setupMessage(setup) {
+	const action = setup.nextAction;
+	if (action === 'continue_checkout') return 'Checkout is ready to continue.';
+	if (action === 'view_service') return 'Hosting is ready.';
+	if (action === 'start_new_setup') return 'This setup ended. You can start a new one.';
+	if (setup.status === 'provisioning') return 'Your hosting is being prepared.';
+	if (setup.status === 'preparing') return 'Your setup is being prepared.';
+	return readableStatus(setup.status);
+}
+
+function offerLabel(offer) {
+	const name = offer.displayName || titleCase(offer.planCode || 'Hosting');
+	const price = currency(offer.monthlyPriceCadCents);
+	return price ? `${name} · ${price}/month` : name;
+}
+
+function readableStatus(value) {
+	const text = String(value || 'pending')
+		.replaceAll(/[_-]+/g, ' ')
+		.trim();
+	return text ? text.replace(/\b\w/g, (letter) => letter.toUpperCase()) : 'Pending';
+}
+
+function currency(value) {
+	const cents = Number(value);
+	return Number.isFinite(cents) ? `$${(cents / 100).toFixed(2)} CAD` : '';
+}
+
+function formatBytes(value) {
+	const bytes = Number(value);
+	if (!Number.isFinite(bytes) || bytes <= 0) return '';
+	const units = ['B', 'KB', 'MB', 'GB', 'TB'];
+	const index = Math.min(Math.floor(Math.log(bytes) / Math.log(1024)), units.length - 1);
+	const amount = bytes / 1024 ** index;
+	return `${Number(amount.toFixed(amount >= 10 || index === 0 ? 0 : 1))} ${units[index]}`;
 }
 
 function titleCase(value) {
@@ -687,20 +1586,27 @@ function formatDate(value) {
 }
 
 function setText(selector, value) {
-	for (const element of document.querySelectorAll(selector)) {
-		element.textContent = value;
-	}
+	for (const element of document.querySelectorAll(selector)) element.textContent = value;
 }
 
 function setValue(selector, value) {
-	for (const element of document.querySelectorAll(selector)) {
-		element.value = value;
-	}
+	for (const element of document.querySelectorAll(selector)) element.value = value;
 }
 
 function setValueIn(container, selector, value) {
 	const element = container?.querySelector(selector);
 	if (element) element.value = value;
+}
+
+function setCheckedValue(container, name, value) {
+	for (const control of container?.querySelectorAll(`[name="${name}"]`) || []) {
+		control.checked = control.value === value;
+	}
+}
+
+function setSubmitting(form, submitting) {
+	for (const control of form.querySelectorAll('button[type="submit"]'))
+		control.disabled = submitting;
 }
 
 function required(value) {
@@ -714,24 +1620,34 @@ function clean(value) {
 }
 
 function passwordValue(value) {
-	if (typeof value !== 'string' || value.length === 0) {
+	if (typeof value !== 'string' || value.length === 0)
 		throw new Error('Complete all required fields.');
-	}
 	return value;
 }
 
 function clearNotice() {
 	const notice = document.querySelector('[data-customer-notice]');
-	if (notice) notice.replaceChildren();
+	if (!notice) return;
+	notice.hidden = true;
+	notice.replaceChildren();
+	notice.className = 'customer-notice';
 }
 
 function showNotice(message, type = 'danger') {
 	const notice = document.querySelector('[data-customer-notice]');
 	if (!notice) return;
+	notice.hidden = false;
 	notice.textContent = message;
-	notice.className = `inline-alert inline-alert-${type}`;
+	notice.className = `customer-notice inline-alert-${type}`;
 }
 
 function showError(error) {
-	showNotice(error instanceof Error ? error.message : 'The request could not be completed.');
+	showNotice(humanError(error));
+}
+
+function humanError(error) {
+	const message = error instanceof Error ? error.message : '';
+	if (message === 'upstream_rejected')
+		return 'That request could not be completed. Review the details and try again.';
+	return message || 'The request could not be completed.';
 }

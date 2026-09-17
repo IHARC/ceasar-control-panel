@@ -14,7 +14,7 @@ The following is useful for testing a Pull Request or a branch on a fork.
 
 ```bash
 # Replace with https://github.com/username/ceasar.git if you want to test a branch that you created yourself
-git clone https://github.com/iharc-jordan/ceasar-control-panel.git
+git clone https://github.com/IHARC/ceasar-control-panel.git
 cd ./ceasar/
 
 # Replace main with the branch you want to test

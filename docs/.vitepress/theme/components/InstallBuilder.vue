@@ -9,7 +9,7 @@
 				</p>
 				<CopyToClipboardInput
 					class="u-mb10"
-					value="git clone https://github.com/iharc-jordan/ceasar-control-panel.git ceasar-control-panel && cd ceasar-control-panel"
+					value="git clone https://github.com/IHARC/ceasar-control-panel.git ceasar-control-panel && cd ceasar-control-panel"
 				/>
 				<p class="u-mb10">
 					Check you are running as the <code>root</code> user, configure the options you want below,

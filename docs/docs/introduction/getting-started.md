@@ -43,7 +43,7 @@ Interactive installer that installs the default Ceasar Control Panel software co
 Clone the reviewed source checkout. This repository does not publish a release installer:
 
 ```bash
-git clone https://github.com/iharc-jordan/ceasar-control-panel.git ceasar-control-panel
+git clone https://github.com/IHARC/ceasar-control-panel.git ceasar-control-panel
 cd ceasar-control-panel
 ```
 

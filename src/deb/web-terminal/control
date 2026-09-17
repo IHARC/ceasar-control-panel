@@ -1,10 +1,10 @@
 Source: ceasar-web-terminal
 Package: ceasar-web-terminal
 Priority: optional
-Version: 1.0.18
+Version: 1.0.19
 Section: admin
 Maintainer: IHARC Labs <support@iharc.ca>
-Homepage: https://github.com/iharc-jordan/ceasar-control-panel
+Homepage: https://github.com/IHARC/ceasar-control-panel
 Architecture: amd64
 Depends: ceasar (>= 1.0.0), nodejs (>= 22.0.0)
 Description: optional Ceasar web terminal

@@ -300,7 +300,7 @@ Create: $CEASAR/data/extensions/add-mail-domain.sh and $CEASAR/data/extensions/v
 
 ### Proxmox mail server
 
-See: [Github](https://github.com/iharc-jordan/ceasar-control-panel/pull/4365)
+See: [Github](https://github.com/IHARC/ceasar-control-panel/pull/4365)
 
 ```bash
 # v-add-mail-domain

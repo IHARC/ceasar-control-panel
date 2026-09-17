@@ -15,8 +15,9 @@ function customer_bootstrap(): void {
 	}
 
 	header("Cache-Control: no-store, max-age=0");
+	$logoSource = customer_logo_source((string) $config["logo_url"]);
 	header(
-		"Content-Security-Policy: default-src 'self'; img-src 'self' data:; style-src 'self'; " .
+		"Content-Security-Policy: default-src 'self'; img-src 'self' data:{$logoSource}; style-src 'self'; " .
 			"script-src 'self'; connect-src 'self' {$connectSource}; frame-ancestors 'none'; " .
 			"base-uri 'none'; form-action 'self' https://checkout.stripe.com https://billing.stripe.com",
 	);
@@ -59,6 +60,9 @@ function customer_config(): array {
 			"brand_name" => "Ceasar",
 			"passkeys_enabled" => false,
 			"passkey_rp_id" => "",
+			"password_min_length" => 6,
+			"logo_url" => "/images/logo-header.svg",
+			"support_url" => "",
 			"login_url" => "",
 			"callback_url" => "",
 			"account_url" => "",
@@ -73,6 +77,9 @@ function customer_config(): array {
 	$terms = $data["terms_url"] ?? "https://example.invalid/terms";
 	$privacy = $data["privacy_url"] ?? "https://example.invalid/privacy";
 	$rpId = $data["passkey_rp_id"] ?? "";
+	$passwordMinLength = $data["password_min_length"] ?? 6;
+	$logoUrl = $data["logo_url"] ?? "/images/logo-header.svg";
+	$supportUrl = $data["support_url"] ?? "";
 	$requestOrigin = customer_request_origin();
 	$loginUrl = $data["login_url"] ?? $requestOrigin . "/customer/login";
 	$callbackUrl = $data["callback_url"] ?? $requestOrigin . "/auth/callback";
@@ -84,6 +91,9 @@ function customer_config(): array {
 		!is_string($terms) ||
 		!is_string($privacy) ||
 		!is_string($rpId) ||
+		!is_int($passwordMinLength) ||
+		!is_string($logoUrl) ||
+		!is_string($supportUrl) ||
 		!is_string($loginUrl) ||
 		!is_string($callbackUrl) ||
 		!is_string($accountUrl)
@@ -97,6 +107,13 @@ function customer_config(): array {
 	customer_require_public_https_url($terms, "terms_url");
 	customer_require_public_https_url($privacy, "privacy_url");
 	customer_require_rp_id($rpId);
+	if ($passwordMinLength < 6 || $passwordMinLength > 128) {
+		throw new RuntimeException("Customer password minimum must be between 6 and 128.");
+	}
+	customer_require_logo_url($logoUrl);
+	if ($supportUrl !== "") {
+		customer_require_public_https_url($supportUrl, "support_url");
+	}
 	$login = customer_require_customer_url($loginUrl, "/customer/login");
 	$callback = customer_require_customer_url($callbackUrl, "/auth/callback");
 	$account = customer_require_customer_url($accountUrl, "/customer/account");
@@ -123,6 +140,9 @@ function customer_config(): array {
 		"brand_name" => is_string($data["brand_name"] ?? null) ? $data["brand_name"] : "Ceasar",
 		"passkeys_enabled" => ($data["passkeys_enabled"] ?? false) === true,
 		"passkey_rp_id" => strtolower($rpId),
+		"password_min_length" => $passwordMinLength,
+		"logo_url" => $logoUrl,
+		"support_url" => $supportUrl,
 		"login_url" => rtrim($loginUrl, "/"),
 		"callback_url" => rtrim($callbackUrl, "/"),
 		"account_url" => rtrim($accountUrl, "/"),
@@ -170,10 +190,14 @@ function customer_render(string $title, string $template, array $context = []): 
 function customer_config_json(array $config): string {
 	$public = [
 		"schema" => $config["schema"],
+		"brandName" => $config["brand_name"],
 		"supabaseUrl" => $config["supabase_url"],
 		"supabasePublishableKey" => $config["supabase_publishable_key"],
 		"passkeysEnabled" => $config["passkeys_enabled"],
 		"passkeyRpId" => $config["passkey_rp_id"],
+		"passwordMinLength" => $config["password_min_length"],
+		"logoUrl" => $config["logo_url"],
+		"supportUrl" => $config["support_url"],
 		"loginUrl" => $config["login_url"],
 		"callbackUrl" => $config["callback_url"],
 		"accountUrl" => $config["account_url"],
@@ -222,6 +246,21 @@ function customer_require_public_https_url(string $url, string $field): void {
 	if (!is_array($parts) || ($parts["scheme"] ?? null) !== "https" || empty($parts["host"])) {
 		throw new RuntimeException("Customer {$field} must be a public HTTPS URL.");
 	}
+}
+
+function customer_require_logo_url(string $url): void {
+	if (preg_match('#^/images/[A-Za-z0-9][A-Za-z0-9._/-]*$#D', $url) === 1) {
+		return;
+	}
+	customer_require_public_https_url($url, "logo_url");
+}
+
+function customer_logo_source(string $url): string {
+	$parts = parse_url($url);
+	if (!is_array($parts) || ($parts["scheme"] ?? null) !== "https" || empty($parts["host"])) {
+		return "";
+	}
+	return " https://" . $parts["host"] . (isset($parts["port"]) ? ":" . (int) $parts["port"] : "");
 }
 
 /** @return array<string, mixed> */

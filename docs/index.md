@@ -17,7 +17,7 @@ hero:
       link: /docs/introduction/getting-started
     - theme: alt
       text: View the source
-      link: https://github.com/iharc-jordan/ceasar-control-panel
+      link: https://github.com/IHARC/ceasar-control-panel
 
 features:
   - icon: 📌

@@ -12,4 +12,4 @@ repository owns the portal, authentication, database, provider adapters, and
 deployment state.
 
 Upstream attribution and the source contributors remain recorded in the
-repository history and [upstream notices](https://github.com/iharc-jordan/ceasar-control-panel/blob/main/UPSTREAM_NOTICES.md).
+repository history and [upstream notices](https://github.com/IHARC/ceasar-control-panel/blob/main/UPSTREAM_NOTICES.md).

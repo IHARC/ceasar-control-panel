@@ -1,7 +1,7 @@
 		</main>
 		<?php if (($customerPage ?? '') === 'account') { ?>
-		<footer class="app-footer">
-			<div class="container">
+		<footer class="customer-footer">
+			<div class="customer-footer-inner">
 				<p>
 					<span class="app-footer-link"><?= htmlspecialchars((string) $config['brand_name'], ENT_QUOTES) ?></span>
 					 · <a href="<?= htmlspecialchars((string) $config['terms_url'], ENT_QUOTES) ?>">Terms</a>

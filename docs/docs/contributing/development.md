@@ -1,11 +1,11 @@
 # Contributing to Ceasar’s development
 
-Ceasar is an open-source project, and we welcome contributions from the community. Please read the [contributing guidelines](https://github.com/iharc-jordan/ceasar-control-panel/blob/main/CONTRIBUTING.md) for additional information.
+Ceasar is an open-source project, and we welcome contributions from the community. Please read the [contributing guidelines](https://github.com/IHARC/ceasar-control-panel/blob/main/CONTRIBUTING.md) for additional information.
 
 Ceasar is designed to be installed on a web server. To develop Ceasar on your local machine, a virtual machine is recommended.
 
 ::: warning
-Development builds are unstable. If you encounter a bug, please [report it via GitHub](https://github.com/iharc-jordan/ceasar-control-panel/issues/new/choose) or [submit a Pull Request](https://github.com/iharc-jordan/ceasar-control-panel/pulls).
+Development builds are unstable. If you encounter a bug, please [report it via GitHub](https://github.com/IHARC/ceasar-control-panel/issues/new/choose) or [submit a Pull Request](https://github.com/IHARC/ceasar-control-panel/pulls).
 :::
 
 ## Creating a virtual machine for development
@@ -16,7 +16,7 @@ These instructions use [Multipass](https://multipass.run/) to create an Ubuntu V
 
 1. [Install Multipass](https://multipass.run/install) for your OS
 
-1. [Fork Ceasar](https://github.com/iharc-jordan/ceasar-control-panel/fork) and clone the repository to your local machine
+1. [Fork Ceasar](https://github.com/IHARC/ceasar-control-panel/fork) and clone the repository to your local machine
 
    ```bash
    git clone https://github.com/YourUsername/ceasar.git ~/projects
@@ -116,7 +116,7 @@ Below are some instructions for making a change to Ceasar's UI, running the buil
 
 1. Reload the page in your browser to see the change
 
-Please refer to the [contributing guidelines](https://github.com/iharc-jordan/ceasar-control-panel/blob/main/CONTRIBUTING.md#development-guidelines) for more details on submitting code changes for review.
+Please refer to the [contributing guidelines](https://github.com/IHARC/ceasar-control-panel/blob/main/CONTRIBUTING.md#development-guidelines) for more details on submitting code changes for review.
 
 ::: info
 A backup is created each time the Ceasar build script is run. If you run this often it can fill up your VM's disk space.
@@ -131,7 +131,7 @@ We currently use [Bats](https://github.com/bats-core/bats-core) to run our autom
 
 ```bash
 # Clone Ceasar repo with testing submodules
-git clone --recurse-submodules https://github.com/iharc-jordan/ceasar-control-panel
+git clone --recurse-submodules https://github.com/IHARC/ceasar-control-panel
 # Or, using an existing local repo with an up-to-date main branch
 git submodule update --init --recursive
 

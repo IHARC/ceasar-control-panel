@@ -51,4 +51,4 @@ Once that’s done, run `apt update && apt upgrade` to rollback to the regular r
 
 ## Reporting bugs
 
-If you encounter a bug, please [open an issue](https://github.com/iharc-jordan/ceasar-control-panel/issues/new/choose) or [submit a Pull Request](https://github.com/iharc-jordan/ceasar-control-panel/pulls). You can also report it on our forum or our Discord server
+If you encounter a bug, please [open an issue](https://github.com/IHARC/ceasar-control-panel/issues/new/choose) or [submit a Pull Request](https://github.com/IHARC/ceasar-control-panel/pulls). You can also report it on our forum or our Discord server

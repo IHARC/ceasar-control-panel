@@ -65,7 +65,7 @@ There is no limitation on how to chain DNS servers.
 ### Master -> Slave DNS cluster with the Ceasar API
 
 ::: info
-It doesn't work if you try to sync via local network! See [Issue](https://github.com/iharc-jordan/ceasar-control-panel/issues/4295) Make sure to use the public ip addresses
+It doesn't work if you try to sync via local network! See [Issue](https://github.com/IHARC/ceasar-control-panel/issues/4295) Make sure to use the public ip addresses
 :::
 
 Preparing your **Slave** server(s):

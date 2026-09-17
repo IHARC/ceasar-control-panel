@@ -1,6 +1,6 @@
 <div class="login">
 	<a href="/customer/login/" class="u-block u-mb40">
-		<img src="/images/logo.svg" alt="<?= htmlspecialchars((string) $config['brand_name'], ENT_QUOTES) ?>" width="100" height="120">
+		<img src="<?= htmlspecialchars($customerLogo, ENT_QUOTES) ?>" alt="<?= htmlspecialchars((string) $config['brand_name'], ENT_QUOTES) ?>">
 	</a>
 	<div class="u-width-full">
 		<div data-customer-notice aria-live="polite"></div>
@@ -14,7 +14,7 @@
 				<label for="customer-password" class="form-label">Password</label>
 				<input class="form-control" id="customer-password" type="password" name="password" autocomplete="current-password" required>
 			</div>
-			<button class="button" type="submit"><i class="fas fa-right-to-bracket"></i>Sign in</button>
+			<button class="button" type="submit">Sign in</button>
 			<button class="button button-secondary u-hidden" type="button" data-passkey-sign-in>Use a passkey</button>
 			<p class="u-mt20">
 				<button class="u-button-reset login-form-link" type="button" data-auth-view="sign-up">Create account</button>
@@ -30,7 +30,8 @@
 			</div>
 			<div class="u-mb20">
 				<label for="signup-password" class="form-label">Password</label>
-				<input class="form-control" id="signup-password" type="password" name="password" autocomplete="new-password" minlength="10" required>
+				<input class="form-control" id="signup-password" type="password" name="password" autocomplete="new-password" required data-password-input>
+				<p class="customer-form-help" data-password-help></p>
 			</div>
 			<div class="form-check u-mb20">
 				<input class="form-check-input" id="signup-terms" type="checkbox" name="terms" value="yes" required>

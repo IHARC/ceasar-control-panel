@@ -7,39 +7,38 @@
 	<title><?= htmlspecialchars($title, ENT_QUOTES) ?> · <?= htmlspecialchars((string) $config['brand_name'], ENT_QUOTES) ?></title>
 	<link rel="icon" href="/images/logo.svg" type="image/svg+xml">
 	<link rel="stylesheet" href="/css/themes/default.min.css">
+	<link rel="stylesheet" href="/css/themes/customer.min.css">
 	<script type="module" defer src="/js/dist/customer.min.js"></script>
 </head>
-<?php $customerIsAccount = ($customerPage ?? '') === 'account'; ?>
+<?php
+$customerIsAccount = ($customerPage ?? '') === 'account';
+$customerLogo = is_string($config['logo_url'] ?? null) ? $config['logo_url'] : '/images/logo-header.svg';
+?>
 <body class="<?= $customerIsAccount ? 'page-customer' : 'page-login' ?>" data-customer-page="<?= htmlspecialchars((string) ($customerPage ?? ''), ENT_QUOTES) ?>">
 	<div class="app">
 		<?php if ($customerIsAccount) { ?>
-		<header class="app-header">
-			<div class="top-bar">
-				<div class="container top-bar-inner">
-					<div class="top-bar-left">
-						<a href="/customer/account/" class="top-bar-logo" title="<?= htmlspecialchars((string) $config['brand_name'], ENT_QUOTES) ?>">
-							<img src="/images/logo-header.svg" alt="<?= htmlspecialchars((string) $config['brand_name'], ENT_QUOTES) ?>" width="75" height="32">
-						</a>
-					</div>
-					<div class="top-bar-right">
-						<button class="top-bar-menu-link top-bar-menu-link-logout u-hidden" type="button" data-customer-sign-out>
-							<i class="fas fa-right-from-bracket"></i>
-							<span class="top-bar-menu-link-label">Sign out</span>
-						</button>
-					</div>
+		<header class="customer-header">
+			<div class="customer-header-inner">
+				<a href="#hosting" class="customer-brand" title="<?= htmlspecialchars((string) $config['brand_name'], ENT_QUOTES) ?>">
+					<img src="<?= htmlspecialchars($customerLogo, ENT_QUOTES) ?>" alt="<?= htmlspecialchars((string) $config['brand_name'], ENT_QUOTES) ?>">
+				</a>
+				<div class="customer-account-actions">
+					<span class="customer-email" data-customer-email>Loading…</span>
+					<button class="customer-sign-out u-hidden" type="button" data-customer-sign-out>Sign out</button>
 				</div>
 			</div>
-			<nav class="main-menu" aria-label="Customer account">
-				<div class="container">
-					<ul class="main-menu-list">
-						<li class="main-menu-item"><a class="main-menu-item-link active" href="#services"><p class="main-menu-item-label">Services<i class="fas fa-server"></i></p></a></li>
-						<li class="main-menu-item"><a class="main-menu-item-link" href="#profile"><p class="main-menu-item-label">Profile<i class="fas fa-user"></i></p></a></li>
-						<li class="main-menu-item"><a class="main-menu-item-link" href="#security"><p class="main-menu-item-label">Security<i class="fas fa-shield-halved"></i></p></a></li>
-						<li class="main-menu-item"><a class="main-menu-item-link" href="#support"><p class="main-menu-item-label">Support<i class="fas fa-life-ring"></i></p></a></li>
+			<nav class="customer-nav" aria-label="Customer account">
+				<div class="customer-header-inner">
+					<ul class="customer-nav-list">
+						<li><a class="customer-nav-link" href="#hosting" data-customer-view-link="hosting">Hosting</a></li>
+						<li><a class="customer-nav-link" href="#billing" data-customer-view-link="billing">Billing</a></li>
+						<li><a class="customer-nav-link" href="#support" data-customer-view-link="support">Support</a></li>
+						<li><a class="customer-nav-link" href="#profile" data-customer-view-link="profile">Profile</a></li>
+						<li><a class="customer-nav-link" href="#security" data-customer-view-link="security">Security</a></li>
 					</ul>
 				</div>
 			</nav>
 		</header>
 		<?php } ?>
-		<main>
+		<main class="<?= $customerIsAccount ? 'customer-main' : 'customer-auth-main' ?>">
 			<script id="customer-config" type="application/json"><?= customer_config_json($config) ?></script>

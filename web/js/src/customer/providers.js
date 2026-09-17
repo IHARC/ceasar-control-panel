@@ -150,12 +150,24 @@ export class CustomerBusinessBackend {
 		return this.#request('GET', `/services/${pathId(serviceId)}/state`);
 	}
 
+	async setupCheckout(accountId, requestId) {
+		const result = await this.#request(
+			'GET',
+			`/accounts/${pathId(accountId)}/setups/${pathId(requestId)}/checkout`,
+		);
+		return { ...result, checkoutUrl: this.#hostedUrl(result.checkoutUrl) };
+	}
+
 	supportCase(caseId) {
 		return this.#request('GET', `/support/${pathId(caseId)}`);
 	}
 
-	createAccount(displayName) {
-		return this.#request('POST', '/accounts', { displayName });
+	supportCases(accountId) {
+		return this.#request('GET', `/support?accountId=${pathId(accountId)}`);
+	}
+
+	createAccount(displayName, idempotencyKey) {
+		return this.#request('POST', '/accounts', { displayName, idempotencyKey });
 	}
 
 	async requestTrialAdmission({ accountId, planCode, siteType, idempotencyKey }) {
@@ -165,7 +177,9 @@ export class CustomerBusinessBackend {
 			siteType,
 			idempotencyKey,
 		});
-		return result.url ? { ...result, url: this.#hostedUrl(result.url) } : result;
+		return result.checkoutUrl
+			? { ...result, checkoutUrl: this.#hostedUrl(result.checkoutUrl) }
+			: result;
 	}
 
 	async requestPaidAdmission({ accountId, planCode, intent, siteType, idempotencyKey }) {
@@ -176,7 +190,9 @@ export class CustomerBusinessBackend {
 			siteType,
 			idempotencyKey,
 		});
-		return result.url ? { ...result, url: this.#hostedUrl(result.url) } : result;
+		return result.checkoutUrl
+			? { ...result, checkoutUrl: this.#hostedUrl(result.checkoutUrl) }
+			: result;
 	}
 
 	confirmMigration(serviceId, { accountId, workspaceReadyOperationId, idempotencyKey }) {
@@ -245,7 +261,7 @@ export class CustomerBusinessBackend {
 		}
 		const body = await response.json();
 		if (!response.ok) {
-			throw new Error(body?.error?.code || body?.error || 'Customer request was rejected.');
+			throw new Error(customerErrorMessage(body?.error));
 		}
 		if (!Object.hasOwn(body, 'data')) {
 			throw new Error('Customer backend returned an invalid response.');
@@ -278,4 +294,17 @@ function pathId(value) {
 
 function throwIfError(error) {
 	if (error) throw new Error(error.message || 'Authentication request failed.');
+}
+
+function customerErrorMessage(error) {
+	const code = typeof error === 'object' && error ? error.code : error;
+	if (code === 'authentication_required') return 'Sign in to continue.';
+	if (code === 'account_context_forbidden') return 'Choose an account you can access.';
+	if (code === 'trial_ineligible') return 'A trial is not available for this account.';
+	if (code === 'setup_not_found') return 'That hosting setup is no longer available.';
+	if (code === 'idempotency_conflict')
+		return 'This setup is already in progress. Refresh its status before trying again.';
+	if (code === 'upstream_rejected')
+		return 'That request could not be completed. Review the details and try again.';
+	return 'The request could not be completed. Please try again.';
 }
