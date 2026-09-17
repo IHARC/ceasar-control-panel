@@ -19,6 +19,16 @@ class ForceSslProxyContractTests(unittest.TestCase):
         self.assertIn('"    http-request set-header X-Forwarded-Proto http"', synchronizer)
         self.assertIn('"    http-request set-header X-Forwarded-Proto https"', synchronizer)
 
+    def test_package_upgrade_refreshes_existing_force_ssl_configs(self) -> None:
+        postinst = (ROOT / "src" / "deb" / "ceasar" / "postinst").read_text(
+            encoding="utf-8"
+        )
+        self.assertIn(
+            '"$BIN/v-add-web-domain-ssl-force" "$user" "$DOMAIN" no yes', postinst
+        )
+        self.assertIn('"$BIN/v-restart-web" yes', postinst)
+        self.assertIn('"$BIN/v-restart-proxy" yes', postinst)
+
 
 if __name__ == "__main__":
     unittest.main()

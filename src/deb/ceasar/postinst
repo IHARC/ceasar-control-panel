@@ -33,6 +33,30 @@ new_version="$(dpkg-query -W -f='${Version}' ceasar | sed -E 's/-[0-9]+\+[^~]+//
 # them and their ownership without contacting an external update service.
 "$BIN/v-add-sys-dependencies" verify
 
+# Refresh generated HTTPS redirects so upgrades apply the current native
+# generator to domains that already have forced HTTPS enabled. Suspended
+# accounts and domains are rebuilt by their normal unsuspend path.
+refreshed_ssl_force=no
+for user_data in "$CEASAR"/data/users/*; do
+	[[ -f "$user_data/user.conf" && -f "$user_data/web.conf" ]] || continue
+	unset SUSPENDED
+	source_conf "$user_data/user.conf"
+	[[ "${SUSPENDED:-no}" != "yes" ]] || continue
+	user=${user_data##*/}
+	while IFS= read -r domain_record; do
+		unset DOMAIN SSL SSL_FORCE SUSPENDED
+		parse_object_kv_list "$domain_record"
+		[[ "${SSL:-no}" == "yes" && "${SSL_FORCE:-no}" == "yes" &&
+			"${SUSPENDED:-no}" != "yes" ]] || continue
+		"$BIN/v-add-web-domain-ssl-force" "$user" "$DOMAIN" no yes
+		refreshed_ssl_force=yes
+	done < "$user_data/web.conf"
+done
+if [[ "$refreshed_ssl_force" == "yes" ]]; then
+	"$BIN/v-restart-web" yes
+	"$BIN/v-restart-proxy" yes
+fi
+
 systemctl daemon-reload
 systemctl try-restart ceasar.service > /dev/null 2>&1 || true
 
