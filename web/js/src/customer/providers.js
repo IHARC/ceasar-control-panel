@@ -158,37 +158,22 @@ export class CustomerBusinessBackend {
 		return this.#request('POST', '/accounts', { displayName });
 	}
 
-	async requestTrialAdmission({
-		accountId,
-		planCode,
-		siteType,
-		requestedCustomDomain,
-		idempotencyKey,
-	}) {
+	async requestTrialAdmission({ accountId, planCode, siteType, idempotencyKey }) {
 		const result = await this.#request('POST', '/admissions/trial', {
 			accountId,
 			planCode,
 			siteType,
-			requestedCustomDomain: requestedCustomDomain || null,
 			idempotencyKey,
 		});
 		return result.url ? { ...result, url: this.#hostedUrl(result.url) } : result;
 	}
 
-	async requestPaidAdmission({
-		accountId,
-		planCode,
-		intent,
-		siteType,
-		requestedCustomDomain,
-		idempotencyKey,
-	}) {
+	async requestPaidAdmission({ accountId, planCode, intent, siteType, idempotencyKey }) {
 		const result = await this.#request('POST', '/billing/checkout-sessions', {
 			accountId,
 			planCode,
 			intent,
 			siteType,
-			requestedCustomDomain: requestedCustomDomain || null,
 			idempotencyKey,
 		});
 		return result.url ? { ...result, url: this.#hostedUrl(result.url) } : result;

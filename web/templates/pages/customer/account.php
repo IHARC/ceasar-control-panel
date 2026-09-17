@@ -62,6 +62,7 @@
 		<div data-native-access class="u-mb20"></div>
 
 		<h3 class="u-mb10">Start a hosting service</h3>
+		<p class="u-mb20">Your service starts with a preview address. Once it is ready, open the hosting panel to connect your domain and enable HTTPS.</p>
 		<form data-account-action="admission-trial">
 			<div class="u-mb10">
 				<label class="form-label" for="trial-plan">Plan</label>
@@ -70,10 +71,6 @@
 			<div class="u-mb10">
 				<label class="form-label" for="trial-site-type">Site type</label>
 				<select class="form-select" id="trial-site-type" name="site_type"><option value="wordpress">WordPress</option><option value="php">PHP</option><option value="static">Static site</option></select>
-			</div>
-			<div class="u-mb20">
-				<label class="form-label" for="trial-domain">Custom domain (optional)</label>
-				<input class="form-control" id="trial-domain" name="requested_custom_domain" inputmode="url">
 			</div>
 			<button class="button" type="submit">Request trial</button>
 		</form>
@@ -90,10 +87,6 @@
 			<div class="u-mb10">
 				<label class="form-label" for="checkout-site-type">Site type</label>
 				<select class="form-select" id="checkout-site-type" name="site_type"><option value="wordpress">WordPress</option><option value="php">PHP</option><option value="static">Static site</option></select>
-			</div>
-			<div class="u-mb20">
-				<label class="form-label" for="checkout-domain">Custom domain (optional)</label>
-				<input class="form-control" id="checkout-domain" name="requested_custom_domain" inputmode="url">
 			</div>
 			<button class="button button-secondary" type="submit">Continue to Stripe Checkout</button>
 		</form>

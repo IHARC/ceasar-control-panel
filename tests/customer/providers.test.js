@@ -216,7 +216,6 @@ describe('CustomerBusinessBackend', () => {
 				accountId: 'account-1',
 				planCode: 'starter',
 				siteType: 'wordpress',
-				requestedCustomDomain: 'example.com',
 				idempotencyKey: 'request-1',
 			}),
 		).resolves.toEqual({
@@ -229,7 +228,6 @@ describe('CustomerBusinessBackend', () => {
 				planCode: 'plus',
 				intent: 'new_site',
 				siteType: 'php',
-				requestedCustomDomain: '',
 				idempotencyKey: 'request-2',
 			}),
 		).resolves.toEqual({
@@ -265,7 +263,6 @@ describe('CustomerBusinessBackend', () => {
 			accountId: 'account-1',
 			planCode: 'starter',
 			siteType: 'wordpress',
-			requestedCustomDomain: 'example.com',
 			idempotencyKey: 'request-1',
 		});
 		expect(JSON.parse(fetcher.mock.calls[6][1].body)).toEqual({

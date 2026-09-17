@@ -303,7 +303,6 @@ export async function accountAction(action, data, context, config, identity, bac
 			accountId,
 			planCode: required(data.plan_code),
 			siteType: required(data.site_type),
-			requestedCustomDomain: clean(data.requested_custom_domain),
 			idempotencyKey: required(data.idempotency_key),
 		});
 		if (checkout.state === 'ready' && checkout.url) {
@@ -321,7 +320,6 @@ export async function accountAction(action, data, context, config, identity, bac
 			planCode: required(data.plan_code),
 			intent: required(data.intent),
 			siteType: required(data.site_type),
-			requestedCustomDomain: clean(data.requested_custom_domain),
 			idempotencyKey: required(data.idempotency_key),
 		});
 		if (checkout.state === 'ready' && checkout.url) {
