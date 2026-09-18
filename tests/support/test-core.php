@@ -26,9 +26,24 @@ function assert_true(bool $value, string $message): void {
 $db = support_db();
 $htmlOnlyBody = support_inbound_body("", "<html><body><p>Hello&nbsp;Jordan</p><div>Second line &amp; detail</div></body></html>");
 assert_true($htmlOnlyBody === "Hello Jordan\nSecond line & detail", "HTML-only inbound email is stored as readable text");
+$headOnlyBody = support_inbound_body("", "<html><head><style>p { margin: 0 }</style><script>alert(1)</script><title>Ignored title</title></head><body><p>Readable reply</p></body></html>");
+assert_true($headOnlyBody === "Readable reply", "HTML-only inbound mail excludes head, style, and script content");
 $smtp = support_normalize_smtp(["enabled" => true, "host" => "smtp.example.test", "port" => 587, "security" => "tls", "username" => "mailer@example.test", "password" => "", "fromAddress" => "mailer@example.test"], ["SERVER_SMTP_PASSWD" => "existing-secret"]);
 assert_true($smtp["password"] === "existing-secret" && $smtp["security"] === "tls", "SMTP settings preserve a blank password and normalize security");
 assert_true((support_smtp_public(["USE_SERVER_SMTP" => "true", "SERVER_SMTP_ADDR" => "mailer@example.test", "SERVER_SMTP_PASSWD" => "secret"])["passwordConfigured"] ?? false) === true, "SMTP settings expose configured state without a secret");
+$smtpCommandDir = $data . "/smtp-command";
+mkdir($smtpCommandDir, 0700, true);
+$smtpArgsFile = $data . "/smtp-args";
+file_put_contents($smtpCommandDir . "/v-add-sys-smtp", "#!/bin/sh\nprintf '%s\n' \"$@\" > " . escapeshellarg($smtpArgsFile) . "\n");
+chmod($smtpCommandDir . "/v-add-sys-smtp", 0700);
+file_put_contents($smtpCommandDir . "/v-list-sys-config", "#!/bin/sh\necho '{\"config\":{}}'\n");
+chmod($smtpCommandDir . "/v-list-sys-config", 0700);
+define("CEASAR_CMD", $smtpCommandDir . "/");
+support_apply_system_smtp(["enabled" => true, "host" => "smtp.example.test", "port" => 587, "security" => "tls", "username" => "mailer@example.test", "password" => 'p@ss$word', "fromAddress" => "mailer@example.test"]);
+assert_true(file($smtpArgsFile, FILE_IGNORE_NEW_LINES) === ["smtp.example.test", "587", "tls", "mailer@example.test", 'p@ss$word', "mailer@example.test"], "SMTP command receives each validated argument unchanged");
+$rejectedControlPassword = false;
+try { support_normalize_smtp(["enabled" => true, "host" => "smtp.example.test", "port" => 587, "security" => "tls", "username" => "mailer@example.test", "password" => "bad\npassword", "fromAddress" => "mailer@example.test"], []); } catch (InvalidArgumentException) { $rejectedControlPassword = true; }
+assert_true($rejectedControlPassword, "SMTP passwords with control characters are rejected");
 $emptySettings = support_dispatch(
 	$db,
 	[

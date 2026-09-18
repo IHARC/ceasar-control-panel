@@ -1252,7 +1252,7 @@ function support_normalize_smtp(array $smtp, array $current): array {
 	if ($password === "") {
 		$password = (string) ($current["SERVER_SMTP_PASSWD"] ?? "");
 	}
-	if ($password === "" || strlen($password) > 1024 || preg_match('/[\\x00-\\x1F\\x7F]/', $password)) {
+	if ($password === "" || strlen($password) > 1024 || preg_match('/[\x00-\x1F\x7F]/', $password)) {
 		throw new InvalidArgumentException("SMTP password is required and must not contain control characters.");
 	}
 	$from = strtolower(support_settings_text((string) ($smtp["fromAddress"] ?? ""), "SMTP sender address", 254));
@@ -1703,6 +1703,19 @@ function support_inbound_body(string $text, string $html): string {
 	$text = trim($text);
 	if ($text !== "") {
 		return $text;
+	}
+	if ($html !== "" && class_exists(\DOMDocument::class)) {
+		$previousErrors = libxml_use_internal_errors(true);
+		$document = new \DOMDocument();
+		if (@$document->loadHTML("<?xml encoding=\"UTF-8\">" . $html)) {
+			$xpath = new \DOMXPath($document);
+			foreach ($xpath->query("//head|//style|//script|//template") ?: [] as $node) {
+				$node->parentNode?->removeChild($node);
+			}
+			$html = $document->saveHTML();
+		}
+		libxml_clear_errors();
+		libxml_use_internal_errors($previousErrors);
 	}
 	$html = preg_replace("#<(?:br|/p|/div|/li|/tr)\\b[^>]*>#i", "\n", $html) ?? $html;
 	$plain = html_entity_decode(strip_tags($html), ENT_QUOTES | ENT_HTML5, "UTF-8");
