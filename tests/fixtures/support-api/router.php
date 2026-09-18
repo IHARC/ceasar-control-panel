@@ -17,7 +17,7 @@ if ($path === "/real-api") {
 	support_api();
 }
 if ($path === "/api/support/v1/attachment" && ($_SERVER["REQUEST_METHOD"] ?? "GET") === "GET") {
-	require dirname(__DIR__, 3) . "/web/api/support/attachment.php";
+	require dirname(__DIR__, 3) . "/web/api/support/v1/attachment/index.php";
 	return;
 }
 require dirname(__DIR__, 3) . "/web/inc/support.php";

@@ -7,4 +7,4 @@ if (($_SERVER["REQUEST_METHOD"] ?? "GET") === "POST") {
 	require_once dirname(__DIR__, 2) . "/index.php";
 	exit();
 }
-require_once dirname(__DIR__, 3) . "/attachment.php";
+require_once dirname(__DIR__, 2) . "/attachment.php";
