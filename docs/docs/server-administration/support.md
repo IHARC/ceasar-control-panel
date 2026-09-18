@@ -2,7 +2,7 @@
 
 Ceasar includes an installation-local support desk at **Support**. Customers can create and reply to tickets in the customer portal. Administrators can assign tickets, set priority and status, and add internal notes that customers cannot view.
 
-Configure support recipients, inbound IMAP, and connection tests in **Server > Support settings**. The configured SMTP transport is reused for ticket notifications. A successful SMTP send records transport acceptance; it does not prove final mailbox delivery.
+Configure support recipients, inbound IMAP, and connection tests in **Support > Email delivery**. Configure SMTP in the existing server email settings. Each Ceasar installation starts with no support recipients, SMTP sender, or IMAP mailbox: configure its own mail service before sending ticket email. Ceasar has no IHARC email fallback. The configured SMTP transport is reused for ticket notifications. A successful SMTP send records transport acceptance; it does not prove final mailbox delivery.
 
 The `ceasar-support.timer` runs delivery and inbound-mail processing. Inspect queued or failed notifications in Support and use its retry action after correcting mail configuration. The service runs as `ceasarweb` and stores ticket data at `/var/lib/ceasar/support`; attachments remain outside the web root.
 
