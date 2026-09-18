@@ -1,6 +1,11 @@
 <?php
 $root = dirname(__DIR__, 2);
 require $root . "/web/inc/mail-transport.php";
+ok(
+	ceasar_smtp_encryption("STARTTLS") === PHPMailer\PHPMailer\PHPMailer::ENCRYPTION_STARTTLS &&
+		ceasar_smtp_encryption("ssl") === PHPMailer\PHPMailer\PHPMailer::ENCRYPTION_SMTPS,
+	"legacy SMTP encryption values map to PHPMailer",
+);
 function ok($v, $m) {
 	if (!$v) {
 		throw new RuntimeException($m);

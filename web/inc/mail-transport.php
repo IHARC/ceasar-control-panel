@@ -21,6 +21,14 @@ class CeasarOutcomeSMTP extends SMTP {
 	}
 }
 
+/** Translate Ceasar's historic STARTTLS spelling to PHPMailer's transport constants. */
+function ceasar_smtp_encryption(string $security): string {
+	$security = strtolower(trim($security));
+	return $security === "starttls" || $security === "tls"
+		? PHPMailer::ENCRYPTION_STARTTLS
+		: ($security === "ssl" ? PHPMailer::ENCRYPTION_SMTPS : "");
+}
+
 /** Read Ceasar's existing system SMTP settings without bootstrapping web authentication. */
 function ceasar_system_mail_config(): array {
 	static $config;
@@ -67,7 +75,9 @@ function ceasar_send_email(
 		$mail->Mailer = "smtp";
 		$mail->SMTPDebug = 0;
 		$mail->SMTPAuth = (string) ($transport["SERVER_SMTP_USER"] ?? "") !== "";
-		$mail->SMTPSecure = (string) ($transport["SERVER_SMTP_SECURITY"] ?? "");
+		$mail->SMTPSecure = ceasar_smtp_encryption(
+			(string) ($transport["SERVER_SMTP_SECURITY"] ?? ""),
+		);
 		$mail->Port = (int) ($transport["SERVER_SMTP_PORT"] ?? 25);
 		$mail->Host = (string) ($transport["SERVER_SMTP_HOST"] ?? "");
 		$mail->Username = (string) ($transport["SERVER_SMTP_USER"] ?? "");

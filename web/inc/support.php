@@ -1207,6 +1207,11 @@ function support_scan_attachment(string $path): bool {
 }
 
 /** Return editable system SMTP account settings without exposing its password. */
+function support_smtp_security(string $security): string {
+	$security = strtolower(trim($security));
+	return $security === "starttls" ? "tls" : $security;
+}
+
 function support_smtp_public(array $transport): array {
 	$enabled = ($transport["USE_SERVER_SMTP"] ?? "") === "true";
 	return [
@@ -1215,7 +1220,7 @@ function support_smtp_public(array $transport): array {
 			$enabled && filter_var($transport["SERVER_SMTP_ADDR"] ?? "", FILTER_VALIDATE_EMAIL),
 		"host" => (string) ($transport["SERVER_SMTP_HOST"] ?? ""),
 		"port" => (int) ($transport["SERVER_SMTP_PORT"] ?? 0),
-		"security" => strtolower((string) ($transport["SERVER_SMTP_SECURITY"] ?? "")),
+		"security" => support_smtp_security((string) ($transport["SERVER_SMTP_SECURITY"] ?? "")),
 		"username" => (string) ($transport["SERVER_SMTP_USER"] ?? ""),
 		"fromAddress" => filter_var($transport["SERVER_SMTP_ADDR"] ?? "", FILTER_VALIDATE_EMAIL)
 			? (string) $transport["SERVER_SMTP_ADDR"]
@@ -1255,7 +1260,7 @@ function support_normalize_smtp(array $smtp, array $current): array {
 	if (!ctype_digit($port) || (int) $port < 1 || (int) $port > 65535) {
 		throw new InvalidArgumentException("SMTP port must be between 1 and 65535.");
 	}
-	$security = strtolower(
+	$security = support_smtp_security(
 		support_settings_text((string) ($smtp["security"] ?? ""), "SMTP security", 8),
 	);
 	if (!in_array($security, ["", "tls", "ssl"], true)) {

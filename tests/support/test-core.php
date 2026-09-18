@@ -66,6 +66,22 @@ assert_true(
 		true,
 	"SMTP settings expose configured state without a secret",
 );
+assert_true(
+	(support_smtp_public([
+		"USE_SERVER_SMTP" => "true",
+		"SERVER_SMTP_SECURITY" => "STARTTLS",
+	])["security"] ?? null) === "tls" &&
+		support_normalize_smtp([
+			"enabled" => true,
+			"host" => "smtp.example.test",
+			"port" => 587,
+			"security" => "starttls",
+			"username" => "mailer@example.test",
+			"password" => "secret",
+			"fromAddress" => "mailer@example.test",
+		], [])["security"] === "tls",
+	"Legacy STARTTLS settings map to the canonical TLS API value",
+);
 $smtpCommandDir = $data . "/smtp-command";
 mkdir($smtpCommandDir, 0700, true);
 $smtpArgsFile = $data . "/smtp-args";
