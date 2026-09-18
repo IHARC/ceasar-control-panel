@@ -12,4 +12,4 @@ Use `v-support-backup ARCHIVE.tar` to create a consistent support snapshot, incl
 
 **Server > White Label Options** is the single branding configuration for the panel, customer portal, authentication screens, and ticket email display name. It configures the installation name, color, legal/support links, logos, and favicon. Upload PNG, WebP, or safe SVG assets in the page; they are retained at `/usr/local/ceasar/data/branding` across package upgrades.
 
-The SMTP sender address is shown separately because it is transport configuration, while the sender display name is branding. Every application and authentication page retains the small **Powered by IHARC Labs** link.
+The SMTP sender address is shown separately because it is transport configuration, while the sender display name is branding. Some SMTP providers override the display name, so configure the provider sender to match the intended branded sender. Every application and authentication page retains the small **Powered by IHARC Labs** link.
