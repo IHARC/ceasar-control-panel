@@ -248,7 +248,7 @@ function customer_require_public_https_url(string $url, string $field): void {
 function customer_require_logo_url(string $url): void {
 	if (
 		preg_match(
-			'#^/(?:images/[A-Za-z0-9][A-Za-z0-9._/-]*|branding/asset\\.php\\?kind=(?:logo|header_logo|favicon))$#D',
+			'#^/(?:images/[A-Za-z0-9][A-Za-z0-9._/-]*|branding/asset\\.php\\?kind=(?:logo|header_logo|favicon)(?:&v=[A-Fa-f0-9]{64})?)$#D',
 			$url,
 		) === 1
 	) {
