@@ -365,6 +365,14 @@ assert_true(
 		"accepted" && $calls === 2,
 	"queued retry records SMTP acceptance",
 );
+$db->prepare(
+	"INSERT INTO support_outbox(id,ticket_id,event_key,recipient,subject,body,reply_to,state,attempts,next_attempt_at,last_error,accepted_at,created_at,updated_at) VALUES(?,?,?,?,?,?,?,'queued',0,?,?,NULL,?,?)",
+)->execute(["smtp-uncertain", $ticket["id"], "uncertain-event", "staff@example.test", "uncertain", "uncertain", null, $now, null, $now, $now]);
+$uncertainCalls = 0;
+$GLOBALS["ceasar_support_mailer_for_test"] = function () use (&$uncertainCalls): array { $uncertainCalls++; return ["accepted" => false, "uncertain" => true, "error" => "DATA connection dropped"]; };
+support_deliver_outbox(1);
+support_deliver_outbox(1);
+assert_true($db->query("SELECT state FROM support_outbox WHERE id='smtp-uncertain'")->fetchColumn() === "uncertain" && $uncertainCalls === 1, "worker never automatically resends an uncertain SMTP outcome");
 unset($GLOBALS["ceasar_support_mailer_for_test"]);
 // Rejected inbound files persist a staff-visible recovery record instead of disappearing.
 $db->prepare(
