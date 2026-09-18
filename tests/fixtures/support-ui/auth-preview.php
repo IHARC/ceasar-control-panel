@@ -16,6 +16,10 @@ $_SESSION += [
 	"token" => "preview-token",
 	"POLICY_SYSTEM_PASSWORD_RESET" => "yes",
 ];
+if (in_array($_GET["theme"] ?? "", ["default", "dark"], true)) {
+	$_SESSION["THEME"] = $_GET["theme"];
+	$_SESSION["userTheme"] = $_GET["theme"];
+}
 const JS_LATEST_UPDATE = "preview";
 function _(string $value): string {
 	return $value;
