@@ -26,7 +26,9 @@ function ceasar_smtp_encryption(string $security): string {
 	$security = strtolower(trim($security));
 	return $security === "starttls" || $security === "tls"
 		? PHPMailer::ENCRYPTION_STARTTLS
-		: ($security === "ssl" ? PHPMailer::ENCRYPTION_SMTPS : "");
+		: ($security === "ssl"
+			? PHPMailer::ENCRYPTION_SMTPS
+			: "");
 }
 
 /** Read Ceasar's existing system SMTP settings without bootstrapping web authentication. */
