@@ -837,6 +837,7 @@ function support_dispatch(PDO $db, array $actor, string $action, array $in): arr
 			$action,
 			[
 				"settings",
+				"smtp-settings",
 				"test-smtp",
 				"test-imap",
 				"outbox",
@@ -1205,6 +1206,92 @@ function support_scan_attachment(string $path): bool {
 	return $code === 0;
 }
 
+/** Return editable system SMTP account settings without exposing its password. */
+function support_smtp_public(array $transport): array {
+	$enabled = ($transport["USE_SERVER_SMTP"] ?? "") === "true";
+	return [
+		"enabled" => $enabled,
+		"configured" => $enabled && filter_var($transport["SERVER_SMTP_ADDR"] ?? "", FILTER_VALIDATE_EMAIL),
+		"host" => (string) ($transport["SERVER_SMTP_HOST"] ?? ""),
+		"port" => (int) ($transport["SERVER_SMTP_PORT"] ?? 0),
+		"security" => strtolower((string) ($transport["SERVER_SMTP_SECURITY"] ?? "")),
+		"username" => (string) ($transport["SERVER_SMTP_USER"] ?? ""),
+		"fromAddress" => filter_var($transport["SERVER_SMTP_ADDR"] ?? "", FILTER_VALIDATE_EMAIL)
+			? (string) $transport["SERVER_SMTP_ADDR"]
+			: "",
+		"passwordConfigured" => (string) ($transport["SERVER_SMTP_PASSWD"] ?? "") !== "",
+	];
+}
+
+/** Validate the canonical system SMTP account schema before invoking Ceasar's own command. */
+function support_normalize_smtp(array $smtp, array $current): array {
+	if (array_diff(array_keys($smtp), ["enabled", "host", "port", "security", "username", "password", "fromAddress"])) {
+		throw new InvalidArgumentException("Unsupported SMTP setting.");
+	}
+	$enabled = (bool) ($smtp["enabled"] ?? false);
+	if (!$enabled) {
+		return ["enabled" => false];
+	}
+	$host = support_settings_text((string) ($smtp["host"] ?? ""), "SMTP host", 253);
+	if ($host === "" || (!filter_var($host, FILTER_VALIDATE_IP) && !filter_var($host, FILTER_VALIDATE_DOMAIN, FILTER_FLAG_HOSTNAME))) {
+		throw new InvalidArgumentException("SMTP host must be a valid hostname or IP address.");
+	}
+	$port = support_settings_text((string) ($smtp["port"] ?? ""), "SMTP port", 5);
+	if (!ctype_digit($port) || (int) $port < 1 || (int) $port > 65535) {
+		throw new InvalidArgumentException("SMTP port must be between 1 and 65535.");
+	}
+	$security = strtolower(support_settings_text((string) ($smtp["security"] ?? ""), "SMTP security", 8));
+	if (!in_array($security, ["", "tls", "ssl"], true)) {
+		throw new InvalidArgumentException("SMTP security is invalid.");
+	}
+	$username = support_settings_text((string) ($smtp["username"] ?? ""), "SMTP username", 254);
+	if ($username === "") {
+		throw new InvalidArgumentException("SMTP username is required.");
+	}
+	$password = (string) ($smtp["password"] ?? "");
+	if ($password === "") {
+		$password = (string) ($current["SERVER_SMTP_PASSWD"] ?? "");
+	}
+	if ($password === "" || strlen($password) > 1024 || preg_match('/[\\x00-\\x1F\\x7F]/', $password)) {
+		throw new InvalidArgumentException("SMTP password is required and must not contain control characters.");
+	}
+	$from = strtolower(support_settings_text((string) ($smtp["fromAddress"] ?? ""), "SMTP sender address", 254));
+	if (!filter_var($from, FILTER_VALIDATE_EMAIL)) {
+		throw new InvalidArgumentException("SMTP sender address must be a valid email address.");
+	}
+	return compact("enabled", "host", "port", "security", "username", "password", "from");
+}
+
+/** Invoke only Ceasar's existing SMTP-account commands; support keeps no SMTP copy. */
+function support_apply_system_smtp(array $smtp): array {
+	$current = ceasar_system_mail_config();
+	$next = support_normalize_smtp($smtp, $current);
+	$prefix = defined("CEASAR_CMD") ? CEASAR_CMD : "/usr/bin/sudo /usr/local/ceasar/bin/";
+	if (!$next["enabled"]) {
+		$command = $prefix . "v-delete-sys-smtp";
+	} else {
+		$command = $prefix . "v-add-sys-smtp " . implode(" ", array_map(
+			"escapeshellarg",
+			[$next["host"], (string) $next["port"], $next["security"], $next["username"], $next["password"], $next["from"]],
+		));
+	}
+	$output = [];
+	$code = 1;
+	exec($command . " 2>&1", $output, $code);
+	if ($code !== 0) {
+		throw new RuntimeException("Ceasar could not save the system SMTP account.");
+	}
+	return support_smtp_public($next["enabled"] ? [
+		"USE_SERVER_SMTP" => "true",
+		"SERVER_SMTP_HOST" => $next["host"],
+		"SERVER_SMTP_PORT" => $next["port"],
+		"SERVER_SMTP_SECURITY" => $next["security"],
+		"SERVER_SMTP_USER" => $next["username"],
+		"SERVER_SMTP_PASSWD" => $next["password"],
+		"SERVER_SMTP_ADDR" => $next["from"],
+	] : []);
+}
+
 function support_staff_action(PDO $db, array $actor, string $action, array $in): array {
 	if ($actor["role"] !== "staff") {
 		support_json_error(403, "forbidden", "Staff permission is required.");
@@ -1222,6 +1309,7 @@ function support_staff_action(PDO $db, array $actor, string $action, array $in):
 		$effectiveFrom = (string) ($transport["SERVER_SMTP_ADDR"] ?? "");
 		return [
 			"settings" => $settings,
+			"smtp" => support_smtp_public($transport),
 			"transport" => [
 				"configured" => ($transport["USE_SERVER_SMTP"] ?? "") === "true",
 				"fromEmail" => filter_var($effectiveFrom, FILTER_VALIDATE_EMAIL)
@@ -1233,6 +1321,9 @@ function support_staff_action(PDO $db, array $actor, string $action, array $in):
 				"host" => (string) ($settings["imap"]["host"] ?? ""),
 			],
 		];
+	}
+	if ($action === "smtp-settings") {
+		return ["smtp" => support_apply_system_smtp((array) ($in["smtp"] ?? []))];
 	}
 	if ($action === "test-smtp") {
 		$config = support_effective_config($db);
@@ -1615,6 +1706,7 @@ function support_inbound_body(string $text, string $html): string {
 	}
 	$html = preg_replace("#<(?:br|/p|/div|/li|/tr)\\b[^>]*>#i", "\n", $html) ?? $html;
 	$plain = html_entity_decode(strip_tags($html), ENT_QUOTES | ENT_HTML5, "UTF-8");
+	$plain = str_replace("\u{00a0}", " ", $plain);
 	$plain = preg_replace("/[ \t]+/", " ", $plain) ?? $plain;
 	$plain = preg_replace("/\n{3,}/", "\n\n", $plain) ?? $plain;
 	return trim($plain);

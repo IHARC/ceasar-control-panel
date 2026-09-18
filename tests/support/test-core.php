@@ -25,9 +25,10 @@ function assert_true(bool $value, string $message): void {
 }
 $db = support_db();
 $htmlOnlyBody = support_inbound_body("", "<html><body><p>Hello&nbsp;Jordan</p><div>Second line &amp; detail</div></body></html>");
-assert_true(str_contains($htmlOnlyBody, "Hello") && str_contains($htmlOnlyBody, "Second line & detail") && !str_contains($htmlOnlyBody, "<"), "HTML-only inbound email is stored as readable text");
-assert_true(support_inbound_body("", "<html><body><p>Hello&nbsp;Jordan</p><div>Second line &amp; detail</div></body></html>") === "Hello Jordan
-Second line & detail", "HTML-only inbound email is stored as readable text");
+assert_true($htmlOnlyBody === "Hello Jordan\nSecond line & detail", "HTML-only inbound email is stored as readable text");
+$smtp = support_normalize_smtp(["enabled" => true, "host" => "smtp.example.test", "port" => 587, "security" => "tls", "username" => "mailer@example.test", "password" => "", "fromAddress" => "mailer@example.test"], ["SERVER_SMTP_PASSWD" => "existing-secret"]);
+assert_true($smtp["password"] === "existing-secret" && $smtp["security"] === "tls", "SMTP settings preserve a blank password and normalize security");
+assert_true((support_smtp_public(["USE_SERVER_SMTP" => "true", "SERVER_SMTP_ADDR" => "mailer@example.test", "SERVER_SMTP_PASSWD" => "secret"])["passwordConfigured"] ?? false) === true, "SMTP settings expose configured state without a secret");
 $emptySettings = support_dispatch(
 	$db,
 	[
