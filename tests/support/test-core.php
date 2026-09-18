@@ -40,6 +40,14 @@ assert_true(
 	$headOnlyBody === "Readable reply",
 	"HTML-only inbound mail excludes head, style, and script content",
 );
+$outlookUtf8Body = support_inbound_body(
+	"",
+	'<html><head><meta charset="Windows-1252"></head><body><p>Final reply — Ceasar acceptance · September</p>\r\n\r\n<div>Second line</div></body></html>',
+);
+assert_true(
+	$outlookUtf8Body === "Final reply — Ceasar acceptance · September\n\nSecond line",
+	"HTML-only Outlook mail remains UTF-8 despite a stale charset meta tag",
+);
 $smtp = support_normalize_smtp(
 	[
 		"enabled" => true,

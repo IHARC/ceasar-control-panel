@@ -1749,6 +1749,13 @@ function support_inbound_body(string $text, string $html): string {
 		return $text;
 	}
 	if ($html !== "" && class_exists(\DOMDocument::class)) {
+		// Webklex already decoded the MIME part as UTF-8. Outlook may leave a stale
+		// Windows-1252 meta tag behind, so do not let that tag re-decode the string.
+		$html = preg_replace(
+			'#<meta\b[^>]*(?:charset\s*=|http-equiv\s*=\s*["\']?content-type)[^>]*>#i',
+			"",
+			$html,
+		) ?? $html;
 		$previousErrors = libxml_use_internal_errors(true);
 		$document = new \DOMDocument();
 		if (@$document->loadHTML("<?xml encoding=\"UTF-8\">" . $html)) {
@@ -1764,6 +1771,7 @@ function support_inbound_body(string $text, string $html): string {
 	$html = preg_replace("#<(?:br|/p|/div|/li|/tr)\\b[^>]*>#i", "\n", $html) ?? $html;
 	$plain = html_entity_decode(strip_tags($html), ENT_QUOTES | ENT_HTML5, "UTF-8");
 	$plain = str_replace("\u{00a0}", " ", $plain);
+	$plain = str_replace(["\r\n", "\r"], "\n", $plain);
 	$plain = preg_replace("/[ \t]+/", " ", $plain) ?? $plain;
 	$plain = preg_replace("/\n{3,}/", "\n\n", $plain) ?? $plain;
 	return trim($plain);
