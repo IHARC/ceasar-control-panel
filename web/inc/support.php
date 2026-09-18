@@ -1548,7 +1548,9 @@ function support_deliver_outbox(?int $limit = null): array {
 			// staff review; only explicit retry requests may risk a duplicate send.
 			$state = !empty($sent["uncertain"])
 				? "uncertain"
-				: ($attempts >= 8 ? "failed" : "retrying");
+				: ($attempts >= 8
+					? "failed"
+					: "retrying");
 			$next = gmdate("Y-m-d\\TH:i:s\\Z", time() + min(3600, 60 * 2 ** min(6, $attempts)));
 			$db->prepare(
 				"UPDATE support_outbox SET state=?,next_attempt_at=?,last_error=?,updated_at=? WHERE id=?",
