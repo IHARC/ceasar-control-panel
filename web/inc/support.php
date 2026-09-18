@@ -1607,6 +1607,19 @@ function support_send_mail(
 	}
 }
 
+/** Convert an HTML-only mail part to a readable plain-text ticket message. */
+function support_inbound_body(string $text, string $html): string {
+	$text = trim($text);
+	if ($text !== "") {
+		return $text;
+	}
+	$html = preg_replace("#<(?:br|/p|/div|/li|/tr)\\b[^>]*>#i", "\n", $html) ?? $html;
+	$plain = html_entity_decode(strip_tags($html), ENT_QUOTES | ENT_HTML5, "UTF-8");
+	$plain = preg_replace("/[ \t]+/", " ", $plain) ?? $plain;
+	$plain = preg_replace("/\n{3,}/", "\n\n", $plain) ?? $plain;
+	return trim($plain);
+}
+
 /** Import IMAP mail only when the maintained Webklex dependency is installed. */
 function support_import_inbound(): array {
 	$config = support_effective_config(support_db());
@@ -1640,7 +1653,7 @@ function support_import_inbound(): array {
 		$sender = (string) ($mail->getFrom()->first()?->mail ?? "");
 		$recipient = (string) ($mail->getTo()->first()?->mail ?? "");
 		$subject = trim((string) ($mail->getSubject() ?? ""));
-		$body = trim((string) ($mail->getTextBody() ?: $mail->getHTMLBody()));
+		$body = support_inbound_body((string) $mail->getTextBody(), (string) $mail->getHTMLBody());
 		$header = method_exists($mail, "getHeader") ? $mail->getHeader() : null;
 		$autoSubmitted =
 			$header && method_exists($header, "has") && $header->has("auto-submitted")

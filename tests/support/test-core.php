@@ -24,6 +24,8 @@ function assert_true(bool $value, string $message): void {
 	}
 }
 $db = support_db();
+assert_true(support_inbound_body("", "<html><body><p>Hello&nbsp;Jordan</p><div>Second line &amp; detail</div></body></html>") === "Hello Jordan
+Second line & detail", "HTML-only inbound email is stored as readable text");
 $emptySettings = support_dispatch(
 	$db,
 	[
