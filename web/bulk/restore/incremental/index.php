@@ -81,27 +81,12 @@ if ($action == "restore") {
 				" " .
 				$snapshot .
 				" " .
-				"db" .
+				"mail" .
 				" " .
-				$db,
+				$mail,
 			$output,
 			$return_var,
 		);
-		if (!empty($dns)) {
-			exec(
-				CEASAR_CMD .
-					"v-schedule-user-restore-restic " .
-					$user .
-					" " .
-					$snapshot .
-					" " .
-					"dns" .
-					" " .
-					$dns,
-				$output,
-				$return_var,
-			);
-		}
 	}
 	if (!empty($cron)) {
 		exec(
@@ -133,6 +118,4 @@ if ($return_var == 0) {
 } else {
 	$_SESSION["error_msg"] = implode("<br>", $output);
 }
-var_dump($_POST);
-var_dump($output);
 header("Location: /list/backup/incremental/?snapshot=" . $_POST["snapshot"]);

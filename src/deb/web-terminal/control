@@ -1,7 +1,7 @@
 Source: ceasar-web-terminal
 Package: ceasar-web-terminal
 Priority: optional
-Version: 1.0.27
+Version: 1.0.28
 Section: admin
 Maintainer: IHARC Labs <support@iharc.ca>
 Homepage: https://github.com/IHARC/ceasar-control-panel

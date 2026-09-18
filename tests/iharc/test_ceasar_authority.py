@@ -2,14 +2,19 @@ from __future__ import annotations
 
 import os
 import pathlib
+import select
+import subprocess
+import sys
 import tempfile
+import textwrap
 import unittest
+from io import StringIO
+from unittest import mock
 
 from support import LIBEXEC
 
-import sys
-
 sys.path.insert(0, str(LIBEXEC))
+import iharc_haproxy_cert_sync
 from iharc_haproxy_cert_sync import AuthoritySynchronizer, SyncError
 from iharc_pam_transfer import derive_mark
 
@@ -63,6 +68,67 @@ class AuthorityTests(unittest.TestCase):
         os.symlink(target, self.user_dir / "web.conf")
         with self.assertRaises(SyncError):
             self.sync._parse_web_conf(self.username)
+
+    def test_main_reports_the_synchronization_failure_to_systemd(self) -> None:
+        stderr = StringIO()
+        with (
+            mock.patch.object(iharc_haproxy_cert_sync, "sync", side_effect=SyncError("native state is invalid")),
+            mock.patch.object(sys, "argv", ["iharc_haproxy_cert_sync.py", "--sync"]),
+            mock.patch.object(sys, "stderr", stderr),
+        ):
+            self.assertEqual(iharc_haproxy_cert_sync.main(), 1)
+        self.assertIn("IHARC HAProxy certificate synchronization failed: native state is invalid", stderr.getvalue())
+
+    @unittest.skipUnless(sys.platform.startswith("linux"), "fcntl locking is a Linux runtime contract")
+    def test_synchronization_lock_serializes_processes_and_releases_after_failure(self) -> None:
+        worker = textwrap.dedent(
+            """
+            import pathlib, sys, time
+            sys.path.insert(0, sys.argv[1])
+            from iharc_haproxy_cert_sync import AuthoritySynchronizer
+            synchronizer = AuthoritySynchronizer(pathlib.Path(sys.argv[2]))
+            with synchronizer._synchronization_lock():
+                print("locked", flush=True)
+                if sys.argv[3] == "fail":
+                    raise OSError("synchronization body failed")
+                time.sleep(float(sys.argv[3]))
+            """
+        )
+
+        def start(delay: str) -> subprocess.Popen[str]:
+            return subprocess.Popen(
+                [sys.executable, "-c", worker, str(LIBEXEC), str(self.root), delay],
+                stdout=subprocess.PIPE,
+                stderr=subprocess.PIPE,
+                text=True,
+            )
+
+        def finish(process: subprocess.Popen[str], expected: int) -> None:
+            code = process.wait(timeout=3)
+            errors = process.stderr.read()
+            process.stdout.close()
+            process.stderr.close()
+            self.assertEqual(code, expected, errors)
+
+        first = start("0.4")
+        self.assertEqual(first.stdout.readline().strip(), "locked")
+        second = start("0")
+        self.assertEqual(select.select([second.stdout], [], [], 0.15)[0], [])
+        finish(first, 0)
+        self.assertEqual(second.stdout.readline().strip(), "locked")
+        finish(second, 0)
+
+        failed = start("fail")
+        self.assertEqual(failed.stdout.readline().strip(), "locked")
+        code = failed.wait(timeout=3)
+        errors = failed.stderr.read()
+        failed.stdout.close()
+        failed.stderr.close()
+        self.assertNotEqual(code, 0)
+        self.assertIn("synchronization body failed", errors)
+        recovered = start("0")
+        self.assertEqual(recovered.stdout.readline().strip(), "locked")
+        finish(recovered, 0)
 
 
 if __name__ == "__main__":

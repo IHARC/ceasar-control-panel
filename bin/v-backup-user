@@ -373,13 +373,14 @@ if [ -n "$WEB_SYSTEM" ] && [ "$WEB" != '*' ]; then
 		mkdir -p template/$WEB_SYSTEM/
 		mkdir template/php-fpm/
 
-		if [ $WEB_BACKEND == 'php-fpm' ]; then
-			cp $CEASAR/data/templates/web/$WEB_SYSTEM/php-fpm/$TPL.tpl template/$WEB_SYSTEM/
-			cp $CEASAR/data/templates/web/$WEB_SYSTEM/php-fpm/$TPL.stpl template/$WEB_SYSTEM/
-			cp $CEASAR/data/templates/web/php-fpm/$BACKEND.tpl template/php-fpm/
-		else
-			cp $CEASAR/data/templates/web/$WEB_SYSTEM/$TPL.tpl template/$WEB_SYSTEM/
-			cp $CEASAR/data/templates/web/$WEB_SYSTEM/$TPL.stpl template/$WEB_SYSTEM/
+		template_source=$(backup_web_template_dir "$WEB_SYSTEM" "$WEB_BACKEND" "$TPL") \
+			|| check_result "$E_NOTEXIST" "Web template $TPL is unavailable for backup"
+		cp "$template_source/$TPL.tpl" template/$WEB_SYSTEM/
+		cp "$template_source/$TPL.stpl" template/$WEB_SYSTEM/
+		if [ "$WEB_BACKEND" = 'php-fpm' ]; then
+			[ -f "$WEBTPL/php-fpm/$BACKEND.tpl" ] \
+				|| check_result "$E_NOTEXIST" "PHP-FPM backend template $BACKEND is unavailable for backup"
+			cp "$WEBTPL/php-fpm/$BACKEND.tpl" template/php-fpm/
 		fi
 		if [ -n "$PROXY_SYSTEM" ] && [ -n "$PROXY" ]; then
 			mkdir template/$PROXY_SYSTEM

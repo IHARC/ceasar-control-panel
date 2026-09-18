@@ -6,6 +6,47 @@
 #                                                                           #
 #===========================================================================#
 
+# Restic init refuses an existing repository. Use that maintained command
+# contract after a failed read instead of interpreting backend-specific errors:
+# it creates a missing repository while rejecting wrong keys, connectivity
+# failures, and an existing corrupt configuration without overwriting it.
+ensure_restic_repository() {
+	local repository=$1
+	local password_file=$2
+
+	if restic --repo "$repository" --password-file "$password_file" cat config > /dev/null; then
+		return 0
+	fi
+
+	restic --repo "$repository" --password-file "$password_file" init
+}
+
+# Resolve the web template that is actually selected for a backup. Most
+# PHP-FPM templates live below php-fpm/, but installation-specific templates
+# such as IHARC's own Apache template intentionally live at the web-server
+# root and provide their FastCGI handler themselves. Require the complete
+# template pair so an incomplete installation fails the backup visibly.
+backup_web_template_dir() {
+	local web_system=$1
+	local web_backend=$2
+	local template=$3
+	local template_root="$WEBTPL/$web_system"
+
+	if [ "$web_backend" = 'php-fpm' ] \
+		&& [ -f "$template_root/php-fpm/$template.tpl" ] \
+		&& [ -f "$template_root/php-fpm/$template.stpl" ]; then
+		printf '%s\n' "$template_root/php-fpm"
+		return 0
+	fi
+
+	if [ -f "$template_root/$template.tpl" ] && [ -f "$template_root/$template.stpl" ]; then
+		printf '%s\n' "$template_root"
+		return 0
+	fi
+
+	return 1
+}
+
 # Local storage
 # Defining local storage function
 local_backup() {

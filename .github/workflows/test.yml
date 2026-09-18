@@ -17,7 +17,15 @@ jobs:
       - name: Install focused test dependencies
         run: |
           sudo apt-get update -qq
-          sudo apt-get install -y -qq bats zstd
+          sudo apt-get install -y -qq bats rclone restic zstd
+
+      - name: Verify Restic 0.16 repository initialization
+        run: bash test/restic-ubuntu-runtime.sh
+
+      - name: Verify backup template selection and restore permissions
+        run: |
+          bash test/restic-repository.sh
+          sudo bash test/document-errors-skeleton.sh
 
       - name: Validate installer platform and profile gates
         run: sudo bash tests/release/test-installer-validation.sh

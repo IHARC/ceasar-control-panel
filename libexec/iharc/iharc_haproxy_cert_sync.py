@@ -11,6 +11,8 @@ configuration, or keeps an operator-maintained duplicate authority manifest.
 from __future__ import annotations
 
 import argparse
+import contextlib
+import fcntl
 import grp
 import os
 import pathlib
@@ -274,6 +276,40 @@ class AuthoritySynchronizer:
             self._retire_generated_file(path)
         return tuple(self.certificates / bundle.name for bundle in bundles)
 
+    @contextlib.contextmanager
+    def _synchronization_lock(self):
+        """Serialize every native and path-triggered edge update.
+
+        Domain commands invoke this helper directly while policy publication
+        starts it through systemd.  They share this root-owned lock so neither
+        can race the other's atomic replacement and HAProxy reload.
+        """
+        self._ensure_directory(self.output, 0o750)
+        path = self.output / ".cert-sync.lock"
+        try:
+            descriptor = os.open(path, os.O_RDWR | os.O_CREAT | getattr(os, "O_NOFOLLOW", 0), 0o640)
+        except OSError as error:
+            raise SyncError("HAProxy synchronization lock is unavailable") from error
+        with os.fdopen(descriptor, "a") as handle:
+            if self.runtime:
+                os.fchown(handle.fileno(), 0, self.haproxy_gid)
+                os.fchmod(handle.fileno(), 0o640)
+                info = os.fstat(handle.fileno())
+                if (
+                    not stat.S_ISREG(info.st_mode)
+                    or info.st_uid != 0
+                    or info.st_gid != self.haproxy_gid
+                    or stat.S_IMODE(info.st_mode) != 0o640
+                ):
+                    raise SyncError("HAProxy synchronization lock is unsafe")
+            try:
+                fcntl.flock(handle, fcntl.LOCK_EX)
+            except OSError as error:
+                raise SyncError("HAProxy synchronization lock is unavailable") from error
+            # Closing the descriptor releases flock even when synchronization
+            # fails. Do not catch errors raised by the synchronization body.
+            yield
+
     @staticmethod
     def render_fragment(owners: dict[str, str], marks: dict[str, int], certificates: tuple[pathlib.Path, ...]) -> str:
         if not owners:
@@ -365,25 +401,25 @@ class AuthoritySynchronizer:
     def sync(self, *, reload_haproxy: bool = True) -> None:
         if self.runtime and os.geteuid() != 0:
             raise SyncError("root is required")
-        owners, marks, bundles = self.load()
-        self._ensure_directory(self.output, 0o750)
-        certificate_paths = self._write_certificates(bundles)
-        self._atomic(
-            self.output / "account-owner.map",
-            "".join(f"{authority} {owner}\n" for authority, owner in sorted(owners.items())).encode("ascii"),
-            0o640,
-        )
-        self._atomic(
-            self.output / "account-crt-list.txt",
-            "".join(f"{path}\n" for path in certificate_paths).encode("ascii"),
-            0o640,
-        )
-        self._retire_generated_file(self.output / "account-mark.map")
-        self._atomic(self.fragment, self.render_fragment(owners, marks, certificate_paths).encode("ascii"), 0o640)
-        if reload_haproxy:
-            result = subprocess.run(["/usr/bin/systemctl", "reload", "haproxy.service"], check=False, timeout=20)
-            if result.returncode != 0:
-                raise SyncError("HAProxy reload failed")
+        with self._synchronization_lock():
+            owners, marks, bundles = self.load()
+            certificate_paths = self._write_certificates(bundles)
+            self._atomic(
+                self.output / "account-owner.map",
+                "".join(f"{authority} {owner}\n" for authority, owner in sorted(owners.items())).encode("ascii"),
+                0o640,
+            )
+            self._atomic(
+                self.output / "account-crt-list.txt",
+                "".join(f"{path}\n" for path in certificate_paths).encode("ascii"),
+                0o640,
+            )
+            self._retire_generated_file(self.output / "account-mark.map")
+            self._atomic(self.fragment, self.render_fragment(owners, marks, certificate_paths).encode("ascii"), 0o640)
+            if reload_haproxy:
+                result = subprocess.run(["/usr/bin/systemctl", "reload", "haproxy.service"], check=False, timeout=20)
+                if result.returncode != 0:
+                    raise SyncError("HAProxy reload failed")
 
 
 def sync(*, reload_haproxy: bool = True) -> None:
@@ -400,7 +436,8 @@ def main() -> int:
     try:
         sync(reload_haproxy=not args.no_reload)
         return 0
-    except Exception:
+    except Exception as error:
+        print(f"IHARC HAProxy certificate synchronization failed: {error}", file=sys.stderr)
         return 1
 
 

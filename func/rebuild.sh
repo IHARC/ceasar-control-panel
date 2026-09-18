@@ -279,7 +279,16 @@ rebuild_web_domain_conf() {
 	if [ ! -d "$HOMEDIR/$user/web/$domain/document_errors" ]; then
 		$BIN/v-add-fs-directory "$user" "$HOMEDIR/$user/web/$domain/document_errors"
 		# Propagating html skeleton
-		user_exec cp -r "$WEBTPL/skel/document_errors/" "$HOMEDIR/$user/web/$domain/"
+		# The installed skeleton is root-readable only. Stream it from the
+		# privileged source to tar running as the account, so the destination is
+		# never written with root privileges.
+		if ! (
+			set -o pipefail
+			tar -C "$WEBTPL/skel/document_errors" -cf - . \
+				| user_exec tar -C "$HOMEDIR/$user/web/$domain/document_errors" --no-same-owner -xf -
+		); then
+			check_result "$E_SYSTEM" "Unable to restore error document templates"
+		fi
 	fi
 	$BIN/v-add-fs-directory "$user" "$HOMEDIR/$user/web/$domain/cgi-bin"
 	$BIN/v-add-fs-directory "$user" "$HOMEDIR/$user/web/$domain/private"
