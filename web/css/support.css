@@ -337,9 +337,27 @@
 	overflow-y: auto;
 	scrollbar-gutter: stable;
 }
-.support-settings-form {
+.support-settings-form,
+.smtp-settings-form {
 	display: grid;
 	gap: 14px;
+}
+.smtp-settings-form {
+	margin-bottom: 28px;
+}
+.smtp-settings-form fieldset {
+	display: grid;
+	gap: 14px;
+	border: 0;
+	padding: 0;
+	margin: 0;
+}
+.smtp-settings-form fieldset[hidden] {
+	display: none;
+}
+.smtp-settings-form legend {
+	font-weight: 600;
+	margin-bottom: 12px;
 }
 .support-settings-form .toolbar {
 	display: flex;

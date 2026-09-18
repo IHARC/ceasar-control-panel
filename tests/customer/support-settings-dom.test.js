@@ -11,6 +11,42 @@ afterEach(() => {
 });
 
 describe('support settings editor', () => {
+	it('configures installation SMTP without exposing or overwriting a saved password', async () => {
+		const dom = new JSDOM('<div data-support-settings-editor></div>');
+		globalThis.document = dom.window.document;
+		globalThis.FormData = dom.window.FormData;
+		const request = vi.fn(async () => ({
+			smtp: {
+				configured: true,
+				host: 'smtp.operator.example',
+				port: 587,
+				security: 'tls',
+				username: 'operator',
+				fromAddress: 'support@operator.example',
+				passwordConfigured: true,
+			},
+			settings: {},
+		}));
+		await initSupportSettings({ request, error: vi.fn() });
+		const form = document.querySelector('.smtp-settings-form');
+		expect(form.elements.host.value).toBe('smtp.operator.example');
+		expect(form.elements.password.value).toBe('');
+		await form.onsubmit({ preventDefault() {} });
+		expect(request).toHaveBeenLastCalledWith('smtp-settings', 'POST', {
+			smtp: {
+				enabled: true,
+				host: 'smtp.operator.example',
+				port: '587',
+				security: 'tls',
+				username: 'operator',
+				fromAddress: 'support@operator.example',
+			},
+		});
+		form.elements.enabled.value = 'false';
+		form.elements.enabled.onchange();
+		await form.onsubmit({ preventDefault() {} });
+		expect(request).toHaveBeenLastCalledWith('smtp-settings', 'POST', { smtp: { enabled: false } });
+	});
 	it('loads nested OAuth values and saves effective ticket URLs and IMAP encryption', async () => {
 		const dom = new JSDOM('<div data-support-settings-editor></div>');
 		globalThis.document = dom.window.document;

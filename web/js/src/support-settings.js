@@ -6,6 +6,62 @@ export async function initSupportSettings({ request, error }) {
 		const imap = value.imap || {};
 		const oauthConfig = imap.oauth || {};
 		mount.replaceChildren();
+		const smtp = settings.smtp || {};
+		const smtpHeading = document.createElement('h2');
+		smtpHeading.textContent = 'Outgoing email';
+		const smtpForm = document.createElement('form');
+		smtpForm.className = 'smtp-settings-form';
+		smtpForm.innerHTML = `
+			<p>Used by this installation for support notifications and other panel emails.</p>
+			<label>Delivery method<select class="form-select" name="enabled"><option value="true">SMTP server</option><option value="false">Local mail service</option></select></label>
+			<fieldset data-smtp-fields><legend>SMTP connection</legend>
+			<label>Host<input class="form-control" name="host" autocomplete="off" required></label>
+			<label>Port<input class="form-control" type="number" name="port" min="1" max="65535" required></label>
+			<label>Encryption<select class="form-select" name="security"><option value="tls">STARTTLS</option><option value="ssl">TLS</option><option value="">None</option></select></label>
+			<label>Username<input class="form-control" name="username" autocomplete="off"><small>Leave blank if the SMTP server does not require authentication.</small></label>
+			<label>Password<input class="form-control" type="password" name="password" autocomplete="new-password"><small data-smtp-password-help></small></label>
+			<label>Sender email address<input class="form-control" type="email" name="fromAddress" required><small>Use an address allowed by your mail provider. The display name is set in White Label Options.</small></label>
+			</fieldset><p data-smtp-feedback aria-live="polite"></p>
+			<div class="toolbar"><button class="button" type="submit">Save outgoing email</button></div>`;
+		for (const [name, fieldValue] of Object.entries({
+			enabled: String(Boolean(smtp.enabled ?? smtp.configured)),
+			host: smtp.host || '',
+			port: smtp.port || 587,
+			security: smtp.security ?? 'tls',
+			username: smtp.username || '',
+			fromAddress: smtp.fromAddress || '',
+		}))
+			smtpForm.elements[name].value = fieldValue;
+		smtpForm.querySelector('[data-smtp-password-help]').textContent = smtp.passwordConfigured
+			? 'A password is saved. Leave blank to keep it.'
+			: 'No password is saved.';
+		const syncSmtp = () => {
+			const fields = smtpForm.querySelector('[data-smtp-fields]');
+			fields.hidden = smtpForm.elements.enabled.value !== 'true';
+			fields.disabled = fields.hidden;
+		};
+		smtpForm.elements.enabled.onchange = syncSmtp;
+		syncSmtp();
+		smtpForm.onsubmit = async (event) => {
+			event.preventDefault();
+			const button = smtpForm.querySelector('[type=submit]');
+			const feedback = smtpForm.querySelector('[data-smtp-feedback]');
+			button.disabled = true;
+			feedback.textContent = '';
+			try {
+				const fields = Object.fromEntries(new FormData(smtpForm));
+				const smtp = { ...fields, enabled: fields.enabled === 'true' };
+				if (!smtp.password) delete smtp.password;
+				await request('smtp-settings', 'POST', { smtp });
+				smtpForm.elements.password.value = '';
+				feedback.textContent =
+					'Outgoing email settings saved. Use Test SMTP below to check delivery.';
+			} catch (cause) {
+				feedback.textContent = cause.message;
+			} finally {
+				button.disabled = false;
+			}
+		};
 		const heading = document.createElement('h2');
 		heading.textContent = 'Support delivery settings';
 		const form = document.createElement('form');
@@ -98,7 +154,7 @@ export async function initSupportSettings({ request, error }) {
 			run(event.currentTarget, () => test('test-smtp'), 'SMTP accepted the test message.');
 		form.querySelector('[data-test-imap]').onclick = (event) =>
 			run(event.currentTarget, () => test('test-imap'), 'IMAP mailbox connection succeeded.');
-		mount.append(heading, form);
+		mount.append(smtpHeading, smtpForm, heading, form);
 	};
 	const test = async (action) => request(action, 'POST', {});
 	const load = async () => {
