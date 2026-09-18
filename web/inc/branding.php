@@ -163,7 +163,13 @@ function branding_asset_url(string $kind): string {
 		throw new InvalidArgumentException("Unknown branding asset.");
 	}
 	if ($config[$kind] !== "") {
-		return "/branding/asset.php?kind=" . rawurlencode($kind);
+		$url = "/branding/asset.php?kind=" . rawurlencode($kind);
+		$asset = CEASAR_BRANDING_ASSET_DIR . "/" . basename($config[$kind]);
+		$revision = is_file($asset) ? hash_file("sha256", $asset) : false;
+		if (is_string($revision)) {
+			return $url . "&v=" . rawurlencode($revision);
+		}
+		return $url;
 	}
 	return match ($kind) {
 		"favicon" => "/images/favicon.png",

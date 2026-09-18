@@ -44,6 +44,16 @@ branding_test_assert(
 	str_contains(branding_accent_style(), "--iharc-blue: #123456"),
 	"Brand accent does not override customer colors.",
 );
+$asset = CEASAR_BRANDING_ASSET_DIR . "/header_logo.svg";
+file_put_contents($asset, '<svg xmlns="http://www.w3.org/2000/svg"/>');
+branding_save(["header_logo" => "header_logo.svg"]);
+$firstAssetUrl = branding_asset_url("header_logo");
+file_put_contents($asset, '<svg xmlns="http://www.w3.org/2000/svg"><rect width="1" height="1"/></svg>');
+$secondAssetUrl = branding_asset_url("header_logo");
+branding_test_assert(
+	$firstAssetUrl !== $secondAssetUrl && str_contains($secondAssetUrl, "&v="),
+	"Replacing a branding asset must change its cacheable URL.",
+);
 branding_reset_asset("header_logo");
 branding_test_assert(
 	branding_config()["header_logo"] === "",
