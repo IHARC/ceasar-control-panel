@@ -1,0 +1,4 @@
+#!/bin/bash
+# Process durable support notifications. Suitable for a systemd timer or cron.
+set -euo pipefail
+exec /usr/local/ceasar/php/bin/php /usr/local/ceasar/libexec/support-worker.php deliver "${1:-25}"

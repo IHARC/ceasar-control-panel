@@ -1,0 +1,14 @@
+<link rel="stylesheet" href="/css/support.css?<?= JS_LATEST_UPDATE ?>">
+<main class="container support-workspace" data-support-workspace data-csrf="<?= tohtml($_SESSION['token'] ?? '') ?>">
+<header class="support-heading"><div><h1>Support</h1><p>Conversations with your support team.</p></div><button class="button" data-support-new hidden>New ticket</button></header>
+<div class="inline-alert inline-alert-danger" role="alert" data-support-error hidden><p></p></div>
+<form class="support-filters" data-support-filters>
+<label>Search<input type="search" data-support-query placeholder="Subject or ticket number"></label>
+<label>Status<select data-support-status><option value="">All statuses</option><option value="open">Open</option><option value="waiting_staff">Waiting on staff</option><option value="waiting_customer">Waiting on customer</option><option value="resolved">Resolved</option><option value="closed">Closed</option></select></label>
+<label data-support-staff>Priority<select data-support-priority><option value="">All priorities</option><option value="urgent">Urgent</option><option value="high">High</option><option value="normal">Normal</option><option value="low">Low</option></select></label>
+<label data-support-staff>Assigned to<select data-support-assignee><option value="">Anyone</option></select></label>
+<label class="support-check" data-support-staff><input type="checkbox" data-support-unread> Unread only</label><button class="button button-secondary" data-support-search>Search</button>
+</form>
+<div class="support-workspace-grid"><aside class="support-inbox" aria-label="Tickets"><div class="support-inbox-heading"><h2>Tickets</h2><span data-support-count></span></div><div data-support-tickets><p class="support-empty">Loading tickets…</p></div><button class="button button-secondary" type="button" data-support-more hidden>Load more</button></aside><section class="support-detail" data-support-detail aria-label="Conversation"><p class="support-empty">Choose a ticket to read the conversation.</p></section></div>
+<div class="support-operations" data-support-staff><details><summary>Email delivery</summary><div class="support-operation-body"><p data-support-settings>Loading mail configuration…</p><div data-support-settings-editor></div><div data-support-outbox>Loading delivery activity…</div></div></details><details><summary>Unmatched email</summary><div class="support-operation-body"><p>Review messages that could not be matched to an existing ticket.</p><div data-support-intake>Loading messages…</div></div></details><details><summary>Rejected email attachments</summary><div class="support-operation-body"><p>Rejected files were not added to the conversation. The original email remains in the support mailbox.</p><div data-support-rejections></div></div></details></div>
+</main><script type="module" src="/js/dist/support.min.js?<?= JS_LATEST_UPDATE ?>"></script>

@@ -9,5 +9,5 @@ require $_SERVER["CEASAR"] . "/web/templates/includes/js.php";
 ?>
 </head>
 
-<body class="page-<?= strtolower($TAB) ?> lang-<?= $_SESSION["language"] ?>">
+<body class="page-<?= strtolower($TAB) ?> lang-<?= $_SESSION["language"] ?>" style="<?= branding_accent_style() ?>">
 	<div class="app">

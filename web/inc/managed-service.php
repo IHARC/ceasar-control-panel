@@ -31,11 +31,6 @@ function managed_service_text(mixed $value): string {
 	}
 }
 
-function managed_service_character_length(string $value): int {
-	$characters = preg_match_all("/./us", $value);
-	return $characters === false ? -1 : $characters;
-}
-
 function managed_service_authorized_session(): bool {
 	$user = $_SESSION["user"] ?? null;
 	return managed_service_enabled() &&
@@ -62,7 +57,6 @@ function managed_service_section(mixed $value): ?string {
 		"nodes",
 		"reservations",
 		"jobs",
-		"support",
 		"audit",
 		"billing",
 		"trials",
@@ -105,43 +99,7 @@ function managed_service_form_request(array $input): array {
 		];
 	}
 
-	$recordId = managed_service_uuid($input["record_id"] ?? null);
-	if ($section !== "support" || $recordId === null) {
-		throw new RuntimeException(_("Select a valid support case."));
-	}
-	if ($operation === "support_reply") {
-		$message = $input["message"] ?? null;
-		if (!is_string($message) || !($message = trim($message))) {
-			throw new RuntimeException(_("Enter a message of up to 10,000 characters."));
-		}
-		$length = managed_service_character_length($message);
-		if ($length < 1 || $length > 10000) {
-			throw new RuntimeException(_("Enter a message of up to 10,000 characters."));
-		}
-		return [
-			"operation" => $operation,
-			"section" => $section,
-			"record_id" => $recordId,
-			"idempotency_key" => managed_service_idempotency_key($input),
-			"payload" => ["message" => $message],
-		];
-	}
-	$statuses = ["open", "waiting_on_customer", "waiting_on_staff", "resolved", "closed"];
-	$status = $input["status"] ?? null;
-	if (
-		$operation !== "support_status" ||
-		!is_string($status) ||
-		!in_array($status, $statuses, true)
-	) {
-		throw new RuntimeException(_("Choose a valid support status."));
-	}
-	return [
-		"operation" => $operation,
-		"section" => $section,
-		"record_id" => $recordId,
-		"idempotency_key" => managed_service_idempotency_key($input),
-		"payload" => ["status" => $status],
-	];
+	throw new RuntimeException(_("The managed-service request is invalid."));
 }
 
 function managed_service_read_request(array $input): array {

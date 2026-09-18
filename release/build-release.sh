@@ -2,11 +2,11 @@
 
 set -euo pipefail
 
-version='1.0.21'
+version='1.0.22'
 commit=''
 deb_dir=''
 output_dir=''
-release_base_url='https://github.com/IHARC/ceasar-control-panel/releases/download/v1.0.21'
+release_base_url='https://github.com/IHARC/ceasar-control-panel/releases/download/v1.0.22'
 
 while [ "$#" -gt 0 ]; do
 	case "$1" in

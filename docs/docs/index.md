@@ -33,6 +33,7 @@
 - [OS upgrades](/docs/server-administration/os-upgrades)
 - [Rest API](/docs/server-administration/rest-api)
 - [SSL certificates](/docs/server-administration/ssl-certificates)
+- [Support desk and branding](/docs/server-administration/support)
 - [Web templates & caching](/docs/server-administration/web-templates)
 - [Troubleshooting](/docs/server-administration/troubleshooting)
 

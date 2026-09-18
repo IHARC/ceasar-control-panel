@@ -70,17 +70,17 @@ import pathlib
 import sys
 
 profile = json.loads(pathlib.Path(sys.argv[1]).read_text(encoding="utf-8"))
-profile["customer"].update(logo_url="/images/iharc-labs-primary.svg", support_url="https://iharclabs.ca/contact", password_min_length=6)
+profile["customer"].update(password_min_length=6)
 directory = pathlib.Path(sys.argv[2])
-(directory / "customer-branding.json").write_text(json.dumps(profile), encoding="utf-8")
-for field, value in [("password_min_length", True), ("logo_url", "http://example.com/logo.svg"), ("support_url", "javascript:alert(1)")]:
+(directory / "customer-password.json").write_text(json.dumps(profile), encoding="utf-8")
+for field, value in [("password_min_length", True), ("brand_name", "Legacy Brand"), ("support_url", "https://example.com/support")]:
     invalid = json.loads(json.dumps(profile))
     invalid["customer"][field] = value
     (directory / f"customer-invalid-{field}.json").write_text(json.dumps(invalid), encoding="utf-8")
 PY
-run_installer "$tmp_dir/noble" amd64 --managed-profile "$tmp_dir/customer-branding.json" \
+run_installer "$tmp_dir/noble" amd64 --managed-profile "$tmp_dir/customer-password.json" \
 	| grep -Fq 'Ceasar platform validation passed: Ubuntu 24.04 amd64.'
-for field in password_min_length logo_url support_url; do
+for field in password_min_length brand_name support_url; do
 	expect_failure "customer.$field" \
 		run_installer "$tmp_dir/noble" amd64 --managed-profile "$tmp_dir/customer-invalid-$field.json"
 done

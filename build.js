@@ -35,6 +35,14 @@ async function buildJS() {
 				minify: true,
 				sourcemap: true,
 			}),
+			esbuild.build({
+				entryPoints: ['./web/js/src/support.js'],
+				outfile: './web/js/dist/support.min.js',
+				bundle: true,
+				format: 'esm',
+				minify: true,
+				sourcemap: true,
+			}),
 		]);
 		console.log('✅ JavaScript build completed for', inputPath);
 	} catch (error) {

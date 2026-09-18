@@ -14,11 +14,8 @@
 	"customer": {
 		"schema": 1,
 		"enabled": true,
-		"brand_name": "Example",
 		"supabase_url": "https://example.supabase.co",
 		"supabase_publishable_key": "sb_publishable_replace_me",
-		"terms_url": "https://example.com/terms",
-		"privacy_url": "https://example.com/privacy",
 		"passkeys_enabled": true,
 		"passkey_rp_id": "app.example.com",
 		"login_url": "https://app.example.com/customer/login",

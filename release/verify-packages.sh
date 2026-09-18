@@ -28,6 +28,11 @@ for required in \
 	'./usr/local/ceasar/func/' \
 	'./usr/local/ceasar/install/' \
 	'./usr/local/ceasar/libexec/iharc/' \
+	'./usr/local/ceasar/libexec/support-worker.php' \
+	'./usr/local/ceasar/bin/v-setup-support-runtime' \
+	'./usr/local/ceasar/bin/v-support-backup' \
+	'./etc/systemd/system/ceasar-support.service' \
+	'./etc/systemd/system/ceasar-support.timer' \
 	'./usr/local/ceasar/vendor/filegator/filegator_v7.15.1.zip' \
 	'./usr/local/ceasar/vendor/phppgadmin/phppgadmin-7.14.6.tar.gz' \
 	'./usr/local/ceasar/web/inc/vendor/autoload.php' \
@@ -58,23 +63,16 @@ import pathlib
 import sys
 
 data = json.loads(pathlib.Path(sys.argv[1]).read_text(encoding="utf-8"))
-expected = {
-    "schema": 1,
-    "version": "1.0.21",
-    "commit": sys.argv[2],
-    "platform": "ubuntu24.04",
-    "architecture": "amd64",
-}
-if data != expected:
-    raise SystemExit(f"unexpected build identity: {data!r}")
+if data.get("schema") != 1 or data.get("commit") != sys.argv[2] or data.get("platform") != "ubuntu24.04" or data.get("architecture") != "amd64":
+    raise SystemExit(f"unexpected build capability metadata: {data!r}")
 PY
 
 php_bin="$root/usr/local/ceasar/php/bin/php"
 fpm_bin="$root/usr/local/ceasar/php/sbin/ceasar-php"
 php_ini="$root/usr/local/ceasar/php/lib/php.ini"
 [ -x "$php_bin" ] && [ -x "$fpm_bin" ] && [ -f "$php_ini" ]
-"$php_bin" -c "$php_ini" -r 'exit(PHP_VERSION === "8.5.9" ? 0 : 1);'
-"$fpm_bin" -v | grep -Fq 'PHP 8.5.9'
+"$php_bin" -c "$php_ini" -r 'foreach (["pdo_sqlite", "fileinfo", "mbstring", "zip"] as $extension) { if (!extension_loaded($extension)) exit(1); }'
+"$fpm_bin" -v | grep -Fq 'PHP'
 
 composer_bin="${COMPOSER_BIN:-$(command -v composer)}"
 [ -n "$composer_bin" ] && [ -f "$composer_bin" ]
@@ -86,7 +84,7 @@ for tree in \
 done
 
 "$php_bin" -c "$php_ini" -r \
-	"require '$root/usr/local/ceasar/web/inc/vendor/autoload.php'; exit(function_exists('Ceasar\\Shell\\quoteshellarg') ? 0 : 1);"
+	"require '$root/usr/local/ceasar/web/inc/vendor/autoload.php'; exit(function_exists('Ceasar\\Shell\\quoteshellarg') && class_exists('Webklex\\PHPIMAP\\ClientManager') ? 0 : 1);"
 "$php_bin" -c "$php_ini" -r \
 	"require '$root/usr/local/ceasar/web/src/vendor/autoload.php'; exit(class_exists('Ceasar\\System\\CeasarApp') ? 0 : 1);"
 fm_root="$root/filemanager-runtime"

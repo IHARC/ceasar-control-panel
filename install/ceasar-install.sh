@@ -41,7 +41,7 @@ profile_customer_enabled='no'
 profile_managed_services='no'
 
 # Define software versions
-CEASAR_INSTALL_VER='1.0.21'
+CEASAR_INSTALL_VER='1.0.22'
 
 # Build the full Ceasar version
 # Split base version from an optional channel suffix (~alpha / ~beta).
@@ -61,7 +61,7 @@ case "$os" in
 		exit 1
 		;;
 esac
-# Final package version, for example 1.0.21-1+ubuntu24.04.
+# Final package version, for example 1.0.22-1+ubuntu24.04.
 CEASAR_INSTALL_BUILD="${CEASAR_BASE_VER}-1+${os_id}${CEASAR_CHANNEL}"
 
 # Supported PHP versions
@@ -161,13 +161,13 @@ validate_platform() {
 	local platform_id
 	platform_id="$(awk -F= '$1 == "ID" { gsub(/\"/, "", $2); print $2 }' "$OS_RELEASE_FILE")"
 	if [ "$platform_id" != 'ubuntu' ] || [ "$release" != '24.04' ]; then
-		check_result 1 "Ceasar 1.0.21 supports only Ubuntu 24.04 LTS."
+		check_result 1 "Ceasar 1.0.22 supports only Ubuntu 24.04 LTS."
 	fi
 	if [ "$architecture" != 'x86_64' ] && [ "$architecture" != 'amd64' ]; then
-		check_result 1 "Ceasar 1.0.21 supports only amd64 systems."
+		check_result 1 "Ceasar 1.0.22 supports only amd64 systems."
 	fi
 	if [ -n "$codename" ] && [ "$codename" != 'noble' ]; then
-		check_result 1 "Ceasar 1.0.21 requires the Ubuntu noble package repositories."
+		check_result 1 "Ceasar 1.0.22 requires the Ubuntu noble package repositories."
 	fi
 	codename='noble'
 }
@@ -366,35 +366,26 @@ if not isinstance(customer, dict) or not isinstance(customer.get("enabled", Fals
 customer_enabled = customer.get("enabled", False)
 if customer_enabled:
     required = {
-        "schema", "enabled", "brand_name", "supabase_url", "supabase_publishable_key",
-        "terms_url", "privacy_url", "passkeys_enabled", "passkey_rp_id",
+        "schema", "enabled", "supabase_url", "supabase_publishable_key",
+        "passkeys_enabled", "passkey_rp_id",
         "login_url", "callback_url", "account_url", "worker_api_base",
     }
-    optional = {"logo_url", "support_url", "password_min_length"}
-    if not required.issubset(customer) or set(customer) - required - optional or customer.get("schema") != 1:
+    optional = {"password_min_length"}
+    unexpected = set(customer) - required - optional
+    if unexpected:
+        raise SystemExit(f"customer.{sorted(unexpected)[0]} is not supported; configure presentation in White Label Options")
+    if not required.issubset(customer) or customer.get("schema") != 1:
         raise SystemExit("enabled customer profile fields do not match schema 1")
-    if not isinstance(customer["brand_name"], str) or not customer["brand_name"].strip():
-        raise SystemExit("customer.brand_name is required")
     supabase = https_url(customer["supabase_url"], "supabase_url")
     if not supabase.hostname.endswith(".supabase.co"):
         raise SystemExit("customer.supabase_url must be a Supabase project URL")
     key = customer["supabase_publishable_key"]
     if not isinstance(key, str) or not key.startswith("sb_publishable_"):
         raise SystemExit("customer.supabase_publishable_key must be a browser publishable key")
-    https_url(customer["terms_url"], "terms_url")
-    https_url(customer["privacy_url"], "privacy_url")
     minimum = customer.get("password_min_length", 6)
     if type(minimum) is not int or not 6 <= minimum <= 128:
         raise SystemExit("customer.password_min_length must be an integer between 6 and 128")
-    logo = customer.get("logo_url", "/images/logo-header.svg")
-    if not isinstance(logo, str):
-        raise SystemExit("customer.logo_url must be a string")
-    if not re.fullmatch(r"/images/[A-Za-z0-9][A-Za-z0-9._/-]*", logo):
-        https_url(logo, "logo_url")
-    support = customer.get("support_url", "")
-    if support != "":
-        https_url(support, "support_url")
-    customer.update(password_min_length=minimum, logo_url=logo, support_url=support)
+    customer["password_min_length"] = minimum
     login = https_url(customer["login_url"], "login_url", "/customer/login")
     callback = https_url(customer["callback_url"], "callback_url", "/auth/callback")
     account = https_url(customer["account_url"], "account_url", "/customer/account")
@@ -1649,6 +1640,9 @@ chmod -R 750 $CEASAR/data/queue
 chmod 660 /var/log/ceasar/*
 chmod 770 $CEASAR/data/sessions
 
+# Persistent support and branding state must survive later package upgrades.
+$CEASAR/bin/v-setup-support-runtime
+
 # Generating Ceasar configuration
 rm -f $CEASAR/conf/ceasar.conf > /dev/null 2>&1
 touch $CEASAR/conf/ceasar.conf
@@ -2632,6 +2626,7 @@ fi
 
 echo "[ * ] Configuring PHP dependencies..."
 $CEASAR/bin/v-add-sys-dependencies quiet
+$CEASAR/bin/v-setup-support-runtime
 
 echo "[ * ] Backup tools are managed by APT."
 

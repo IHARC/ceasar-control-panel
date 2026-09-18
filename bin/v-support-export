@@ -1,0 +1,3 @@
+#!/bin/bash
+set -euo pipefail
+exec /usr/local/ceasar/php/bin/php /usr/local/ceasar/libexec/support-archive.php export

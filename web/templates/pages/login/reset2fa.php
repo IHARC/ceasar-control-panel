@@ -1,6 +1,6 @@
 <div class="login">
 	<a href="/" class="u-block u-mb40">
-		<img src="/images/logo.svg" alt="<?= tohtml($_SESSION["APP_NAME"]) ?>" width="100" height="120">
+		<img src="<?= tohtml(branding_asset_url("logo")) ?>" alt="<?= tohtml(branding_name()) ?>" class="branding-login-logo">
 	</a>
 	<?php if ($success) { ?>
 		<div>

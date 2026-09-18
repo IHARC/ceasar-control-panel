@@ -1,67 +1,9 @@
 #!/bin/bash
-# info: update white label logo's
-# options: [DOWNLOAD]
-#
-# example: v-update-white-label-logo
-#
-# Replace Ceasar logos with User created logo's
+# info: migrate legacy white-label files into the upgrade-safe branding store
+# options: none
 
-#----------------------------------------------------------#
-#                Variables & Functions                     #
-#----------------------------------------------------------#
-
-# Argument definition
-download=${1-no}
-reset=${2-no}
-
-# Includes
-# shellcheck source=/etc/ceasar/ceasar.conf
 source /etc/ceasar/ceasar.conf
-# shellcheck source=/usr/local/ceasar/func/main.sh
-source "$CEASAR/func/main.sh"
-# load config file
-source_conf "$CEASAR/conf/ceasar.conf"
 
-#----------------------------------------------------------#
-#                       Action                             #
-#----------------------------------------------------------#
-
-if [ "$reset" = "yes" ]; then
-	rm -rf "$CEASAR/web/images/custom/"
-fi
-
-if [ -f "$CEASAR/web/images/custom/logo.svg" ]; then
-	cp -f "$CEASAR/web/images/custom/logo.svg" "$CEASAR/web/images/logo.svg"
-elif [ ! -f "$CEASAR/web/images/custom/logo.svg" ] && [ "$download" = "yes" ]; then
-	download_file "https://raw.githubusercontent.com/IHARC/ceasar-control-panel/release/web/images/logo.svg" "$CEASAR/web/images/logo.svg"
-fi
-
-if [ -f "$CEASAR/web/images/custom/logo.png" ]; then
-	cp -f "$CEASAR/web/images/custom/logo.png" "$CEASAR/web/images/logo.png"
-elif [ ! -f "$CEASAR/web/images/custom/logo.png" ] && [ "$download" = "yes" ]; then
-	download_file "https://raw.githubusercontent.com/IHARC/ceasar-control-panel/release/web/images/logo.png" "$CEASAR/web/images/logo.png"
-fi
-
-if [ -f "$CEASAR/web/images/custom/logo-header.svg" ]; then
-	cp -f "$CEASAR/web/images/custom/logo-header.svg" "$CEASAR/web/images/logo-header.svg"
-elif [ ! -f "$CEASAR/web/images/custom/logo-header.svg" ] && [ "$download" = "yes" ]; then
-	download_file "https://raw.githubusercontent.com/IHARC/ceasar-control-panel/release/web/images/logo-header.svg" "$CEASAR/web/images/logo-header.svg"
-fi
-
-if [ -f "$CEASAR/web/images/custom/favicon.png" ]; then
-	cp -f "$CEASAR/web/images/custom/favicon.png" "$CEASAR/web/images/favicon.png"
-elif [ ! -f "$CEASAR/web/images/custom/favicon.png" ] && [ "$download" = "yes" ]; then
-	download_file "https://raw.githubusercontent.com/IHARC/ceasar-control-panel/release/web/images/favicon.png" "$CEASAR/web/images/favicon.png"
-fi
-
-if [ -f "$CEASAR/web/images/custom/favicon.ico" ]; then
-	cp -f "$CEASAR/web/images/custom/favicon.ico" "$CEASAR/web/favicon.ico"
-elif [ ! -f "$CEASAR/web/images/custom/favicon.ico" ] && [ "$download" = "yes" ]; then
-	download_file "https://raw.githubusercontent.com/IHARC/ceasar-control-panel/release/web/favicon.ico" "$CEASAR/web/favicon.ico"
-fi
-
-#----------------------------------------------------------#
-#                       Ceasar                             #
-#----------------------------------------------------------#
-
-exit
+# The old command copied user files over package-managed images. New installs
+# keep assets in $CEASAR/data/branding and serve them through the panel.
+"$CEASAR/php/bin/php" -r 'require "/usr/local/ceasar/web/inc/branding.php"; branding_migrate_legacy();'

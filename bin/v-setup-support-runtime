@@ -1,0 +1,17 @@
+#!/bin/bash
+# Prepare persistent support and branding paths on new installs and upgrades.
+set -euo pipefail
+
+CEASAR=/usr/local/ceasar
+install -d -o ceasarweb -g ceasarweb -m 0700 /var/lib/ceasar/support
+install -d -o ceasarweb -g ceasarweb -m 0700 /var/lib/ceasar/support/attachments
+install -d -o ceasarweb -g ceasarweb -m 0750 "$CEASAR/data/branding"
+if [[ ! -e "$CEASAR/conf/support.json" ]]; then
+	install -o root -g ceasarweb -m 0640 /dev/null "$CEASAR/conf/support.json"
+	echo '{}' > "$CEASAR/conf/support.json"
+	chown root:ceasarweb "$CEASAR/conf/support.json"
+	chmod 0640 "$CEASAR/conf/support.json"
+fi
+systemctl daemon-reload >/dev/null 2>&1 || true
+systemctl enable ceasar-support.timer >/dev/null 2>&1 || true
+systemctl start ceasar-support.timer >/dev/null 2>&1 || true

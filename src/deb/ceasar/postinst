@@ -2,7 +2,17 @@
 
 set -e
 
-if [ "$1" != "configure" ] || [ ! -e "/usr/local/ceasar/data/users/" ]; then
+if [ "$1" != "configure" ]; then
+	exit 0
+fi
+
+# This must run before the legacy-user guard: a fresh package install needs
+# persistent paths even though the installer creates its first account later.
+if getent group ceasarweb > /dev/null && [ -x "/usr/local/ceasar/bin/v-setup-support-runtime" ]; then
+	/usr/local/ceasar/bin/v-setup-support-runtime
+fi
+
+if [ ! -e "/usr/local/ceasar/data/users/" ]; then
 	exit 0
 fi
 
@@ -58,6 +68,8 @@ if [[ "$refreshed_ssl_force" == "yes" ]]; then
 fi
 
 systemctl daemon-reload
+systemctl enable ceasar-support.timer > /dev/null 2>&1 || true
+systemctl start ceasar-support.timer > /dev/null 2>&1 || true
 systemctl try-restart ceasar.service > /dev/null 2>&1 || true
 
 if [ -x "/etc/ceasar/hooks/post_install.sh" ]; then

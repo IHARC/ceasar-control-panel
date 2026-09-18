@@ -1,0 +1,18 @@
+[Unit]
+Description=Ceasar support delivery and inbound mail worker
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+User=ceasarweb
+Group=ceasarweb
+WorkingDirectory=/usr/local/ceasar/web/inc
+ExecStart=/usr/local/ceasar/bin/v-support-deliver 25
+ExecStart=/usr/local/ceasar/bin/v-support-import-mail
+# The native configuration reader uses Ceasar's existing narrowly-scoped sudo
+# helper.  Do not block that helper for this unprivileged service account.
+NoNewPrivileges=false
+PrivateTmp=true
+ProtectHome=true
+ReadWritePaths=/var/lib/ceasar/support

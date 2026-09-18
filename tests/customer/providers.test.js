@@ -221,7 +221,7 @@ describe('CustomerBusinessBackend', () => {
 			requestId: 'setup-1',
 			checkoutUrl: 'https://checkout.stripe.com/session',
 		});
-		await backend.supportCases('account-1');
+		await backend.supportCases();
 		await backend.supportCase('case-1');
 		await backend.createAccount('Example account', 'request-0');
 		await expect(
@@ -264,15 +264,15 @@ describe('CustomerBusinessBackend', () => {
 			'/api/provider/v1/customer/accounts/account-1/state',
 			'/api/provider/v1/customer/services/service-1/state',
 			'/api/provider/v1/customer/accounts/account-1/setups/setup-1/checkout',
-			'/api/provider/v1/customer/support?accountId=account-1',
-			'/api/provider/v1/customer/support/case-1',
+			'/api/support/v1/tickets/?page=1&perPage=25',
+			'/api/support/v1/tickets/?id=case-1',
 			'/api/provider/v1/customer/accounts',
 			'/api/provider/v1/customer/admissions/trial',
 			'/api/provider/v1/customer/billing/checkout-sessions',
 			'/api/provider/v1/customer/migrations/service-1/confirm',
-			'/api/provider/v1/customer/support',
-			'/api/provider/v1/customer/support/case-1/replies',
-			'/api/provider/v1/customer/support/case-1/close',
+			'/api/support/v1/tickets/',
+			'/api/support/v1/tickets/',
+			'/api/support/v1/tickets/',
 		]);
 		expect(JSON.parse(fetcher.mock.calls[6][1].body)).toEqual({
 			accountId: 'account-1',
@@ -291,11 +291,103 @@ describe('CustomerBusinessBackend', () => {
 			idempotencyKey: 'request-3',
 		});
 		expect(JSON.parse(fetcher.mock.calls[9][1].body)).toEqual({
+			action: 'create',
 			accountId: 'account-1',
 			subject: 'Help',
-			message: 'Please help',
+			body: 'Please help',
 			idempotencyKey: 'request-4',
+			requestId: 'request-4',
 		});
+		expect(JSON.parse(fetcher.mock.calls[10][1].body)).toEqual({
+			action: 'reply',
+			id: 'case-1',
+			body: 'Thanks',
+			idempotencyKey: 'request-5',
+			requestId: 'request-5',
+		});
+		expect(fetcher.mock.calls[9][1].headers).toMatchObject({
+			Authorization: 'Bearer customer-token',
+			'Idempotency-Key': 'request-4',
+		});
+		expect(fetcher.mock.calls[10][1].headers['Idempotency-Key']).toBe('request-5');
+	});
+
+	it('uses authenticated attachment downloads and stable request keys for customer mutations', async () => {
+		const identity = { session: vi.fn().mockResolvedValue({ access_token: 'customer-token' }) };
+		const fetcher = vi.fn().mockResolvedValueOnce(
+			new Response('attachment', {
+				status: 200,
+				headers: { 'content-type': 'application/octet-stream' },
+			}),
+		);
+		const backend = new CustomerBusinessBackend(identity, config.workerApiBase, fetcher);
+		await expect(backend.downloadSupportAttachment({ id: 'attachment-1' })).resolves.toBeInstanceOf(
+			Blob,
+		);
+		expect(fetcher).toHaveBeenCalledWith(
+			'/api/support/v1/attachment/?attachmentId=attachment-1',
+			expect.objectContaining({
+				headers: { Authorization: 'Bearer customer-token' },
+			}),
+		);
+	});
+
+	it('reuses a per-file attachment key when a reply upload is retried', async () => {
+		const identity = { session: vi.fn().mockResolvedValue({ access_token: 'customer-token' }) };
+		const fetcher = vi.fn(() =>
+			Promise.resolve(
+				new Response(JSON.stringify({ data: { id: 'attachment-1' } }), {
+					headers: { 'content-type': 'application/json' },
+				}),
+			),
+		);
+		const backend = new CustomerBusinessBackend(identity, config.workerApiBase, fetcher);
+		const files = [new File(['first'], 'first.txt'), new File(['second'], 'second.txt')];
+		await backend.uploadSupportAttachments('ticket-1', 'message-1', files, 'reply-key');
+		await backend.uploadSupportAttachments('ticket-1', 'message-1', files, 'reply-key');
+		expect(fetcher.mock.calls.map(([, options]) => options.headers['Idempotency-Key'])).toEqual([
+			'reply-key:attachment:0',
+			'reply-key:attachment:1',
+			'reply-key:attachment:0',
+			'reply-key:attachment:1',
+		]);
+	});
+
+	it('requests later support pages so customers can reach more than 25 tickets', async () => {
+		const identity = { session: vi.fn().mockResolvedValue({ access_token: 'customer-token' }) };
+		const fetcher = vi.fn().mockResolvedValue(
+			new Response(JSON.stringify({ data: { tickets: [], page: 2, perPage: 25, total: 26 } }), {
+				headers: { 'content-type': 'application/json' },
+			}),
+		);
+		const backend = new CustomerBusinessBackend(identity, config.workerApiBase, fetcher);
+		await backend.supportCases({ page: 2, search: 'invoice' });
+		expect(fetcher).toHaveBeenCalledWith(
+			'/api/support/v1/tickets/?page=2&perPage=25&query=invoice',
+			expect.objectContaining({
+				headers: expect.objectContaining({ Authorization: 'Bearer customer-token' }),
+			}),
+		);
+	});
+
+	it('requests older support conversation pages with the opaque message cursor', async () => {
+		const identity = { session: vi.fn().mockResolvedValue({ access_token: 'customer-token' }) };
+		const fetcher = vi.fn().mockResolvedValue(
+			new Response(
+				JSON.stringify({ data: { id: 'ticket-1', messages: [], hasMoreMessages: false } }),
+				{
+					headers: { 'content-type': 'application/json' },
+				},
+			),
+		);
+		const backend = new CustomerBusinessBackend(identity, config.workerApiBase, fetcher);
+		await backend.supportCase('ticket-1', { before: 'message-50' });
+		expect(fetcher).toHaveBeenCalledWith(
+			'/api/support/v1/tickets/?id=ticket-1&before=message-50',
+			expect.objectContaining({
+				headers: expect.objectContaining({ Authorization: 'Bearer customer-token' }),
+			}),
+		);
 	});
 
 	it('maps customer API codes to actionable copy without showing internal codes', async () => {

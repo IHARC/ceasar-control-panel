@@ -130,6 +130,14 @@
 	margin-right: 30px;
 }
 
+.top-bar-logo-image {
+	display: block;
+	max-width: 180px;
+	max-height: 36px;
+	width: auto;
+	height: auto;
+}
+
 .top-bar-usage {
 	display: none;
 
@@ -2209,9 +2217,7 @@
 
 .page-login,
 .page-reset {
-	background:
-		radial-gradient(circle, rgb(102 158 231 / 100%) 0%, rgb(43 86 177 / 100%) 100%),
-		rgb(102 158 231);
+	background: var(--branding-accent, #2b56b1);
 
 	& .debug-panel {
 		display: none;
@@ -2682,4 +2688,28 @@
 	padding: 20px;
 	max-height: 300px;
 	overflow: auto;
+}
+.branding-login-logo {
+	display: block;
+	width: auto;
+	height: auto;
+	max-width: min(240px, 100%);
+	max-height: 120px;
+	object-fit: contain;
+}
+.page-login:not([data-customer-page]) > .app,
+.page-reset > .app {
+	height: auto;
+	min-height: calc(100dvh - 40px);
+}
+.auth-attribution {
+	box-sizing: border-box;
+	height: 40px;
+	padding: 10px;
+	border: 0;
+	text-align: center;
+}
+.auth-attribution a {
+	color: #fff;
+	font-size: 12px;
 }

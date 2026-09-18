@@ -16,6 +16,7 @@ try {
 	echo $errstr;
 	exit(1);
 }
+require_once __DIR__ . "/mail-transport.php";
 
 define("CEASAR_DIR_BIN", "/usr/local/ceasar/bin/");
 define("CEASAR_CMD", "/usr/bin/sudo /usr/local/ceasar/bin/");
@@ -24,6 +25,7 @@ define("DEFAULT_PHP_VERSION", "php-" . exec('php -r "echo substr(phpversion(),0,
 // Load Ceasar Config directly
 load_ceasar_config();
 require_once dirname(__FILE__) . "/prevent_csrf.php";
+require_once dirname(__FILE__) . "/branding.php";
 require_once dirname(__FILE__) . "/helpers.php";
 $root_directory = dirname(__FILE__) . "/../../";
 
@@ -457,42 +459,27 @@ function get_percentage($used, $total) {
 	return $percent;
 }
 
-function send_email($to, $subject, $mailtext, $from, $from_name, $to_name = "") {
-	$mail = new PHPMailer();
-
-	if (isset($_SESSION["USE_SERVER_SMTP"]) && $_SESSION["USE_SERVER_SMTP"] == "true") {
-		if (!empty($_SESSION["SERVER_SMTP_ADDR"]) && $_SESSION["SERVER_SMTP_ADDR"] != "") {
-			if (filter_var($_SESSION["SERVER_SMTP_ADDR"], FILTER_VALIDATE_EMAIL)) {
-				$from = $_SESSION["SERVER_SMTP_ADDR"];
-			}
-		}
-
-		$mail->IsSMTP();
-		$mail->Mailer = "smtp";
-		$mail->SMTPDebug = 0;
-		$mail->SMTPAuth = true;
-		$mail->SMTPSecure = $_SESSION["SERVER_SMTP_SECURITY"];
-		$mail->Port = $_SESSION["SERVER_SMTP_PORT"];
-		$mail->Host = $_SESSION["SERVER_SMTP_HOST"];
-		$mail->Username = $_SESSION["SERVER_SMTP_USER"];
-		$mail->Password = $_SESSION["SERVER_SMTP_PASSWD"];
-	}
-
-	$mail->IsHTML(true);
-	$mail->ClearReplyTos();
-	if (empty($to_name)) {
-		$mail->AddAddress($to);
-	} else {
-		$mail->AddAddress($to, $to_name);
-	}
-	$mail->SetFrom($from, $from_name);
-
-	$mail->CharSet = "utf-8";
-	$mail->Subject = $subject;
-	$content = $mailtext;
-	$content = nl2br($content);
-	$mail->MsgHTML($content);
-	$mail->Send();
+function send_email(
+	$to,
+	$subject,
+	$mailtext,
+	$from,
+	$from_name,
+	$to_name = "",
+	$reply_to = "",
+	$headers = [],
+) {
+	return ceasar_send_email(
+		$to,
+		$subject,
+		$mailtext,
+		$from,
+		$from_name,
+		$to_name,
+		$reply_to,
+		$headers,
+		$_SESSION,
+	);
 }
 
 function list_timezones() {

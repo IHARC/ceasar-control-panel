@@ -1,5 +1,6 @@
-<link rel="alternate icon" href="/images/favicon.png" type="image/png">
-<link rel="icon" href="/images/logo.svg" type="image/svg+xml">
+<?php require_once $_SERVER["CEASAR"] . "/web/inc/branding.php"; ?>
+<link rel="alternate icon" href="<?= tohtml(branding_asset_url("favicon")) ?>" type="image/png">
+<link rel="icon" href="<?= tohtml(branding_asset_url("favicon")) ?>">
 <link rel="stylesheet" href="/css/themes/default.min.css?<?= JS_LATEST_UPDATE ?>">
 
 <?php
@@ -23,3 +24,4 @@ if ($selected_theme !== "default") {
 }
 
 ?>
+<style>:root { <?= branding_accent_style() ?> }</style>

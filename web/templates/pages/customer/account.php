@@ -89,15 +89,21 @@
 	<div class="customer-support-layout">
 		<section class="customer-section">
 			<h2>Your cases</h2>
+			<form class="customer-form customer-support-search" data-support-search>
+				<label class="customer-form-label" for="support-search">Find a case</label>
+				<div class="customer-actions"><input class="form-control" id="support-search" name="search" type="search" maxlength="160" autocomplete="off"><button class="button button-secondary" type="submit">Search</button></div>
+			</form>
 			<div class="customer-case-list" data-support-case-list><p class="customer-empty">Loading support cases…</p></div>
-			<div class="customer-actions"><button class="button button-secondary" type="button" data-support-retry hidden>Retry cases</button></div>
+			<div class="customer-actions"><button class="button button-secondary" type="button" data-support-next hidden>More cases</button><button class="button button-secondary" type="button" data-support-retry hidden>Retry cases</button></div>
 		</section>
 		<section class="customer-section">
 			<div data-support-case-detail><p class="customer-empty">Choose a case to read the conversation.</p></div>
+			<p><button class="button button-secondary" type="button" data-support-earlier hidden>Load earlier messages</button></p>
 			<div class="customer-message-list" data-support-message-list></div>
 			<form class="customer-form" data-account-action="support-reply" data-support-reply-form hidden>
 				<div class="customer-form-field"><label class="customer-form-label" for="support-reply">Reply</label><textarea class="form-control" id="support-reply" name="message" maxlength="10000" required></textarea></div>
-				<div class="customer-actions"><button class="button" type="submit">Send reply</button><button class="button button-secondary" type="button" data-support-close>Close case</button></div>
+				<div class="customer-form-field"><label class="customer-form-label" for="support-reply-attachments">Attachments</label><input id="support-reply-attachments" name="attachments" type="file" multiple><p class="customer-form-help">Files are checked before they are added to the conversation.</p></div>
+				<div class="customer-actions"><button class="button" type="submit">Send reply</button><button class="button button-secondary" type="button" data-support-close>Close case</button><button class="button button-secondary" type="button" data-support-reopen hidden>Reopen case</button></div>
 			</form>
 		</section>
 	</div>
@@ -106,6 +112,7 @@
 		<form class="customer-form" data-account-action="support-open">
 			<div class="customer-form-field"><label class="customer-form-label" for="support-subject">Subject</label><input class="form-control" id="support-subject" name="subject" maxlength="240" required></div>
 			<div class="customer-form-field"><label class="customer-form-label" for="support-message">How can we help?</label><textarea class="form-control" id="support-message" name="message" maxlength="10000" required></textarea></div>
+			<div class="customer-form-field"><label class="customer-form-label" for="support-attachments">Attachments</label><input id="support-attachments" name="attachments" type="file" multiple><p class="customer-form-help">Files are checked before they are added to the case.</p></div>
 			<button class="button" type="submit">Open case</button>
 		</form>
 	</section>

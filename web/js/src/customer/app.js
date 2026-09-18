@@ -6,8 +6,11 @@ const configNode = document.querySelector('#customer-config');
 const submissionKeys = createRequestKeys();
 if (configNode) {
 	const config = JSON.parse(configNode.textContent);
-	const identity = new SupabaseIdentityProvider(config);
-	const backend = new CustomerBusinessBackend(identity, config.workerApiBase);
+	// The local visual fixture supplies these implementations before this module
+	// loads. Normal installations never set this value and use Supabase.
+	const preview = globalThis.__CEASAR_CUSTOMER_PREVIEW__;
+	const identity = preview?.identity || new SupabaseIdentityProvider(config);
+	const backend = preview?.backend || new CustomerBusinessBackend(identity, config.workerApiBase);
 	boot(config, identity, backend).catch(showError);
 }
 
@@ -148,6 +151,10 @@ async function bindAccount(config, identity, backend) {
 		accountId: '',
 		serviceId: '',
 		supportCaseId: '',
+		supportPage: 1,
+		supportHasMore: false,
+		supportSearch: '',
+		supportDetail: null,
 		userId: '',
 		state: emptyState(),
 		setupPlanCode: setupSelection.planCode,
@@ -182,8 +189,23 @@ async function bindAccount(config, identity, backend) {
 	} finally {
 		await loadPasskeys(identity, config);
 	}
-	if (!context.initialStateUnavailable) await loadSupport(backend, context);
+	await loadSupport(backend, context);
+	await openSupportTicketFromUrl(backend, context);
 	renderCurrentView(context, false);
+}
+
+async function openSupportTicketFromUrl(backend, context) {
+	const ticketId = new URL(location.href).searchParams.get('ticket') || '';
+	if (!/^(?:[a-f0-9]{32}|[a-f0-9]{8}(?:-[a-f0-9]{4}){3}-[a-f0-9]{12})$/i.test(ticketId)) return;
+	const token = ++context.supportDetailRequestToken;
+	try {
+		context.supportCaseId = ticketId;
+		const detail = await backend.supportCase(ticketId);
+		if (token === context.supportDetailRequestToken && context.supportCaseId === ticketId)
+			setSupportDetail(detail, context);
+	} catch (error) {
+		if (token === context.supportDetailRequestToken) showError(error);
+	}
 }
 
 function bindNavigation(context) {
@@ -260,6 +282,24 @@ export function bindAccountControls(config, identity, backend, context) {
 			control.disabled = false;
 		}
 	});
+	document.querySelector('[data-support-search]')?.addEventListener('submit', async (event) => {
+		event.preventDefault();
+		context.supportPage = 1;
+		context.supportSearch = String(new FormData(event.currentTarget).get('search') || '').trim();
+		await loadSupport(backend, context);
+	});
+	document.querySelector('[data-support-next]')?.addEventListener('click', async (event) => {
+		if (!context.supportHasMore) return;
+		event.currentTarget.disabled = true;
+		try {
+			context.supportPage += 1;
+			await loadSupport(backend, context);
+		} catch (error) {
+			showError(error);
+		} finally {
+			event.currentTarget.disabled = false;
+		}
+	});
 	document.querySelector('[data-setup-status]')?.addEventListener('click', async (event) => {
 		const view = event.target.closest('[data-view-service]');
 		if (view) {
@@ -324,6 +364,7 @@ export function bindAccountControls(config, identity, backend, context) {
 		const token = ++context.supportDetailRequestToken;
 		try {
 			context.supportCaseId = caseId;
+			context.supportDetail = null;
 			renderSupportDetail({}, context);
 			const detail = await backend.supportCase(caseId);
 			if (
@@ -332,7 +373,8 @@ export function bindAccountControls(config, identity, backend, context) {
 				caseId !== context.supportCaseId
 			)
 				return;
-			renderSupportDetail(detail, context);
+			setSupportDetail(detail, context);
+			focusSupportDetail();
 		} catch (error) {
 			if (
 				token === context.supportDetailRequestToken &&
@@ -340,6 +382,26 @@ export function bindAccountControls(config, identity, backend, context) {
 				caseId === context.supportCaseId
 			)
 				showError(error);
+		}
+	});
+
+	document.querySelector('[data-support-earlier]')?.addEventListener('click', async (event) => {
+		const control = event.currentTarget;
+		const current = context.supportDetail;
+		const before = current?.supportCase?.nextBefore;
+		const caseId = context.supportCaseId;
+		if (!caseId || !before) return;
+		const token = ++context.supportDetailRequestToken;
+		try {
+			control.disabled = true;
+			const older = await backend.supportCase(caseId, { before });
+			if (token !== context.supportDetailRequestToken || caseId !== context.supportCaseId) return;
+			setSupportDetail(mergeSupportDetail(current, older), context);
+		} catch (error) {
+			if (token === context.supportDetailRequestToken && caseId === context.supportCaseId)
+				showError(error);
+		} finally {
+			if (token === context.supportDetailRequestToken) control.disabled = false;
 		}
 	});
 
@@ -363,6 +425,27 @@ export function bindAccountControls(config, identity, backend, context) {
 			}
 		}
 	});
+	document.querySelector('[data-support-reopen]')?.addEventListener('click', async (event) => {
+		const control = event.currentTarget;
+		const submission = actionScope('support-reopen', context);
+		try {
+			control.disabled = true;
+			await backend.reopenSupportCase(
+				required(context.supportCaseId),
+				submissionKeys.current(control),
+			);
+			submissionKeys.clear(control);
+			if (!actionScopeIsCurrent(context, submission)) return;
+			showNotice('Support case reopened.', 'success');
+			const detail = await backend.supportCase(context.supportCaseId);
+			setSupportDetail(detail, context);
+			await loadSupport(backend, context);
+		} catch (error) {
+			if (actionScopeIsCurrent(context, submission)) showError(error);
+		} finally {
+			if (actionScopeIsCurrent(context, submission)) control.disabled = false;
+		}
+	});
 
 	for (const form of document.querySelectorAll('[data-account-action]')) {
 		let formSubmissionToken = 0;
@@ -373,7 +456,9 @@ export function bindAccountControls(config, identity, backend, context) {
 			event.preventDefault();
 			clearNotice();
 			const action = form.dataset.accountAction;
-			const data = Object.fromEntries(new FormData(form));
+			const formData = new FormData(form);
+			const data = Object.fromEntries(formData);
+			if (formData.has('attachments')) data.attachments = formData.getAll('attachments');
 			prepareFormRequest(form, data, context);
 			const requestScope = form.dataset.requestKey;
 			const submission = actionScope(action, context);
@@ -390,9 +475,20 @@ export function bindAccountControls(config, identity, backend, context) {
 					backend,
 					submission,
 				);
-				if (!result?.retainKey && action !== 'hosting-setup')
+				const preserveKeyUntilAttachmentsUpload =
+					['support-open', 'support-reply'].includes(action) && data.attachments?.length > 0;
+				if (!result?.retainKey && action !== 'hosting-setup' && !preserveKeyUntilAttachmentsUpload)
 					submissionKeys.clear(form, requestScope);
 				if (result?.stale || !actionScopeIsCurrent(context, submission)) return;
+				if (result?.supportTicket && data.attachments?.length) {
+					await uploadSupportAttachments(
+						backend,
+						result.supportTicket,
+						data.attachments,
+						submissionKeys.current(form),
+					);
+					submissionKeys.clear(form, requestScope);
+				}
 				if (result?.message) showNotice(result.message, 'success');
 				if (action === 'support-open') {
 					form.reset();
@@ -404,7 +500,7 @@ export function bindAccountControls(config, identity, backend, context) {
 					form.reset();
 					if (context.supportCaseId) {
 						const detail = await backend.supportCase(context.supportCaseId);
-						if (actionScopeIsCurrent(context, submission)) renderSupportDetail(detail, context);
+						if (actionScopeIsCurrent(context, submission)) setSupportDetail(detail, context);
 					}
 				} else if (
 					!['profile', 'email-change', 'password-change', 'billing-portal'].includes(action)
@@ -559,21 +655,21 @@ export async function accountAction(action, data, context, config, identity, bac
 		return { message: 'Import completion recorded.' };
 	}
 	if (action === 'support-open') {
-		await backend.openSupportCase({
+		const ticket = await backend.openSupportCase({
 			accountId,
 			subject: required(data.subject),
 			message: required(data.message),
 			idempotencyKey: required(data.idempotency_key),
 		});
-		return { message: 'Support case opened.' };
+		return { message: 'Support case opened.', supportTicket: ticket };
 	}
 	if (action === 'support-reply') {
-		await backend.replyToSupportCase(
+		const ticket = await backend.replyToSupportCase(
 			required(context.supportCaseId),
 			required(data.message),
 			required(data.idempotency_key),
 		);
-		return { message: 'Reply sent.' };
+		return { message: 'Reply sent.', supportTicket: ticket };
 	}
 	if (action === 'billing-portal') {
 		const portalUrl = await backend.billingPortal(accountId);
@@ -612,6 +708,7 @@ async function selectCustomerAccount(backend, context, accountId) {
 	context.accountId = accountId;
 	context.serviceId = '';
 	context.supportCaseId = '';
+	context.supportDetail = null;
 	context.serviceRequestToken += 1;
 	context.supportDetailRequestToken += 1;
 	context.supportRequestToken += 1;
@@ -732,26 +829,25 @@ async function loadSupport(
 	accountId = context.accountId,
 	accountToken = context.accountRequestToken,
 ) {
-	if (!accountId) {
-		if (accountToken === context.accountRequestToken) renderSupportCases([], context);
-		return;
-	}
 	const token = ++context.supportRequestToken;
 	try {
-		const result = await backend.supportCases(accountId);
-		if (
-			token !== context.supportRequestToken ||
-			accountToken !== context.accountRequestToken ||
-			accountId !== context.accountId ||
-			result.accountId !== accountId
-		)
+		const result = await backend.supportCases({
+			page: context.supportPage,
+			search: context.supportSearch,
+		});
+		if (token !== context.supportRequestToken || accountToken !== context.accountRequestToken)
 			return;
+		context.supportHasMore = Boolean(
+			result.hasMore ||
+			result.nextPage ||
+			(result.page && result.totalPages && result.page < result.totalPages),
+		);
 		renderSupportCases(result.cases || [], context);
 	} catch (error) {
 		if (
 			token !== context.supportRequestToken ||
 			accountToken !== context.accountRequestToken ||
-			accountId !== context.accountId
+			accountToken !== context.accountRequestToken
 		)
 			return;
 		renderSupportFailure(error, context);
@@ -1305,6 +1401,7 @@ function renderSupportCases(cases, context) {
 		);
 		target.append(button);
 	}
+	document.querySelector('[data-support-next]')?.toggleAttribute('hidden', !context.supportHasMore);
 }
 
 function renderSupportFailure(_error, context) {
@@ -1325,6 +1422,7 @@ export function renderSupportDetail(state, context) {
 	const detail = document.querySelector('[data-support-case-detail]');
 	const messages = document.querySelector('[data-support-message-list]');
 	const reply = document.querySelector('[data-support-reply-form]');
+	const earlier = document.querySelector('[data-support-earlier]');
 	if (!detail || !messages || !reply) return;
 	detail.replaceChildren();
 	messages.replaceChildren();
@@ -1334,8 +1432,10 @@ export function renderSupportDetail(state, context) {
 			element('p', { className: 'customer-empty' }, 'Choose a case to read the conversation.'),
 		);
 		reply.hidden = true;
+		if (earlier) earlier.hidden = true;
 		return;
 	}
+	if (earlier) earlier.hidden = !supportCase.hasMoreMessages;
 	detail.append(
 		element('h2', {}, supportCase.subject || 'Support case'),
 		statusNode(supportCase.status),
@@ -1347,16 +1447,97 @@ export function renderSupportDetail(state, context) {
 			element(
 				'p',
 				{ className: 'customer-message-meta' },
-				`${message.author === 'customer' ? 'You' : `${context.config?.brandName || 'Support'} support`} · ${formatDate(message.createdAt)}`,
+				`${supportAuthor(message, context)} · ${formatDate(message.createdAt)}`,
 			),
 			element('p', { className: 'customer-message-copy' }, message.message || ''),
 		);
+		if (message.attachments?.length) {
+			const files = element('p', { className: 'customer-message-attachments' });
+			for (const attachment of message.attachments) {
+				const link = element(
+					'button',
+					{ type: 'button', className: 'button button-secondary' },
+					attachment.filename || 'Download attachment',
+				);
+				link.onclick = async () => {
+					link.disabled = true;
+					try {
+						const blob = await context.backend.downloadSupportAttachment(attachment);
+						const url = URL.createObjectURL(blob);
+						const download = document.createElement('a');
+						download.href = url;
+						download.download = attachment.filename || 'attachment';
+						download.click();
+						setTimeout(() => URL.revokeObjectURL(url), 1000);
+					} catch (cause) {
+						showError(cause);
+					} finally {
+						link.disabled = false;
+					}
+				};
+				files.append(link, document.createTextNode(' '));
+			}
+			item.append(files);
+		}
 		messages.append(item);
 	}
+	const permitted = supportCase.permittedActions || {};
 	const closed = String(supportCase.status || '').toLowerCase() === 'closed';
-	reply.hidden = closed;
-	for (const control of reply.querySelectorAll('textarea, button')) control.disabled = closed;
+	const canReply = permitted.reply !== false && !closed;
+	reply.hidden = !canReply;
+	for (const control of reply.querySelectorAll('textarea, button')) control.disabled = !canReply;
+	const reopen = document.querySelector('[data-support-reopen]');
+	if (reopen) reopen.hidden = !(closed && permitted.reopen !== false);
 	restoreFormDraft(reply, 'support-reply', context);
+}
+
+function setSupportDetail(detail, context) {
+	context.supportDetail = detail;
+	renderSupportDetail(detail, context);
+}
+
+function focusSupportDetail() {
+	const detail = document.querySelector('[data-support-case-detail]');
+	if (!detail) return;
+	detail.scrollIntoView?.({ block: 'start', behavior: 'smooth' });
+	const heading = detail.querySelector('h2');
+	if (heading instanceof HTMLElement) {
+		heading.tabIndex = -1;
+		heading.focus({ preventScroll: true });
+	}
+}
+
+function mergeSupportDetail(current, older) {
+	const byId = new Map();
+	for (const message of [...(older.messages || []), ...(current.messages || [])]) {
+		byId.set(message.id, message);
+	}
+	return {
+		...current,
+		supportCase: { ...current.supportCase, ...older.supportCase },
+		messages: [...byId.values()].sort((left, right) =>
+			String(left.createdAt).localeCompare(String(right.createdAt)),
+		),
+	};
+}
+
+function supportAuthor(message, context) {
+	if (message.authorName)
+		return `${message.authorName} · ${message.authorRole === 'staff' ? 'Support' : 'Customer'}`;
+	if (message.author === 'customer') return 'You';
+	if (message.authorRole === 'customer') return 'Customer';
+	if (message.authorRole === 'staff' || message.author === 'support')
+		return `${context.config?.brandName || 'Support'} support`;
+	return 'Participant';
+}
+
+async function uploadSupportAttachments(backend, ticket, attachments, idempotencyKey) {
+	const files = attachments.filter((file) => file instanceof File && file.size > 0);
+	if (!files.length) return;
+	const messageId = ticket.messages?.at(-1)?.id;
+	if (!ticket.id || !messageId)
+		throw new Error('Your message was saved, but its attachments could not be added.');
+	await backend.uploadSupportAttachments(ticket.id, messageId, files, idempotencyKey);
 }
 
 function startSetupPolling(context) {

@@ -1,6 +1,6 @@
 <div class="login">
 	<a href="/" class="u-block u-mb40">
-		<img src="/images/logo.svg" alt="Ceasar" width="100" height="120">
+		<img src="<?= htmlspecialchars(branding_asset_url('logo'), ENT_QUOTES) ?>" alt="<?= htmlspecialchars(branding_name(), ENT_QUOTES) ?>" width="100" height="120">
 	</a>
 	<div>
 		<h1 class="login-title">Customer access unavailable</h1>

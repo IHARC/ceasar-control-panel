@@ -5,24 +5,17 @@ $TAB = "SERVER";
 
 // Main include
 include $_SERVER["DOCUMENT_ROOT"] . "/inc/main.php";
+require_once $_SERVER["DOCUMENT_ROOT"] . "/inc/branding.php";
 
 // Check user
 if ($_SESSION["userContext"] != "admin") {
 	header("Location: /list/user");
 	exit();
 }
+branding_migrate_legacy();
 
 if (!empty($_POST)) {
 	verify_csrf($_POST);
-	if (!empty($_POST["v_app_name"]) && $_SESSION["APP_NAME"] != $_POST["v_app_name"]) {
-		exec(
-			CEASAR_CMD .
-				"v-change-sys-config-value APP_NAME " .
-				quoteshellarg($_POST["v_app_name"]),
-			$output,
-			$return_var,
-		);
-	}
 	if (!empty($_POST["v_title"]) && $_SESSION["TITLE"] != $_POST["v_title"]) {
 		exec(
 			CEASAR_CMD . "v-change-sys-config-value TITLE " . quoteshellarg($_POST["v_title"]),
@@ -52,15 +45,6 @@ if (!empty($_POST)) {
 		);
 	}
 
-	if (!empty($_POST["v_from_name"]) && $_SESSION["FROM_NAME"] != $_POST["v_from_name"]) {
-		exec(
-			CEASAR_CMD .
-				"v-change-sys-config-value FROM_NAME " .
-				quoteshellarg($_POST["v_from_name"]),
-			$output,
-			$return_var,
-		);
-	}
 	if (!empty($_POST["v_from_email"]) && $_SESSION["FROM_EMAIL"] != $_POST["v_from_email"]) {
 		exec(
 			CEASAR_CMD .
@@ -79,11 +63,33 @@ if (!empty($_POST)) {
 			$return_var,
 		);
 	}
-	if (!empty($_POST["v_update_logo"])) {
-		exec(CEASAR_CMD . "v-update-white-label-logo");
-	}
-	if (!empty($_POST["v_reset_logo"])) {
-		exec(CEASAR_CMD . "v-update-white-label-logo yes yes");
+	try {
+		$branding = branding_save([
+			"name" => trim((string) ($_POST["v_app_name"] ?? $_SESSION["APP_NAME"])),
+			"accent_color" => branding_validate_color(
+				(string) ($_POST["v_accent_color"] ?? "#5b5bd6"),
+			),
+			"legal_url" => branding_validate_url((string) ($_POST["v_legal_url"] ?? "")),
+			"privacy_url" => branding_validate_url((string) ($_POST["v_privacy_url"] ?? "")),
+			"support_url" => branding_validate_url((string) ($_POST["v_support_url"] ?? "")),
+			"sender_name" => trim((string) ($_POST["v_from_name"] ?? "")),
+		]);
+		foreach (["logo", "header_logo", "favicon"] as $kind) {
+			if (!empty($_POST["v_reset_" . $kind])) {
+				branding_reset_asset($kind);
+				$branding[$kind] = "";
+			}
+			if (isset($_FILES["v_" . $kind])) {
+				$asset = branding_store_upload($kind, $_FILES["v_" . $kind]);
+				if ($asset !== "") {
+					$branding[$kind] = $asset;
+				}
+			}
+		}
+		branding_save($branding);
+		$_SESSION["ok_msg"] = _("Branding settings saved.");
+	} catch (Throwable $exception) {
+		$_SESSION["error_msg"] = $exception->getMessage();
 	}
 }
 
@@ -98,9 +104,10 @@ foreach ($sys_arr as $key => $value) {
 }
 
 $v_title = $_SESSION["TITLE"];
-$v_app_name = $_SESSION["APP_NAME"];
+$branding = branding_config();
+$v_app_name = $branding["name"];
 $v_hide_docs = $_SESSION["HIDE_DOCS"];
-$v_from_name = $_SESSION["FROM_NAME"];
+$v_from_name = $branding["sender_name"];
 $v_from_email = $_SESSION["FROM_EMAIL"];
 $v_subject_email = $_SESSION["SUBJECT_EMAIL"];
 // Render page

@@ -6,6 +6,8 @@ const original = {
 	FormData: globalThis.FormData,
 	Node: globalThis.Node,
 	Event: globalThis.Event,
+	File: globalThis.File,
+	localStorage: globalThis.localStorage,
 };
 
 afterEach(() => {
@@ -13,20 +15,31 @@ afterEach(() => {
 });
 
 async function recoveryForm() {
-	const dom = new JSDOM(`
+	const dom = new JSDOM(
+		`
 		<div data-customer-notice data-customer-callback-status>Checking your confirmation link…</div>
 		<form class="u-hidden" data-customer-recovery>
 			<input name="password"><input name="password_confirm">
 		</form>
-	`);
+	`,
+		{ url: 'https://customer.example.test/' },
+	);
 	globalThis.document = dom.window.document;
 	globalThis.FormData = dom.window.FormData;
 	globalThis.Node = dom.window.Node;
 	globalThis.Event = dom.window.Event;
-	const { accountAction, bindRecovery, renderSupportDetail, syncMigrationSiteType } =
-		await import('../../web/js/src/customer/app.js');
+	globalThis.File = dom.window.File;
+	globalThis.localStorage = dom.window.localStorage;
+	const {
+		accountAction,
+		bindAccountControls,
+		bindRecovery,
+		renderSupportDetail,
+		syncMigrationSiteType,
+	} = await import('../../web/js/src/customer/app.js');
 	return {
 		accountAction,
+		bindAccountControls,
 		bindRecovery,
 		renderSupportDetail,
 		syncMigrationSiteType,
@@ -228,6 +241,154 @@ describe('customer recovery form', () => {
 		)) {
 			expect(document.querySelector('[data-support-reply-form]').hidden).toBe(true);
 		}
+	});
+
+	it('shows participant roles accurately and lets a customer reply to a resolved case', async () => {
+		const { renderSupportDetail } = await recoveryForm();
+		document.body.innerHTML =
+			'<form data-support-reply-form><textarea></textarea><button type="submit">Send</button></form><button data-support-reopen hidden></button><div data-support-case-detail></div><div data-support-message-list></div>';
+		renderSupportDetail(
+			{
+				supportCase: { subject: 'Resolved', status: 'resolved', permittedActions: { reply: true } },
+				messages: [
+					{
+						authorName: 'Morgan',
+						authorRole: 'staff',
+						message: 'Fixed',
+						createdAt: '2030-01-01T00:00:00Z',
+					},
+					{
+						authorName: 'Taylor',
+						authorRole: 'customer',
+						message: 'Thanks',
+						createdAt: '2030-01-01T00:01:00Z',
+					},
+				],
+			},
+			{ config: { brandName: 'Example' } },
+		);
+		expect(document.querySelector('[data-support-message-list]').textContent).toContain('Morgan');
+		expect(document.querySelector('[data-support-message-list]').textContent).toContain('Taylor');
+		expect(document.querySelector('[data-support-reply-form]').hidden).toBe(false);
+	});
+
+	it('loads earlier conversation messages before the latest 50 without changing the selected case', async () => {
+		const { bindAccountControls } = await recoveryForm();
+		document.body.innerHTML = `
+			<div data-customer-notice hidden></div>
+			<div data-support-case-list><button data-support-case-id="ticket-1">Long conversation</button></div>
+			<div data-support-case-detail></div><button data-support-earlier hidden>Load earlier messages</button><div data-support-message-list></div>
+			<form data-support-reply-form><textarea></textarea><button type="submit">Send</button></form><button data-support-reopen hidden></button>
+		`;
+		const message = (number) => ({
+			id: `m${String(number).padStart(2, '0')}`,
+			authorName: 'Support',
+			authorRole: 'staff',
+			message: `Message ${number}`,
+			createdAt: `2030-01-${String(number).padStart(2, '0')}T00:00:00Z`,
+		});
+		const latest = Array.from({ length: 50 }, (_, index) => message(index + 7));
+		const earlier = Array.from({ length: 6 }, (_, index) => message(index + 1));
+		const backend = {
+			supportCase: vi.fn((id, options = {}) =>
+				Promise.resolve({
+					supportCase: {
+						caseId: id,
+						subject: 'Long conversation',
+						status: 'open',
+						permittedActions: { reply: true },
+						hasMoreMessages: !options.before,
+						nextBefore: options.before ? null : 'm07',
+					},
+					messages: options.before ? earlier : latest,
+				}),
+			),
+		};
+		const context = {
+			accountId: 'account-1',
+			accountContextToken: 1,
+			supportDetailRequestToken: 0,
+			config: {},
+		};
+		bindAccountControls({}, {}, backend, context);
+		document.querySelector('[data-support-case-id="ticket-1"]').click();
+		await vi.waitFor(() =>
+			expect(document.querySelectorAll('[data-support-message-list] article')).toHaveLength(50),
+		);
+		expect(document.querySelector('[data-support-earlier]').hidden).toBe(false);
+		document.querySelector('[data-support-earlier]').click();
+		await vi.waitFor(() =>
+			expect(document.querySelectorAll('[data-support-message-list] article')).toHaveLength(56),
+		);
+		expect(backend.supportCase).toHaveBeenLastCalledWith('ticket-1', { before: 'm07' });
+		expect(document.querySelector('[data-support-message-list]').textContent).toContain(
+			'Message 1',
+		);
+		expect(document.querySelector('[data-support-message-list]').textContent).toContain(
+			'Message 56',
+		);
+		expect(context.supportCaseId).toBe('ticket-1');
+		expect(document.querySelector('[data-support-earlier]').hidden).toBe(true);
+	});
+
+	it('keeps a customer reply available when a later attachment upload is rejected', async () => {
+		const { bindAccountControls } = await recoveryForm();
+		document.body.innerHTML = `
+			<div data-customer-notice hidden></div>
+			<form data-account-action="support-reply"><textarea name="message">Please keep this reply</textarea><input name="attachments" type="file" multiple><button type="submit">Send</button></form>
+		`;
+		const form = document.querySelector('[data-account-action="support-reply"]');
+		const file = new File(['unsafe attachment'], 'unsafe.exe', {
+			type: 'application/octet-stream',
+		});
+		globalThis.FormData = class FormDataFixture {
+			constructor(target) {
+				this.values = target
+					? [
+							['message', target.elements.message.value],
+							['attachments', file],
+						]
+					: [];
+			}
+			has(name) {
+				return this.values.some(([key]) => key === name);
+			}
+			getAll(name) {
+				return this.values.filter(([key]) => key === name).map(([, value]) => value);
+			}
+			[Symbol.iterator]() {
+				return this.values[Symbol.iterator]();
+			}
+		};
+		const backend = {
+			replyToSupportCase: vi.fn().mockResolvedValue({
+				id: 'ticket-1',
+				messages: [{ id: 'message-1' }],
+			}),
+			uploadSupportAttachments: vi
+				.fn()
+				.mockRejectedValue(new Error('Attachment type is not allowed.')),
+		};
+		const context = {
+			accountId: 'account-1',
+			supportCaseId: 'ticket-1',
+			accountContextToken: 1,
+			supportRequestToken: 0,
+			config: {},
+		};
+		bindAccountControls({}, {}, backend, context);
+		await submit(form);
+		expect(backend.replyToSupportCase).toHaveBeenCalledOnce();
+		expect(backend.uploadSupportAttachments).toHaveBeenCalledWith(
+			'ticket-1',
+			'message-1',
+			[file],
+			expect.any(String),
+		);
+		expect(form.elements.message.value).toBe('Please keep this reply');
+		expect(document.querySelector('[data-customer-notice]').textContent).toContain(
+			'Attachment type is not allowed.',
+		);
 	});
 
 	it('shows a password mismatch without calling Supabase', async () => {

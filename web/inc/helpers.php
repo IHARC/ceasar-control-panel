@@ -175,6 +175,6 @@ function get_hostname() {
 
 function display_title($tab) {
 	$array1 = ["{{page}}", "{{hostname}}", "{{ip}}", "{{appname}}"];
-	$array2 = [$tab, get_hostname(), $_SERVER["REMOTE_ADDR"], $_SESSION["APP_NAME"]];
+	$array2 = [$tab, get_hostname(), $_SERVER["REMOTE_ADDR"], branding_name()];
 	return str_replace($array1, $array2, $_SESSION["TITLE"]);
 }

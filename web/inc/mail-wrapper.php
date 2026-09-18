@@ -15,6 +15,7 @@ if (!empty($argv[4]) && $argv[4] == "no") {
 define("NO_AUTH_REQUIRED", true);
 
 include "/usr/local/ceasar/web/inc/main.php";
+require_once "/usr/local/ceasar/web/inc/branding.php";
 
 // Set system language
 exec(CEASAR_CMD . "v-list-sys-config json", $output, $return_var);
@@ -29,7 +30,10 @@ if (!empty($data["config"]["LANGUAGE"])) {
 //make hostname detection a bit more feature proof
 $hostname = get_hostname();
 $from = !empty($_SESSION["FROM_EMAIL"]) ? $_SESSION["FROM_EMAIL"] : "noreply@" . $hostname;
-$from_name = !empty($_SESSION["FROM_NAME"]) ? $_SESSION["FROM_NAME"] : $_SESSION["APP_NAME"];
+$from_name =
+	branding_config()["sender_name"] !== ""
+		? branding_config()["sender_name"]
+		: $_SESSION["APP_NAME"];
 $to = $argv[3] . "\n";
 $subject = $argv[2] . "\n";
 $mailtext = file_get_contents("php://stdin");

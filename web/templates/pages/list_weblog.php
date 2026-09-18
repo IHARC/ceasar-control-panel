@@ -16,9 +16,8 @@
 			<div class="top-bar">
 				<div class="container top-bar-inner">
 						<div class="top-bar-left">
-							<?php $logo_header = !empty($_SESSION['LOGO_HEADER']) ? $_SESSION['LOGO_HEADER'] : "/images/logo-header.svg"; ?>
-							<a href="/" class="top-bar-logo" title="<?= tohtml($_SESSION['APP_NAME']) ?>">
-								<img src="<?= tohtml($logo_header) ?>" alt="<?= tohtml($_SESSION['APP_NAME']) ?>" width="54" height="29">
+							<a href="/" class="top-bar-logo" title="<?= tohtml(branding_name()) ?>">
+								<img src="<?= tohtml(branding_asset_url("header_logo")) ?>" alt="<?= tohtml(branding_name()) ?>" width="54" height="29">
 							</a>
 						</div>
 					<div class="top-bar-right">

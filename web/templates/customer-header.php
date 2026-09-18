@@ -5,9 +5,10 @@
 	<meta name="viewport" content="width=device-width, initial-scale=1">
 	<meta name="robots" content="noindex,nofollow">
 	<title><?= htmlspecialchars($title, ENT_QUOTES) ?> · <?= htmlspecialchars((string) $config['brand_name'], ENT_QUOTES) ?></title>
-	<link rel="icon" href="/images/logo.svg" type="image/svg+xml">
+	<link rel="icon" href="<?= htmlspecialchars(branding_asset_url('favicon'), ENT_QUOTES) ?>">
 	<link rel="stylesheet" href="/css/themes/default.min.css">
 	<link rel="stylesheet" href="/css/themes/customer.min.css">
+	<style nonce="<?= htmlspecialchars((string) ($customer_style_nonce ?? ''), ENT_QUOTES) ?>">:root { <?= branding_accent_style() ?> }</style>
 	<script type="module" defer src="/js/dist/customer.min.js"></script>
 </head>
 <?php

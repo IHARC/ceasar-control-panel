@@ -56,7 +56,7 @@
 			<h1 class="server-summary-title"><?= tohtml($sys["sysinfo"]["HOSTNAME"]) ?></h1>
 			<ul class="server-summary-list">
 				<li class="server-summary-item">
-					<span class="server-summary-list-label"><?= tohtml($_SESSION["APP_NAME"]) ?></span>
+					<span class="server-summary-list-label"><?= tohtml(branding_name()) ?></span>
 					<span class="server-summary-list-value">
 						<?php if ($sys["sysinfo"]["RELEASE"] == "release") { ?>
 							<i class="fas fa-cube" title="<?= tohtml( _("Production Release")) ?>"></i>

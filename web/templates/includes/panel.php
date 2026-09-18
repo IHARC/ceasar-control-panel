@@ -9,8 +9,8 @@
 			<div class="top-bar-left">
 
 				<!-- Logo / Home Button -->
-				<a href="/" class="top-bar-logo" title="<?= htmlentities($_SESSION["APP_NAME"]) ?>">
-					<img src="/images/logo-header.svg" alt="<?= htmlentities($_SESSION["APP_NAME"]) ?>" width="54" height="29">
+				<a href="/" class="top-bar-logo" title="<?= tohtml(branding_name()) ?>">
+					<img class="top-bar-logo-image" src="<?= tohtml(branding_asset_url("header_logo")) ?>" alt="<?= tohtml(branding_name()) ?>">
 				</a>
 
 				<!-- Usage Statistics -->
@@ -325,6 +325,11 @@
 						</a>
 					</li>
 				<?php } ?>
+				<li class="main-menu-item">
+					<a class="main-menu-item-link <?php if ($TAB === "SUPPORT") echo "active"; ?>" href="/list/support/">
+						<p class="main-menu-item-label">Support<i class="fas fa-life-ring"></i></p>
+					</a>
+				</li>
 
 				<!-- Web tab -->
 				<?php if (isset($_SESSION["WEB_SYSTEM"]) && !empty($_SESSION["WEB_SYSTEM"])) { ?>

@@ -8,6 +8,8 @@
         "phpmailer/phpmailer": "7.1.1",
         "robthree/twofactorauth": "3.0.3",
         "divinity76/cloudflare-ip-validator": "1.0.0",
-        "symfony/html-sanitizer": "^8.1.1"
+		"symfony/html-sanitizer": "^8.1.1",
+		"webklex/php-imap": "^6.2",
+        "enshrined/svg-sanitize": "^0.22"
     }
 }

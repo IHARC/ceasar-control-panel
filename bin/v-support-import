@@ -1,0 +1,7 @@
+#!/bin/bash
+set -euo pipefail
+if [[ $# -ne 1 || ! -r "$1" ]]; then
+	echo "Usage: v-support-import ARCHIVE.json" >&2
+	exit 2
+fi
+exec /usr/local/ceasar/php/bin/php /usr/local/ceasar/libexec/support-archive.php import "$1"

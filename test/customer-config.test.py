@@ -51,16 +51,11 @@ class CustomerConfigTests(unittest.TestCase):
         return {
             "schema": 1,
             "enabled": True,
-            "brand_name": "IHARC Labs",
             "supabase_url": "https://xissiuxjfilvmfmiowrs.supabase.co",
             "supabase_publishable_key": "sb_publishable_fixture",
-            "terms_url": "https://iharclabs.ca/terms",
-            "privacy_url": "https://iharclabs.ca/privacy",
             "passkeys_enabled": True,
             "passkey_rp_id": "iharclabs.ca",
             "password_min_length": 6,
-            "logo_url": "/images/iharc-labs-primary.svg",
-            "support_url": "https://iharclabs.ca/contact",
             "login_url": "https://app.iharclabs.ca/customer/login",
             "callback_url": "https://login.iharclabs.ca/auth/callback",
             "account_url": "https://app.iharclabs.ca/customer/account",
@@ -76,8 +71,8 @@ class CustomerConfigTests(unittest.TestCase):
         self.assertEqual(public["accountUrl"], "https://app.iharclabs.ca/customer/account")
         self.assertEqual(public["workerApiBase"], "/api/iharc/v1/customer")
         self.assertEqual(public["passwordMinLength"], 6)
-        self.assertEqual(public["logoUrl"], "/images/iharc-labs-primary.svg")
-        self.assertEqual(public["supportUrl"], "https://iharclabs.ca/contact")
+        self.assertEqual(public["brandName"], "Ceasar")
+        self.assertEqual(public["logoUrl"], "/images/logo-header.svg")
 
     def test_customer_configuration_is_the_single_module_gate(self):
         script = r'''

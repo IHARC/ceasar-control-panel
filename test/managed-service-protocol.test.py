@@ -79,7 +79,7 @@ class ManagedServiceProtocol(unittest.TestCase):
             if printf '%s' '{"operation":"set_trial_capacity","section":"trials","idempotency_key":"11111111-1111-4111-8111-111111111111","payload":{"concurrent_limit":"0"}}' | /usr/local/ceasar/bin/v-managed-service admin; then exit 1; fi
             test ! -e /var/lib/managed/request.json
 
-            if printf '%s' '{"operation":"support_reply","section":"support","record_id":"11111111-1111-4111-8111-111111111111","payload":{"message":"hello"}}' | /usr/local/ceasar/bin/v-managed-service admin; then exit 1; fi
+            if printf '%s' '{"operation":"read","section":"support"}' | /usr/local/ceasar/bin/v-managed-service admin; then exit 1; fi
             test ! -e /var/lib/managed/request.json
             '''
         )
@@ -132,13 +132,8 @@ class ManagedServiceProtocol(unittest.TestCase):
             expect($form['payload']['concurrent_limit'] === 42, 'capacity should be a typed integer');
             expect(rejects(fn() => managed_service_form_request(['operation' => 'set_trial_capacity', 'section' => 'trials', 'concurrent_limit' => '4.2', 'idempotency_key' => $id])), 'decimal capacity accepted');
             expect(rejects(fn() => managed_service_form_request(['operation' => 'set_trial_capacity', 'section' => 'trials', 'concurrent_limit' => ['42'], 'idempotency_key' => $id])), 'array capacity accepted');
-            expect(rejects(fn() => managed_service_form_request(['operation' => 'support_reply', 'section' => 'support', 'record_id' => $id, 'message' => 'hello'])), 'missing idempotency accepted');
-            $unicodeMessage = str_repeat('é', 10000);
-            $reply = managed_service_form_request(['operation' => 'support_reply', 'section' => 'support', 'record_id' => $id, 'idempotency_key' => $id, 'message' => $unicodeMessage]);
-            expect($reply['payload']['message'] === $unicodeMessage, 'character-counted support message rejected');
-            expect(rejects(fn() => managed_service_form_request(['operation' => 'support_reply', 'section' => 'support', 'record_id' => $id, 'idempotency_key' => $id, 'message' => str_repeat('é', 10001)])), 'overlong character-counted support message accepted');
-            $read = managed_service_read_request(['section' => 'support', 'record_id' => $id]);
-            expect($read['record_id'] === $id, 'support detail id omitted');
+            expect(rejects(fn() => managed_service_form_request(['operation' => 'support_reply', 'section' => 'support', 'record_id' => $id, 'message' => 'hello'])), 'retired support operation accepted');
+            expect(rejects(fn() => managed_service_read_request(['section' => 'support'])), 'retired support section accepted');
 
             $_SESSION = ['MANAGED_SERVICES' => 'yes', 'userContext' => 'admin', 'user' => 'admin', 'look' => ''];
             expect(managed_service_authorized_session(), 'native admin rejected');
@@ -151,31 +146,18 @@ class ManagedServiceProtocol(unittest.TestCase):
             $_SESSION = ['token' => 'csrf', 'managed_request_id' => $id];
             $notice = '';
             $error = '<img src=x onerror=alert(1)>';
-            $managed_section = 'support';
+            $managed_section = 'overview';
             $result = [
                 'title' => 'Node health',
                 'columns' => [['key' => 'health', 'label' => 'Health']],
                 'rows' => [['health' => ['state' => '<ok>']]],
                 'trial_capacity' => ['running_count' => 2, 'reserved_count' => 3, 'waiting_count' => 4, 'concurrent_limit' => 5],
-                'support_case' => ['id' => $id, 'subject' => 'Case', 'messages' => [['native_actor' => null, 'created_at' => '2026-09-14T00:00:00Z', 'message' => '<reply>']]],
             ];
             ob_start(); include '/usr/local/ceasar/web/templates/pages/list_managed.php'; $html = ob_get_clean();
             expect(strpos($html, '<img src=x') === false && strpos($html, '&lt;img src=x') !== false, 'error not escaped exactly once');
             expect(strpos($html, '{&quot;state&quot;:&quot;&lt;ok&gt;&quot;}') !== false, 'nested row value not safely rendered');
             expect(strpos($html, 'Running: 2') !== false && strpos($html, 'Reserved: 3') !== false && strpos($html, 'Waiting: 4') !== false, 'new trial count keys not rendered');
-            expect(strpos($html, '&lt;reply&gt;') !== false && strpos($html, '2026-09-14T00:00:00Z') !== false, 'support case messages missing');
-            expect(strpos($html, '<strong>Customer</strong>') !== false, 'customer support sender missing');
-
-            $result['support_case']['status'] = 'closed';
-            ob_start(); include '/usr/local/ceasar/web/templates/pages/list_managed.php'; $html = ob_get_clean();
-            expect(strpos($html, 'name="operation" value="support_reply"') === false, 'closed case reply action rendered');
-            expect(strpos($html, 'name="operation" value="support_status"') === false, 'closed case status action rendered');
-
-            $result['support_case'] = null;
-            $result['rows'] = [['id' => $id]];
-            $result['columns'] = [['key' => 'id', 'label' => 'ID']];
-            ob_start(); include '/usr/local/ceasar/web/templates/pages/list_managed.php'; $html = ob_get_clean();
-            expect(strpos($html, 'record_id=' . $id) !== false, 'support detail link missing');
+            expect(strpos($html, 'section=support') === false, 'retired support navigation rendered');
             PHP
             '''
         )

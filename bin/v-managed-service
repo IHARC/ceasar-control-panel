@@ -82,11 +82,10 @@ try {
     if ($raw === false || strlen($raw) > $maxBytes) throw new Exception();
     $data = json_decode($raw, true, 512, JSON_THROW_ON_ERROR);
     if (!is_array($data)) throw new Exception();
-    $sections = ["overview", "customers", "services", "domains", "nodes", "reservations", "jobs", "support", "audit", "billing", "trials"];
-    $statuses = ["open", "waiting_on_customer", "waiting_on_staff", "resolved", "closed"];
+    $sections = ["overview", "customers", "services", "domains", "nodes", "reservations", "jobs", "audit", "billing", "trials"];
     $operation = $data["operation"] ?? null;
     $section = $data["section"] ?? "overview";
-    if (!in_array($operation, ["read", "set_trial_capacity", "support_reply", "support_status"], true) || !in_array($section, $sections, true)) throw new Exception();
+    if (!in_array($operation, ["read", "set_trial_capacity"], true) || !in_array($section, $sections, true)) throw new Exception();
     $canonical = ["actor" => $actor, "operation" => $operation, "section" => $section];
     if ($operation === "read") {
         if (array_key_exists("record_id", $data) && $data["record_id"] !== null) $canonical["record_id"] = request_uuid($data["record_id"]);
@@ -97,20 +96,7 @@ try {
         if ($operation === "set_trial_capacity") {
             if ($section !== "trials" || !has_exact_keys($payload, ["concurrent_limit"]) || !is_int($payload["concurrent_limit"]) || $payload["concurrent_limit"] < 0 || $payload["concurrent_limit"] > 2147483647) throw new Exception();
             $canonical["payload"] = ["concurrent_limit" => $payload["concurrent_limit"]];
-        } else {
-            if ($section !== "support") throw new Exception();
-            $canonical["record_id"] = request_uuid($data["record_id"] ?? null);
-            if ($operation === "support_reply") {
-                if (!has_exact_keys($payload, ["message"]) || !is_string($payload["message"])) throw new Exception();
-                $message = trim($payload["message"]);
-                $characters = preg_match_all("/./us", $message);
-                if ($characters === false || $characters < 1 || $characters > 10000) throw new Exception();
-                $canonical["payload"] = ["message" => $message];
-            } else {
-                if (!has_exact_keys($payload, ["status"]) || !is_string($payload["status"]) || !in_array($payload["status"], $statuses, true)) throw new Exception();
-                $canonical["payload"] = ["status" => $payload["status"]];
-            }
-        }
+        } else throw new Exception();
     }
     echo json_encode($canonical, JSON_THROW_ON_ERROR | JSON_UNESCAPED_SLASHES);
 } catch (Throwable) {

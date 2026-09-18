@@ -136,6 +136,7 @@ export class CustomerBusinessBackend {
 		this.identity = identity;
 		this.apiBase = customerApiBase(apiBase);
 		this.fetch = fetchImplementation;
+		this.supportApiBase = '/api/support/v1';
 	}
 
 	sessionState() {
@@ -158,12 +159,28 @@ export class CustomerBusinessBackend {
 		return { ...result, checkoutUrl: this.#hostedUrl(result.checkoutUrl) };
 	}
 
-	supportCase(caseId) {
-		return this.#request('GET', `/support/${pathId(caseId)}`);
+	supportCase(caseId, { before = '' } = {}) {
+		const query = new URLSearchParams({ id: caseId });
+		if (before) query.set('before', before);
+		return this.#supportRequest('GET', `/tickets/?${query}`).then((ticket) => ({
+			supportCase: supportTicket(ticket),
+			messages: (ticket.messages || [])
+				.filter((message) => message.visibility !== 'internal')
+				.map(supportMessage),
+		}));
 	}
 
-	supportCases(accountId) {
-		return this.#request('GET', `/support?accountId=${pathId(accountId)}`);
+	supportCases(options = {}) {
+		const { page = 1, search = '' } = typeof options === 'object' && options ? options : {};
+		const query = new URLSearchParams();
+		query.set('page', String(page));
+		query.set('perPage', '25');
+		if (search) query.set('query', search);
+		const suffix = query.size ? `?${query}` : '';
+		return this.#supportRequest('GET', `/tickets/${suffix}`).then((result) => {
+			const { tickets, items, ...page } = result;
+			return { ...page, cases: (tickets || items || []).map(supportTicket) };
+		});
 	}
 
 	createAccount(displayName, idempotencyKey) {
@@ -210,25 +227,81 @@ export class CustomerBusinessBackend {
 	}
 
 	openSupportCase({ accountId, subject, message, idempotencyKey }) {
-		return this.#request('POST', '/support', {
+		return this.#supportRequest('POST', '/tickets/', {
+			action: 'create',
 			accountId,
 			subject,
-			message,
+			body: message,
 			idempotencyKey,
 		});
 	}
 
 	replyToSupportCase(caseId, message, idempotencyKey) {
-		return this.#request('POST', `/support/${pathId(caseId)}/replies`, {
-			message,
+		return this.#supportRequest('POST', '/tickets/', {
+			action: 'reply',
+			id: caseId,
+			body: message,
 			idempotencyKey,
 		});
 	}
 
 	closeSupportCase(caseId, idempotencyKey) {
-		return this.#request('POST', `/support/${pathId(caseId)}/close`, {
+		return this.#supportRequest('POST', '/tickets/', {
+			action: 'status',
+			id: caseId,
+			status: 'closed',
 			idempotencyKey,
 		});
+	}
+
+	reopenSupportCase(caseId, idempotencyKey) {
+		return this.#supportRequest('POST', '/tickets/', {
+			action: 'status',
+			id: caseId,
+			status: 'open',
+			idempotencyKey,
+		});
+	}
+
+	async uploadSupportAttachments(caseId, messageId, attachments, idempotencyKey = '') {
+		const session = await this.identity.session();
+		if (!session?.access_token) throw new Error('Sign in to continue.');
+		for (const [index, file] of attachments.entries()) {
+			const requestId = idempotencyKey
+				? `${idempotencyKey}:attachment:${index}`
+				: crypto.randomUUID();
+			const form = new FormData();
+			form.set('action', 'attachment');
+			form.set('id', caseId);
+			form.set('messageId', messageId);
+			form.set('file', file);
+			const response = await this.fetch(`${this.supportApiBase}/attachment/`, {
+				method: 'POST',
+				headers: {
+					Accept: 'application/json',
+					Authorization: `Bearer ${session.access_token}`,
+					'Idempotency-Key': requestId,
+				},
+				body: form,
+				redirect: 'error',
+			});
+			const body = await response.json();
+			if (!response.ok || !body?.data) throw new Error(customerErrorMessage(body?.error));
+		}
+	}
+
+	async downloadSupportAttachment(attachment) {
+		const session = await this.identity.session();
+		if (!session?.access_token) throw new Error('Sign in to continue.');
+		const response = await this.fetch(
+			`${this.supportApiBase}/attachment/?attachmentId=${encodeURIComponent(attachment.id)}`,
+			{
+				headers: { Authorization: `Bearer ${session.access_token}` },
+				redirect: 'error',
+			},
+		);
+		if (!response.ok) throw new Error('This attachment could not be downloaded.');
+		return response.blob();
 	}
 
 	#hostedUrl(value) {
@@ -268,6 +341,53 @@ export class CustomerBusinessBackend {
 		}
 		return body.data;
 	}
+
+	async #supportRequest(method, path, payload) {
+		const session = await this.identity.session();
+		if (!session?.access_token) throw new Error('Sign in to continue.');
+		const options = {
+			method,
+			headers: { Accept: 'application/json', Authorization: `Bearer ${session.access_token}` },
+			redirect: 'error',
+		};
+		if (payload !== undefined) {
+			const requestId = payload.idempotencyKey;
+			options.headers['Content-Type'] = 'application/json';
+			if (requestId) options.headers['Idempotency-Key'] = requestId;
+			options.body = JSON.stringify({
+				...payload,
+				...(requestId ? { requestId } : {}),
+			});
+		}
+		const response = await this.fetch(`${this.supportApiBase}${path}`, options);
+		const contentType = response.headers.get('content-type') || '';
+		if (!contentType.includes('application/json'))
+			throw new Error('Support service returned an invalid response.');
+		const body = await response.json();
+		if (!response.ok) throw new Error(customerErrorMessage(body?.error));
+		if (!Object.hasOwn(body, 'data'))
+			throw new Error('Support service returned an invalid response.');
+		return body.data;
+	}
+}
+
+function supportTicket(ticket) {
+	return {
+		...ticket,
+		caseId: ticket.id,
+		permittedActions: ticket.permissions || {},
+	};
+}
+
+function supportMessage(message) {
+	return {
+		...message,
+		message: message.body || '',
+		createdAt: message.createdAt,
+		authorName: message.author?.displayName || message.author?.email || '',
+		authorRole: message.author?.role || '',
+		attachments: message.attachments || [],
+	};
 }
 
 function customerApiBase(value) {

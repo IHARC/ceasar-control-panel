@@ -1,0 +1,4 @@
+#!/bin/bash
+# Import a configured support mailbox through Webklex PHP-IMAP.
+set -euo pipefail
+exec /usr/local/ceasar/php/bin/php /usr/local/ceasar/libexec/support-worker.php inbound

@@ -24,6 +24,7 @@
 		id="main-form"
 		name="v_configure_server"
 		method="post"
+		enctype="multipart/form-data"
 	>
 		<input type="hidden" name="token" value="<?= tohtml($_SESSION["token"]) ?>">
 		<input type="hidden" name="save" value="save">
@@ -67,7 +68,7 @@
 					</div>
 					<div class="u-mb10">
 						<label for="v_from_name" class="form-label">
-							<?= tohtml( _("Sender Name")) ?><span class="optional">(<?= tohtml( _("Default")) ?>: <?= tohtml(trim($v_app_name, "'")) ?>)</span>
+							<?= tohtml( _("Sender display name")) ?><span class="optional">(<?= tohtml( _("Default")) ?>: <?= tohtml(trim($v_app_name, "'")) ?>)</span>
 						</label>
 						<input
 							type="text"
@@ -79,7 +80,7 @@
 					</div>
 					<div class="u-mb10">
 						<label for="v_from_email" class="form-label">
-							<?= tohtml( _("Sender Email Address")) ?><span class="optional">(<?= tohtml( _("Default")) ?>: <?= tohtml(sprintf("noreply@%s", trim(get_hostname(), "'"))) ?>)</span>
+							<?= tohtml( _("Effective SMTP sender address")) ?><span class="optional">(<?= tohtml( _("Default")) ?>: <?= tohtml(sprintf("noreply@%s", trim(get_hostname(), "'"))) ?>)</span>
 						</label>
 						<input
 							type="email"
@@ -110,6 +111,22 @@
 							<option value="no"><?= tohtml( _("No")) ?></option>
 						</select>
 					</div>
+					<div class="u-mb10">
+						<label for="v_accent_color" class="form-label">Accent color</label>
+						<input type="color" class="form-control" name="v_accent_color" id="v_accent_color" value="<?= tohtml($branding['accent_color']) ?>">
+					</div>
+					<div class="u-mb10">
+						<label for="v_support_url" class="form-label">Support URL</label>
+						<input type="url" class="form-control" name="v_support_url" id="v_support_url" value="<?= tohtml($branding['support_url']) ?>" placeholder="https://support.example.com">
+					</div>
+					<div class="u-mb10">
+						<label for="v_legal_url" class="form-label">Terms URL</label>
+						<input type="url" class="form-control" name="v_legal_url" id="v_legal_url" value="<?= tohtml($branding['legal_url']) ?>" placeholder="https://example.com/terms">
+					</div>
+					<div class="u-mb10">
+						<label for="v_privacy_url" class="form-label">Privacy URL</label>
+						<input type="url" class="form-control" name="v_privacy_url" id="v_privacy_url" value="<?= tohtml($branding['privacy_url']) ?>" placeholder="https://example.com/privacy">
+					</div>
 				</div>
 			</details>
 			<!-- Custom Logo options section -->
@@ -119,33 +136,16 @@
 					<?= tohtml( _("Custom Logo")) ?>
 				</summary>
 				<div class="box-collapse-content">
-					<div class="u-mb10">
-						<label for="v_custom_logo" class="form-label">
-							<?= tohtml( _("Custom Logo")) ?>
-						</label>
-					</div>
-					<div class="u-mb10">
-						<p class="u-mb10"><?= tohtml(sprintf(_("Upload the files to %s"), "/usr/local/ceasar/web/images/custom/")) ?></p>
-						<ul>
-							<li><code>logo.svg</code> <small>(100px x 120px)</small></li>
-							<li><code>logo.png</code> <small>(100px x 120px)</small></li>
-							<li><code>logo-header.svg</code> <small>(54px x 29px)</small></li>
-							<li><code>favicon.png</code> <small>(64px x 64px)</small></li>
-							<li><code>favicon.ico</code> <small>(16px x 16px)</small></li>
-						</ul>
-					</div>
-					<div class="u-mb10">
-						<input type="checkbox" id="v_update_logo" name="v_update_logo" value="yes">
-						<label for="v_update_logo" class="form-label">
-							<?= tohtml( _("Update logo")) ?>
-						</label>
-					</div>
-					<div class="u-mb10">
-						<input type="checkbox" id="v_reset_logo" name="v_reset_logo" value="yes">
-						<label for="v_reset_logo" class="form-label">
-							<?= tohtml( _("Reset Logo")) ?>
-						</label>
-					</div>
+					<p class="u-mb10">Upload PNG, WebP, or a sanitized SVG (maximum 2 MB). Branding assets are retained across Ceasar upgrades.</p>
+					<?php foreach (["logo" => "Login logo", "header_logo" => "Header logo", "favicon" => "Favicon"] as $assetKind => $assetLabel) { ?>
+						<div class="u-mb20">
+							<label for="v_<?= $assetKind ?>" class="form-label"><?= tohtml(_($assetLabel)) ?></label>
+							<?php if ($branding[$assetKind] !== "") { ?><img class="u-block u-mb10" src="<?= tohtml(branding_asset_url($assetKind)) ?>" alt="<?= tohtml(_($assetLabel)) ?> preview" style="max-width: 180px; max-height: 80px"><?php } ?>
+							<input type="file" class="form-control" name="v_<?= $assetKind ?>" id="v_<?= $assetKind ?>" accept="image/png,image/webp,image/svg+xml">
+							<label class="form-check u-mt10"><input type="checkbox" name="v_reset_<?= $assetKind ?>" value="yes"> <?= tohtml(_("Restore default")) ?></label>
+						</div>
+					<?php } ?>
+				</div>
 			</details>
 		</div>
 	</form>
