@@ -533,6 +533,7 @@ button.customer-row:focus-visible .customer-row-title {
 	display: grid;
 	gap: 32px;
 	grid-template-columns: minmax(220px, 0.75fr) minmax(0, 1.5fr);
+	overflow-wrap: anywhere;
 }
 
 .customer-case-list {
