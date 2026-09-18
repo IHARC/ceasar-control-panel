@@ -27,7 +27,7 @@ export async function initSupportSettings({ request, error }) {
 			enabled: String(Boolean(smtp.enabled ?? smtp.configured)),
 			host: smtp.host || '',
 			port: smtp.port || 587,
-			security: smtp.security ?? 'tls',
+			security: smtp.enabled || smtp.configured ? smtp.security || '' : 'tls',
 			username: smtp.username || '',
 			fromAddress: smtp.fromAddress || '',
 		}))

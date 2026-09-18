@@ -229,6 +229,7 @@
 }
 .support-operations {
 	display: grid;
+	align-items: start;
 	grid-template-columns: 1fr 1fr;
 	gap: 18px;
 	margin-top: 24px;
