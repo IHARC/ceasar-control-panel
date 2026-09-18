@@ -42,7 +42,8 @@ function support_config(): array {
 				: ($brand["name"] ?:
 				$config["from_name"]);
 		$config["accent_color"] = $brand["accent_color"];
-		$config["branding_logo"] = $brand["logo"] !== "" ? branding_asset_url("logo") : "";
+		$config["branding_logo"] =
+			$brand["header_logo"] !== "" ? branding_asset_url("header_logo") : "";
 	}
 	return $config;
 }
