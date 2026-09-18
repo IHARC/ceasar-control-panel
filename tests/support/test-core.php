@@ -42,7 +42,7 @@ assert_true(
 );
 $outlookUtf8Body = support_inbound_body(
 	"",
-	'<html><head><meta charset="Windows-1252"></head><body><p>Final reply — Ceasar acceptance · September</p>\r\n\r\n<div>Second line</div></body></html>',
+	"<html><head><meta http-equiv=\"Content-Type\" content=\"text/html; charset=Windows-1252\"></head><body><p>Final reply — Ceasar acceptance · September</p>\r\n\r\n<div>Second line</div></body></html>",
 );
 assert_true(
 	$outlookUtf8Body === "Final reply — Ceasar acceptance · September\n\nSecond line",
