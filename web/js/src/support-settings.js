@@ -18,7 +18,7 @@ export async function initSupportSettings({ request, error }) {
 			<label>Host<input class="form-control" name="host" autocomplete="off" required></label>
 			<label>Port<input class="form-control" type="number" name="port" min="1" max="65535" required></label>
 			<label>Encryption<select class="form-select" name="security"><option value="tls">STARTTLS</option><option value="ssl">TLS</option><option value="">None</option></select></label>
-			<label>Username<input class="form-control" name="username" autocomplete="off"><small>Leave blank if the SMTP server does not require authentication.</small></label>
+			<label>Username<input class="form-control" name="username" autocomplete="off" required></label>
 			<label>Password<input class="form-control" type="password" name="password" autocomplete="new-password"><small data-smtp-password-help></small></label>
 			<label>Sender email address<input class="form-control" type="email" name="fromAddress" required><small>Use an address allowed by your mail provider. The display name is set in White Label Options.</small></label>
 			</fieldset><p data-smtp-feedback aria-live="polite"></p>
