@@ -12,6 +12,6 @@ if [[ ! -e "$CEASAR/conf/support.json" ]]; then
 	chown root:ceasarweb "$CEASAR/conf/support.json"
 	chmod 0640 "$CEASAR/conf/support.json"
 fi
-systemctl daemon-reload >/dev/null 2>&1 || true
-systemctl enable ceasar-support.timer >/dev/null 2>&1 || true
-systemctl start ceasar-support.timer >/dev/null 2>&1 || true
+systemctl daemon-reload > /dev/null 2>&1 || true
+systemctl enable ceasar-support.timer > /dev/null 2>&1 || true
+systemctl start ceasar-support.timer > /dev/null 2>&1 || true

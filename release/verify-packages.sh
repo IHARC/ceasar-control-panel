@@ -87,6 +87,12 @@ done
 	"require '$root/usr/local/ceasar/web/inc/vendor/autoload.php'; exit(function_exists('Ceasar\\Shell\\quoteshellarg') && class_exists('Webklex\\PHPIMAP\\ClientManager') ? 0 : 1);"
 "$php_bin" -c "$php_ini" -r \
 	"require '$root/usr/local/ceasar/web/src/vendor/autoload.php'; exit(class_exists('Ceasar\\System\\CeasarApp') ? 0 : 1);"
+
+# Exercise the delivered PHP runtime and bundled helpdesk dependencies before publication.
+cp -a "$(dirname "$0")/../tests" "$root/usr/local/ceasar/tests"
+for test in test-core.php test-http.php test-smtp-transport.php branding.test.php; do
+	"$php_bin" -c "$php_ini" "$root/usr/local/ceasar/tests/support/$test"
+done
 fm_root="$root/filemanager-runtime"
 mkdir -p "$fm_root"
 unzip -qq "$root/usr/local/ceasar/vendor/filegator/filegator_v7.15.1.zip" -d "$fm_root"

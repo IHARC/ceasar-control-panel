@@ -8,6 +8,9 @@
 *.min.css
 *.min.js
 
+# Generated local visual-fixture bundle
+tests/fixtures/support-ui/customer-preview.js
+
 # Husky
 .husky/_/
 

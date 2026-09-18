@@ -15,7 +15,7 @@ describe('support settings editor', () => {
 		const dom = new JSDOM('<div data-support-settings-editor></div>');
 		globalThis.document = dom.window.document;
 		globalThis.FormData = dom.window.FormData;
-		const request = vi.fn(async (action, method, payload) => {
+		const request = vi.fn(async (_action, method, _payload) => {
 			if (method === 'POST') return { saved: true };
 			return {
 				settings: {

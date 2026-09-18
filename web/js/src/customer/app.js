@@ -826,7 +826,7 @@ export async function refreshSelectedServiceDetail(
 async function loadSupport(
 	backend,
 	context,
-	accountId = context.accountId,
+	_accountId = context.accountId,
 	accountToken = context.accountRequestToken,
 ) {
 	const token = ++context.supportRequestToken;

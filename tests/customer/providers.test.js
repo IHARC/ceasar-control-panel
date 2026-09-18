@@ -321,9 +321,10 @@ describe('CustomerBusinessBackend', () => {
 			}),
 		);
 		const backend = new CustomerBusinessBackend(identity, config.workerApiBase, fetcher);
-		await expect(backend.downloadSupportAttachment({ id: 'attachment-1' })).resolves.toBeInstanceOf(
-			Blob,
-		);
+		await expect(backend.downloadSupportAttachment({ id: 'attachment-1' })).resolves.toMatchObject({
+			size: 10,
+			type: 'application/octet-stream',
+		});
 		expect(fetcher).toHaveBeenCalledWith(
 			'/api/support/v1/attachment/?attachmentId=attachment-1',
 			expect.objectContaining({

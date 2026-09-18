@@ -71,7 +71,7 @@ try {
 			if (($r["error"]["code"] ?? "") !== "method_not_allowed") {
 				throw new RuntimeException("$method mutation guard failed: $mutation");
 			}
-		};
+		}
 	}
 	$csrf = request_support_http(
 		$port,

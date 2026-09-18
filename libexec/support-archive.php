@@ -19,3 +19,4 @@ if ($command === "import" && isset($argv[2])) {
 }
 fwrite(STDERR, "Usage: support-archive.php export|import ARCHIVE.json\n");
 exit(2);
+

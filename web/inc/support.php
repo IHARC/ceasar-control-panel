@@ -602,7 +602,7 @@ function support_notify(PDO $db, array $ticket, array $actor, string $kind): voi
 			if ($p["id"] === $ticket["assignee_id"] && $p["role"] === "staff") {
 				$staff[] = $p["email"];
 			}
-		};
+		}
 	}
 	$last = $db->prepare(
 		"SELECT id,body FROM support_messages WHERE ticket_id=? ORDER BY created_at DESC, rowid DESC LIMIT 1",

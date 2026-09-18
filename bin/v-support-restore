@@ -2,23 +2,32 @@
 # Restore a support snapshot only after validating its expected layout.
 set -euo pipefail
 umask 077
-if [[ $# -ne 1 || ! -r $1 ]]; then echo "Usage: v-support-restore ARCHIVE.tar" >&2; exit 2; fi
+if [[ $# -ne 1 || ! -r $1 ]]; then
+	echo "Usage: v-support-restore ARCHIVE.tar" >&2
+	exit 2
+fi
 archive=$1
 work=$(mktemp -d)
 worker_stopped=no
 cleanup() {
-	if [[ "$worker_stopped" == yes ]]; then systemctl start ceasar-support.timer >/dev/null 2>&1 || true; fi
+	if [[ "$worker_stopped" == yes ]]; then systemctl start ceasar-support.timer > /dev/null 2>&1 || true; fi
 	rm -rf "$work"
 }
 trap cleanup EXIT
 install -d -o ceasarweb -g ceasarweb -m 0700 /var/lib/ceasar/support
-exec 9>/var/lib/ceasar/support/.lock
+exec 9> /var/lib/ceasar/support/.lock
 flock -x 9
-tar -tf "$archive" | grep -Eq '^(support|branding)/' || { echo "Invalid support archive" >&2; exit 1; }
+tar -tf "$archive" | grep -Eq '^(support|branding)/' || {
+	echo "Invalid support archive" >&2
+	exit 1
+}
 tar -C "$work" -xf "$archive" --no-same-owner
-if [[ -f "$work/support/support.sqlite3" ]]; then /usr/local/ceasar/php/bin/php -r '$db=new PDO("sqlite:".$argv[1]); $db->query("PRAGMA integrity_check")->fetchColumn()==="ok" || exit(1);' "$work/support/support.sqlite3" || { echo "Invalid support database" >&2; exit 1; }; fi
-systemctl stop ceasar-support.timer >/dev/null 2>&1 || true
-systemctl stop ceasar-support.service >/dev/null 2>&1 || true
+if [[ -f "$work/support/support.sqlite3" ]]; then /usr/local/ceasar/php/bin/php -r '$db=new PDO("sqlite:".$argv[1]); $db->query("PRAGMA integrity_check")->fetchColumn()==="ok" || exit(1);' "$work/support/support.sqlite3" || {
+	echo "Invalid support database" >&2
+	exit 1
+}; fi
+systemctl stop ceasar-support.timer > /dev/null 2>&1 || true
+systemctl stop ceasar-support.service > /dev/null 2>&1 || true
 worker_stopped=yes
 install -d -o ceasarweb -g ceasarweb -m 0700 /var/lib/ceasar/support
 rm -rf /var/lib/ceasar/support/*
@@ -28,7 +37,7 @@ install -d -o ceasarweb -g ceasarweb -m 0750 /usr/local/ceasar/data/branding
 rm -rf /usr/local/ceasar/data/branding/*
 [[ -d "$work/branding" ]] && cp -a "$work/branding/." /usr/local/ceasar/data/branding/
 chown -R ceasarweb:ceasarweb /var/lib/ceasar/support
-chmod 0700 /var/lib/ceasar/support /var/lib/ceasar/support/attachments 2>/dev/null || true
+chmod 0700 /var/lib/ceasar/support /var/lib/ceasar/support/attachments 2> /dev/null || true
 [[ -f /usr/local/ceasar/conf/support.json ]] && chown root:ceasarweb /usr/local/ceasar/conf/support.json && chmod 0640 /usr/local/ceasar/conf/support.json
 chown -R ceasarweb:ceasarweb /usr/local/ceasar/data/branding
 find /usr/local/ceasar/data/branding -type d -exec chmod 0750 {} +

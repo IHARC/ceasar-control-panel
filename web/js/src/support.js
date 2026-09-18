@@ -324,7 +324,7 @@ function renderComposer(container, ticket, staff) {
 		return;
 	}
 	const form = element('form', undefined, 'support-composer');
-	let requestKey = crypto.randomUUID();
+	const requestKey = crypto.randomUUID();
 	const mode = select(
 		[['reply', 'Public reply'], ...(staff ? [['note', 'Internal note']] : [])],
 		'reply',
@@ -457,7 +457,7 @@ async function loadOperations() {
 			row.append(
 				element('strong', item.recipient),
 				element('p', item.subject),
-				element('p', `${titleCase(item.state)}${item.lastError ? ': ' + item.lastError : ''}`),
+				element('p', `${titleCase(item.state)}${item.lastError ? `: ${item.lastError}` : ''}`),
 			);
 			if (item.state === 'accepted')
 				row.append(
@@ -566,7 +566,9 @@ async function init() {
 	try {
 		state.actor = await supportAction('identity');
 		const staff = state.actor.role === 'staff';
-		root.querySelectorAll('[data-support-staff]').forEach((n) => (n.hidden = !staff));
+		root.querySelectorAll('[data-support-staff]').forEach((node) => {
+			node.hidden = !staff;
+		});
 		$('[data-support-new]').hidden = staff;
 		if (staff) {
 			const result = await supportAction('staff');

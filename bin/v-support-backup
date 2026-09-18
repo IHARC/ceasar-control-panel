@@ -2,18 +2,21 @@
 # Create a consistent, portable support snapshot including attachments and branding.
 set -euo pipefail
 umask 077
-if [[ $# -ne 1 ]]; then echo "Usage: v-support-backup ARCHIVE.tar" >&2; exit 2; fi
+if [[ $# -ne 1 ]]; then
+	echo "Usage: v-support-backup ARCHIVE.tar" >&2
+	exit 2
+fi
 archive=$1
 work=$(mktemp -d)
 worker_stopped=no
 cleanup() {
-	if [[ "$worker_stopped" == yes ]]; then systemctl start ceasar-support.timer >/dev/null 2>&1 || true; fi
+	if [[ "$worker_stopped" == yes ]]; then systemctl start ceasar-support.timer > /dev/null 2>&1 || true; fi
 	rm -rf "$work"
 }
 trap cleanup EXIT
-exec 9>/var/lib/ceasar/support/.lock
+exec 9> /var/lib/ceasar/support/.lock
 flock -x 9
-systemctl stop ceasar-support.service >/dev/null 2>&1 || true
+systemctl stop ceasar-support.service > /dev/null 2>&1 || true
 worker_stopped=yes
 install -d "$work/support" "$work/branding"
 if [[ -f /var/lib/ceasar/support/support.sqlite3 ]]; then

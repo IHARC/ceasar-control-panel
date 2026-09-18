@@ -17,3 +17,4 @@ if ($command === "inbound") {
 }
 fwrite(STDERR, "Usage: support-worker.php deliver [limit]|inbound\n");
 exit(2);
+

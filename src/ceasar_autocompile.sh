@@ -273,7 +273,7 @@ for i in $*; do
 			KEEPBUILD='true'
 			;;
 		--cross)
-		echo "Cross builds are not supported. Ceasar 1.0.22 targets Ubuntu 24.04 amd64." >&2
+			echo "Cross builds are not supported. Ceasar 1.0.22 targets Ubuntu 24.04 amd64." >&2
 			exit 1
 			;;
 		--help | -h)
