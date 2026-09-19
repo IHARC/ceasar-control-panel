@@ -41,7 +41,7 @@ profile_customer_enabled='no'
 profile_managed_services='no'
 
 # Define software versions
-CEASAR_INSTALL_VER='1.0.28'
+CEASAR_INSTALL_VER='1.0.29'
 
 # Build the full Ceasar version
 # Split base version from an optional channel suffix (~alpha / ~beta).
@@ -61,7 +61,7 @@ case "$os" in
 		exit 1
 		;;
 esac
-# Final package version, for example 1.0.28-1+ubuntu24.04.
+# Final package version, for example 1.0.29-1+ubuntu24.04.
 CEASAR_INSTALL_BUILD="${CEASAR_BASE_VER}-1+${os_id}${CEASAR_CHANNEL}"
 
 # Supported PHP versions
@@ -161,13 +161,13 @@ validate_platform() {
 	local platform_id
 	platform_id="$(awk -F= '$1 == "ID" { gsub(/\"/, "", $2); print $2 }' "$OS_RELEASE_FILE")"
 	if [ "$platform_id" != 'ubuntu' ] || [ "$release" != '24.04' ]; then
-		check_result 1 "Ceasar 1.0.28 supports only Ubuntu 24.04 LTS."
+		check_result 1 "Ceasar 1.0.29 supports only Ubuntu 24.04 LTS."
 	fi
 	if [ "$architecture" != 'x86_64' ] && [ "$architecture" != 'amd64' ]; then
-		check_result 1 "Ceasar 1.0.28 supports only amd64 systems."
+		check_result 1 "Ceasar 1.0.29 supports only amd64 systems."
 	fi
 	if [ -n "$codename" ] && [ "$codename" != 'noble' ]; then
-		check_result 1 "Ceasar 1.0.28 requires the Ubuntu noble package repositories."
+		check_result 1 "Ceasar 1.0.29 requires the Ubuntu noble package repositories."
 	fi
 	codename='noble'
 }
@@ -370,7 +370,7 @@ if customer_enabled:
         "passkeys_enabled", "passkey_rp_id",
         "login_url", "callback_url", "account_url", "worker_api_base",
     }
-    optional = {"password_min_length"}
+    optional = {"password_min_length", "analytics"}
     unexpected = set(customer) - required - optional
     if unexpected:
         raise SystemExit(f"customer.{sorted(unexpected)[0]} is not supported; configure presentation in White Label Options")
@@ -402,6 +402,20 @@ if customer_enabled:
     customer["worker_api_base"] = worker_api_path(customer["worker_api_base"])
     if not isinstance(customer["passkeys_enabled"], bool):
         raise SystemExit("customer.passkeys_enabled must be a boolean")
+    analytics = customer.get("analytics")
+    if analytics is not None:
+        if not isinstance(analytics, dict) or set(analytics) - {"measurement_id", "consent_cookie_domain"}:
+            raise SystemExit("customer.analytics contains unsupported fields")
+        measurement_id = analytics.get("measurement_id")
+        if not isinstance(measurement_id, str) or not re.fullmatch(r"G-[A-Z0-9]{4,32}", measurement_id):
+            raise SystemExit("customer.analytics.measurement_id must be a GA4 measurement ID")
+        domain = analytics.get("consent_cookie_domain", "")
+        if domain != "":
+            if not isinstance(domain, str) or not re.fullmatch(r"\\.[a-z0-9](?:[a-z0-9.-]{0,251}[a-z0-9])?", domain):
+                raise SystemExit("customer.analytics.consent_cookie_domain must be a parent domain")
+            if any(host != domain[1:] and not host.endswith(domain) for host in {login.hostname, callback.hostname, account.hostname}):
+                raise SystemExit("customer.analytics.consent_cookie_domain must cover customer hostnames")
+        customer["analytics"] = {"measurement_id": measurement_id, "consent_cookie_domain": domain}
     customer_path.write_text(json.dumps(customer, indent=2) + "\n", encoding="utf-8")
 else:
     if set(customer) - {"enabled"}:

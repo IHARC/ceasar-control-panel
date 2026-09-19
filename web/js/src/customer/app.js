@@ -1,6 +1,7 @@
 import { CustomerBusinessBackend, SupabaseIdentityProvider } from './providers.js';
 import { customerSetupSelection, customerSetupUrl } from './navigation.js';
 import { createRequestKeys } from './request-keys.js';
+import { configureAnalytics } from './analytics.js';
 
 const configNode = document.querySelector('#customer-config');
 const submissionKeys = createRequestKeys();
@@ -15,6 +16,7 @@ if (configNode) {
 }
 
 async function boot(config, identity, backend) {
+	const analytics = configureAnalytics(config);
 	document.querySelector('[data-customer-sign-out]')?.addEventListener('click', async () => {
 		await identity.signOut();
 		location.assign(config.loginUrl);
@@ -23,15 +25,15 @@ async function boot(config, identity, backend) {
 	configurePasswordInputs(config);
 	const page = document.body.dataset.customerPage;
 	if (page === 'login') {
-		bindLogin(config, identity);
+		bindLogin(config, identity, analytics);
 	} else if (page === 'callback') {
 		await handleCallback(config, identity);
 	} else if (page === 'account') {
-		await bindAccount(config, identity, backend);
+		await bindAccount(config, identity, backend, analytics);
 	}
 }
 
-function bindLogin(config, identity) {
+function bindLogin(config, identity, analytics) {
 	const setup = customerSetupSelection(location.search);
 	const accountUrl = customerSetupUrl(config.accountUrl, setup);
 	const callbackUrl = customerSetupUrl(config.callbackUrl, setup, '');
@@ -55,6 +57,7 @@ function bindLogin(config, identity) {
 						data.get('terms') === 'yes',
 						callbackUrl,
 					);
+					analytics.track('sign_up');
 					showNotice('Check your email and confirm your address before signing in.', 'success');
 					form.reset();
 					showAuthView('sign-in', config);
@@ -139,7 +142,7 @@ export function bindRecovery(config, identity) {
 	});
 }
 
-async function bindAccount(config, identity, backend) {
+async function bindAccount(config, identity, backend, analytics) {
 	const setupSelection = customerSetupSelection(location.search);
 	const session = await identity.session();
 	if (!session) {
@@ -174,6 +177,11 @@ async function bindAccount(config, identity, backend) {
 		backend,
 		config,
 		identityProvider: identity,
+		analytics,
+		analyticsConsentVersion: 0,
+		analyticsAttributionLastKey: '',
+		analyticsAttributionChain: Promise.resolve(),
+		analyticsViewedPlans: new Set(),
 	};
 	const user = await identity.user();
 	document.querySelector('[data-customer-sign-out]')?.classList.remove('u-hidden');
@@ -181,6 +189,10 @@ async function bindAccount(config, identity, backend) {
 	configureSupportFallback(config);
 	bindNavigation(context);
 	bindAccountControls(config, identity, backend, context);
+	analytics.onChange((_, version) => {
+		context.analyticsConsentVersion = version;
+		void syncAnalyticsAttribution(context);
+	});
 
 	try {
 		await loadCustomerState(backend, context);
@@ -212,6 +224,7 @@ function bindNavigation(context) {
 	window.addEventListener('hashchange', () => {
 		clearNotice();
 		renderCurrentView(context, true);
+		context.analytics?.pageView();
 		if (currentView() === 'hosting' && !document.hidden) startSetupPolling(context);
 	});
 	document.addEventListener('visibilitychange', () => {
@@ -527,7 +540,11 @@ export function bindAccountControls(config, identity, backend, context) {
 	setupForm
 		?.querySelectorAll('[name=plan_code], [name=site_type], [name=setup_mode]')
 		.forEach((control) => {
-			control.addEventListener('change', () => renderSetupReview(context));
+			control.addEventListener('change', () => {
+				renderSetupReview(context);
+				if (control.name === 'plan_code')
+					context.analytics?.track('select_item', { items: [{ item_id: control.value }] });
+			});
 		});
 	if (context.setupIntent === 'migration') {
 		setValueIn(setupForm, '[name=intent]', 'migration');
@@ -633,6 +650,10 @@ export async function accountAction(action, data, context, config, identity, bac
 		renderSetups(context.state.setups, context);
 		startSetupPolling(context);
 		if (setup.status === 'checkout' && setup.checkoutUrl) {
+			await context.analytics?.track('begin_checkout', {
+				currency: 'CAD',
+				items: [{ item_id: planCode }],
+			});
 			location.assign(checkedHostedUrl(setup.checkoutUrl));
 			return { retainKey: true };
 		}
@@ -694,6 +715,7 @@ async function loadCustomerState(backend, context) {
 		context.checkoutRequestToken += 1;
 	}
 	context.accountId = accountId;
+	void syncAnalyticsAttribution(context);
 	renderCustomerState(
 		{ identity: sessionState.identity, accounts: context.accounts, selectedAccountId: accountId },
 		context,
@@ -701,11 +723,47 @@ async function loadCustomerState(backend, context) {
 	if (accountId) await loadAccountState(backend, context, accountId, ++context.accountRequestToken);
 }
 
+export function syncAnalyticsAttribution(context) {
+	if (!context.accountId || !context.analytics?.configured) return Promise.resolve();
+	const run = async () => {
+		const accountId = context.accountId;
+		const analyticsConsent = context.analytics.consent();
+		const consentVersion = context.analyticsConsentVersion || 0;
+		const key = `${accountId}.${analyticsConsent}.${consentVersion}`;
+		if (context.analyticsAttributionLastKey === key) return;
+		try {
+			const identifiers = analyticsConsent ? await context.analytics.identifiers() : {};
+			if (
+				accountId !== context.accountId ||
+				analyticsConsent !== context.analytics.consent() ||
+				consentVersion !== (context.analyticsConsentVersion || 0)
+			)
+				return;
+			const result = await context.backend.updateAnalyticsAttribution(accountId, {
+				analyticsConsent,
+				...identifiers,
+				...(analyticsConsent ? { capturedAt: new Date().toISOString() } : {}),
+			});
+			context.analyticsAttributionLastKey = key;
+			if (analyticsConsent) context.analytics.storeRevocationToken(result?.revokeToken);
+			else context.analytics.clearRevocationToken();
+		} catch {
+			// Attribution must never interrupt a signed-in customer's account workflow.
+		}
+	};
+	context.analyticsAttributionChain = (context.analyticsAttributionChain || Promise.resolve()).then(
+		run,
+		run,
+	);
+	return context.analyticsAttributionChain;
+}
+
 async function selectCustomerAccount(backend, context, accountId) {
 	const token = ++context.accountRequestToken;
 	context.accountContextToken += 1;
 	context.checkoutRequestToken += 1;
 	context.accountId = accountId;
+	void syncAnalyticsAttribution(context);
 	context.serviceId = '';
 	context.supportCaseId = '';
 	context.supportDetail = null;
@@ -1140,6 +1198,12 @@ function renderOffers(offers, context) {
 			: offers[0]?.planCode || '',
 		empty: 'No plan available',
 	});
+	for (const offer of offers) {
+		if (!context.analyticsViewedPlans?.has(offer.planCode)) {
+			context.analytics?.track('view_item', { items: [{ item_id: offer.planCode }] });
+			context.analyticsViewedPlans?.add(offer.planCode);
+		}
+	}
 	const trial = document.querySelector('[data-trial-choice]');
 	const trialInput = trial?.querySelector('input');
 	const paid = document.querySelector('[data-paid-choice]');

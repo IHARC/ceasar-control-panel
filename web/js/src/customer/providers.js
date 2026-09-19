@@ -212,6 +212,14 @@ export class CustomerBusinessBackend {
 			: result;
 	}
 
+	updateAnalyticsAttribution(accountId, attribution) {
+		return this.#request(
+			'POST',
+			`/accounts/${pathId(accountId)}/analytics-attribution`,
+			attribution,
+		);
+	}
+
 	confirmMigration(serviceId, { accountId, workspaceReadyOperationId, idempotencyKey }) {
 		return this.#request('POST', `/migrations/${pathId(serviceId)}/confirm`, {
 			accountId,

@@ -45,6 +45,17 @@
 			"type": "string",
 			"maxLength": 200,
 			"pattern": "^/[A-Za-z0-9][A-Za-z0-9._~!$&'()*+,;=:@/-]*/?$"
+		},
+		"analytics": {
+			"type": "object",
+			"additionalProperties": false,
+			"properties": {
+				"measurement_id": { "type": "string", "pattern": "^G-[A-Z0-9]{4,32}$" },
+				"consent_cookie_domain": {
+					"type": "string",
+					"pattern": "^\\.[a-z0-9](?:[a-z0-9.-]{0,251}[a-z0-9])?$"
+				}
+			}
 		}
 	}
 }

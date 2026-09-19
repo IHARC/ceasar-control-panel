@@ -11,5 +11,9 @@
 	"login_url": "https://app.example.com/customer/login",
 	"callback_url": "https://login.example.com/auth/callback",
 	"account_url": "https://app.example.com/customer/account",
-	"worker_api_base": "/api/customer/v1"
+	"worker_api_base": "/api/customer/v1",
+	"analytics": {
+		"measurement_id": "G-REPLACE_ME",
+		"consent_cookie_domain": ".example.com"
+	}
 }

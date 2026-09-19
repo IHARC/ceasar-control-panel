@@ -28,6 +28,12 @@ Supabase project for identity and sends typed customer operations to the
 same-origin path in `worker_api_base`. The provider implements that API; Ceasar
 does not require or bundle a specific provider backend.
 
+Optional GA4 measurement is configured in the same customer profile with an
+`analytics.measurement_id`. The portal only loads the tag after customer consent.
+Set `analytics.consent_cookie_domain` to a validated parent domain such as
+`.example.com` only when the portal must share the consent choice with that
+parent domain; omit it for a host-only cookie, including local development.
+
 ## Adding a new theme
 
 Create a new theme in `/usr/local/ceasar/web/css/themes/custom/my_theme.css`

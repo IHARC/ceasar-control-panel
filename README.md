@@ -49,6 +49,10 @@ The optional customer module uses Supabase Auth in the browser and a configured
 same-origin business API. It is disabled by default. Start with
 `install/common/customer/customer.example.json`; `worker_api_base` selects the
 provider-owned API path without embedding provider code in Ceasar.
+An installation can also opt into consent-aware GA4 for customer pages by adding
+an `analytics` object with its own `measurement_id` and, when the portal shares
+a parent domain with another site, `consent_cookie_domain`. It is omitted by
+default and collects no analytics until the customer grants consent.
 
 Managed-hosting hooks are also disabled by default. Enabling them requires an
 explicit managed profile and external root-owned provider configuration.

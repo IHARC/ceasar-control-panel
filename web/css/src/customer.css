@@ -604,6 +604,32 @@ button.customer-row:focus-visible .customer-row-title {
 	margin: 0;
 }
 
+.customer-footer-button {
+	background: none;
+	border: 0;
+	color: inherit;
+	cursor: pointer;
+	font: inherit;
+	padding: 0;
+	text-decoration: underline;
+}
+
+.customer-analytics-consent {
+	background: var(--iharc-surface, #fff);
+	border: 1px solid var(--iharc-line);
+	bottom: 16px;
+	box-shadow: 0 8px 24px rgb(0 0 0 / 18%);
+	max-width: 420px;
+	padding: 18px;
+	position: fixed;
+	right: 16px;
+	z-index: 20;
+}
+
+.customer-analytics-consent p {
+	margin: 0 0 12px;
+}
+
 .page-customer :is(button, input, select, textarea, a):focus-visible {
 	outline: 3px solid var(--branding-accent, var(--iharc-red));
 	outline-offset: 3px;

@@ -5,6 +5,7 @@
 					<span class="app-footer-link"><?= htmlspecialchars((string) $config['brand_name'], ENT_QUOTES) ?></span>
 					 · <a href="<?= htmlspecialchars((string) $config['terms_url'], ENT_QUOTES) ?>">Terms</a>
 					 · <a href="<?= htmlspecialchars((string) $config['privacy_url'], ENT_QUOTES) ?>">Privacy</a>
+					 · <button class="customer-footer-button" type="button" data-analytics-preferences hidden>Analytics preferences</button>
 					 · <a href="https://iharc.ca/" rel="noopener">Powered by IHARC Labs</a>
 				</p>
 			</div>

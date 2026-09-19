@@ -114,6 +114,36 @@ describe('SupabaseIdentityProvider', () => {
 });
 
 describe('CustomerBusinessBackend', () => {
+	it('sends consented attribution only to the selected account route', async () => {
+		const identity = { session: vi.fn().mockResolvedValue({ access_token: 'customer-token' }) };
+		const fetcher = vi.fn().mockResolvedValue(
+			new Response(JSON.stringify({ data: { accepted: true, revokeToken: 'a'.repeat(43) } }), {
+				headers: { 'content-type': 'application/json' },
+			}),
+		);
+		const backend = new CustomerBusinessBackend(identity, config.workerApiBase, fetcher);
+		await expect(
+			backend.updateAnalyticsAttribution('account-1', {
+				analyticsConsent: true,
+				clientId: '123.456',
+				sessionId: '789',
+				capturedAt: '2026-09-19T18:00:00.000Z',
+			}),
+		).resolves.toEqual({ accepted: true, revokeToken: 'a'.repeat(43) });
+		expect(fetcher).toHaveBeenCalledWith(
+			'/api/provider/v1/customer/accounts/account-1/analytics-attribution',
+			expect.objectContaining({
+				method: 'POST',
+				body: JSON.stringify({
+					analyticsConsent: true,
+					clientId: '123.456',
+					sessionId: '789',
+					capturedAt: '2026-09-19T18:00:00.000Z',
+				}),
+			}),
+		);
+	});
+
 	it('rejects cross-origin and ambiguous customer backend paths', () => {
 		const identity = {};
 		for (const value of [

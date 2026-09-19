@@ -20,9 +20,13 @@ function customer_bootstrap(): void {
 
 	header("Cache-Control: no-store, max-age=0");
 	$logoSource = customer_logo_source((string) $config["logo_url"]);
+	$analyticsSources =
+		$config["analytics"]["measurement_id"] !== ""
+			? " https://www.googletagmanager.com https://www.google-analytics.com https://region1.google-analytics.com"
+			: "";
 	header(
 		"Content-Security-Policy: default-src 'self'; img-src 'self' data:{$logoSource}; style-src 'self' 'nonce-{$customer_style_nonce}'; " .
-			"script-src 'self'; connect-src 'self' {$connectSource}; frame-ancestors 'none'; " .
+			"script-src 'self'{$analyticsSources}; connect-src 'self' {$connectSource}{$analyticsSources}; frame-ancestors 'none'; " .
 			"base-uri 'none'; form-action 'self' https://checkout.stripe.com https://billing.stripe.com",
 	);
 	header("Referrer-Policy: strict-origin-when-cross-origin");
@@ -78,6 +82,7 @@ function customer_config(): array {
 			"callback_url" => "",
 			"account_url" => "",
 			"worker_api_base" => "/api/customer/v1",
+			"analytics" => ["measurement_id" => "", "consent_cookie_domain" => ""],
 		];
 
 		return $config;
@@ -103,6 +108,12 @@ function customer_config(): array {
 	) {
 		throw new RuntimeException("Customer module configuration is invalid.");
 	}
+	$analytics = customer_analytics_config(
+		$data["analytics"] ?? null,
+		$loginUrl,
+		$callbackUrl,
+		$accountUrl,
+	);
 	customer_require_supabase_url($supabaseUrl);
 	if (!str_starts_with($publishableKey, "sb_publishable_")) {
 		throw new RuntimeException("Customer authentication requires a Supabase publishable key.");
@@ -144,12 +155,47 @@ function customer_config(): array {
 		"callback_url" => rtrim($callbackUrl, "/"),
 		"account_url" => rtrim($accountUrl, "/"),
 		"worker_api_base" => $workerApiBase,
+		"analytics" => $analytics,
 	];
 	if ($config["schema"] !== 1) {
 		throw new RuntimeException("Customer module configuration schema is unsupported.");
 	}
 
 	return $config;
+}
+
+/** @return array{measurement_id: string, consent_cookie_domain: string} */
+function customer_analytics_config(mixed $value, string ...$customerUrls): array {
+	if ($value === null) {
+		return ["measurement_id" => "", "consent_cookie_domain" => ""];
+	}
+	if (
+		!is_array($value) ||
+		array_diff(array_keys($value), ["measurement_id", "consent_cookie_domain"])
+	) {
+		throw new RuntimeException("Customer analytics configuration is invalid.");
+	}
+	$measurementId = $value["measurement_id"] ?? "";
+	$domain = $value["consent_cookie_domain"] ?? "";
+	if (!is_string($measurementId) || preg_match('/^G-[A-Z0-9]{4,32}$/D', $measurementId) !== 1) {
+		throw new RuntimeException("Customer analytics measurement ID is invalid.");
+	}
+	if (
+		!is_string($domain) ||
+		($domain !== "" &&
+			preg_match('/^\.[a-z0-9](?:[a-z0-9.-]{0,251}[a-z0-9])?$/D', $domain) !== 1)
+	) {
+		throw new RuntimeException("Customer analytics cookie domain is invalid.");
+	}
+	foreach ($customerUrls as $url) {
+		$host = strtolower((string) parse_url($url, PHP_URL_HOST));
+		if ($domain !== "" && $host !== substr($domain, 1) && !str_ends_with($host, $domain)) {
+			throw new RuntimeException(
+				"Customer analytics cookie domain must cover customer hostnames.",
+			);
+		}
+	}
+	return ["measurement_id" => $measurementId, "consent_cookie_domain" => $domain];
 }
 
 function customer_require_worker_api_base(mixed $value): string {
@@ -195,10 +241,15 @@ function customer_config_json(array $config): string {
 		"passwordMinLength" => $config["password_min_length"],
 		"logoUrl" => $config["logo_url"],
 		"supportUrl" => $config["support_url"],
+		"privacyUrl" => $config["privacy_url"],
 		"loginUrl" => $config["login_url"],
 		"callbackUrl" => $config["callback_url"],
 		"accountUrl" => $config["account_url"],
 		"workerApiBase" => $config["worker_api_base"],
+		"analytics" => [
+			"measurementId" => $config["analytics"]["measurement_id"],
+			"consentCookieDomain" => $config["analytics"]["consent_cookie_domain"],
+		],
 	];
 
 	return htmlspecialchars(
