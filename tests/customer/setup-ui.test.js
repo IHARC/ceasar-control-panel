@@ -5,6 +5,7 @@ const original = {
 	document: globalThis.document,
 	location: globalThis.location,
 	Option: globalThis.Option,
+	sessionStorage: globalThis.sessionStorage,
 };
 
 afterEach(() => Object.assign(globalThis, original));
@@ -23,6 +24,7 @@ async function setupPage() {
 			<dl data-setup-review></dl><p data-setup-availability></p><button type="submit">Continue</button>
 		</form>
 		<div data-billing-summary></div><form data-billing-portal></form>
+		<div data-customer-notice></div>
 		<div data-support-layout><div data-support-case-list></div><button data-support-retry></button>
 			<button data-support-next></button><div data-support-case-detail></div>
 			<div data-support-message-list></div><form data-support-reply-form></form></div>
@@ -32,6 +34,7 @@ async function setupPage() {
 	globalThis.document = dom.window.document;
 	globalThis.location = dom.window.location;
 	globalThis.Option = dom.window.Option;
+	globalThis.sessionStorage = dom.window.sessionStorage;
 	return import('../../web/js/src/customer/app.js');
 }
 
@@ -44,6 +47,34 @@ const offer = {
 };
 
 describe('customer setup and empty states', () => {
+	it('returns a card setup to plan choices only when its trial lost the slot', async () => {
+		const { reconcileTrialCheckoutReturn } = await setupPage();
+		location.hash = '#hosting';
+		sessionStorage.setItem('ceasar:trial-checkout-return', 'account:trial');
+		const context = {
+			accountId: 'account',
+			state: { setups: [{ requestId: 'trial', status: 'checkout' }] },
+		};
+		reconcileTrialCheckoutReturn(context);
+		expect(location.hash).toBe('#hosting');
+		expect(sessionStorage.getItem('ceasar:trial-checkout-return')).toBe('account:trial');
+		context.state.setups = [
+			{ requestId: 'trial', status: 'expired', failureReason: 'trial_capacity_full' },
+		];
+		reconcileTrialCheckoutReturn(context);
+		expect(location.hash).toBe('#setup');
+		expect(sessionStorage.getItem('ceasar:trial-checkout-return')).toBeNull();
+		expect(document.querySelector('[data-customer-notice]').textContent).toContain(
+			'No subscription or charge',
+		);
+		location.hash = '#hosting';
+		sessionStorage.setItem('ceasar:trial-checkout-return', 'account:completed');
+		context.state.setups = [{ requestId: 'completed', status: 'completed', failureReason: null }];
+		reconcileTrialCheckoutReturn(context);
+		expect(location.hash).toBe('#hosting');
+		expect(sessionStorage.getItem('ceasar:trial-checkout-return')).toBeNull();
+	});
+
 	it('starts eligible new sites on trial and preserves an explicit paid choice', async () => {
 		const { renderOffers } = await setupPage();
 		const context = {

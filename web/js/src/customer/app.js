@@ -5,6 +5,7 @@ import { configureAnalytics } from './analytics.js';
 
 const configNode = document.querySelector('#customer-config');
 const submissionKeys = createRequestKeys();
+const trialCheckoutReturnKey = 'ceasar:trial-checkout-return';
 if (configNode) {
 	const config = JSON.parse(configNode.textContent);
 	// The local visual fixture supplies these implementations before this module
@@ -197,7 +198,7 @@ async function bindAccount(config, identity, backend, analytics) {
 		userId: '',
 		state: emptyState(),
 		setupPlanCode: setupSelection.planCode,
-		setupIntent: setupSelection.intent,
+		setupIntent: setupSelection.planCode ? setupSelection.intent : '',
 		setupModeChosen: false,
 		setupAvailabilityTimer: undefined,
 		setupAvailabilityInFlight: false,
@@ -388,6 +389,12 @@ export function bindAccountControls(config, identity, backend, context) {
 				accountContextToken !== context.accountContextToken
 			)
 				return;
+			if (
+				context.state.setups?.some(
+					(setup) => setup.requestId === requestId && setup.kind === 'trial',
+				)
+			)
+				rememberTrialCheckoutReturn(accountId, requestId);
 			location.assign(checkedHostedUrl(checkout.checkoutUrl));
 		} catch (error) {
 			if (
@@ -599,6 +606,7 @@ export function bindAccountControls(config, identity, backend, context) {
 	const setupForm = document.querySelector('[data-setup-form]');
 	setupForm?.querySelectorAll('[name=intent]').forEach((control) => {
 		control.addEventListener('change', () => {
+			context.setupIntent = control.value;
 			renderOffers(context.state.offers || [], context);
 		});
 	});
@@ -721,6 +729,7 @@ export async function accountAction(action, data, context, config, identity, bac
 				currency: 'CAD',
 				items: [{ item_id: planCode }],
 			});
+			if (isTrial) rememberTrialCheckoutReturn(accountId, setup.requestId);
 			location.assign(checkedHostedUrl(setup.checkoutUrl));
 			return { retainKey: true };
 		}
@@ -1008,6 +1017,7 @@ function renderCustomerState(state, context) {
 	renderSetups(context.state.setups || [], context);
 	renderOffers(context.state.offers || [], context);
 	renderBilling(context.state.billing || [], context);
+	reconcileTrialCheckoutReturn(context);
 	restoreSetupDraft(context);
 	restoreFormDraft(
 		document.querySelector('[data-account-action="account-create"]'),
@@ -1020,6 +1030,37 @@ function renderCustomerState(state, context) {
 		context,
 	);
 	startSetupPolling(context);
+}
+
+export function reconcileTrialCheckoutReturn(context) {
+	let remembered;
+	try {
+		remembered = sessionStorage.getItem(trialCheckoutReturnKey);
+	} catch {
+		return;
+	}
+	if (!remembered || !context.accountId) return;
+	const [accountId, requestId] = remembered.split(':');
+	if (accountId !== context.accountId || !requestId) return;
+	const setup = context.state.setups?.find((row) => row.requestId === requestId);
+	if (!setup || !terminalSetup(setup.status)) return;
+	try {
+		sessionStorage.removeItem(trialCheckoutReturnKey);
+	} catch {
+		// The terminal setup state remains visible in Hosting.
+	}
+	if (setup.failureReason === 'trial_capacity_full') {
+		location.hash = 'setup';
+		showNotice(setupMessage(setup));
+	}
+}
+
+function rememberTrialCheckoutReturn(accountId, requestId) {
+	try {
+		sessionStorage.setItem(trialCheckoutReturnKey, `${accountId}:${requestId}`);
+	} catch {
+		// Card setup can continue when browser storage is unavailable.
+	}
 }
 
 export function renderInitialCustomerStateFailure(context) {
@@ -1336,13 +1377,14 @@ function restoreSetupDraft(context) {
 	form.dataset.requestKey = requestKeyScope('hosting-setup', context);
 	const draft = submissionKeys.read(form);
 	if (!draft || draft.userId !== context.userId || draft.accountId !== context.accountId) return;
-	setValueIn(form, '[name=plan_code]', draft.planCode || '');
-	setCheckedValue(form, 'intent', draft.intent || 'new_site');
+	context.setupPlanCode ||= draft.planCode || '';
+	context.setupIntent ||= draft.intent || 'new_site';
+	setValueIn(form, '[name=plan_code]', context.setupPlanCode);
+	setCheckedValue(form, 'intent', context.setupIntent);
 	setValueIn(form, '[name=site_type]', draft.siteType || 'wordpress');
 	setCheckedValue(form, 'setup_mode', draft.setupMode || '');
 	context.setupModeChosen = draft.setupMode === 'paid';
-	syncMigrationSiteType(form);
-	renderSetupReview(context);
+	renderOffers(context.state.offers || [], context);
 }
 
 function renderSetupReview(context) {
