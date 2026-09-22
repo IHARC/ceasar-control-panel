@@ -218,6 +218,7 @@ function customer_require_worker_api_base(mixed $value): string {
 
 /** @param array<string, mixed> $context */
 function customer_render(string $title, string $template, array $context = []): void {
+	global $customer_style_nonce;
 	$path = dirname(__DIR__) . "/templates/pages/customer/" . $template . ".php";
 	if (!is_file($path)) {
 		throw new RuntimeException("Customer page template is unavailable.");
