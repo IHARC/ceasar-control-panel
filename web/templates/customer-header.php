@@ -9,7 +9,7 @@
 	<link rel="stylesheet" href="/css/themes/default.min.css">
 	<link rel="stylesheet" href="/css/themes/customer.min.css">
 	<style nonce="<?= htmlspecialchars((string) ($customer_style_nonce ?? ''), ENT_QUOTES) ?>">:root { <?= branding_accent_style() ?> }</style>
-	<script type="module" defer src="/js/dist/customer.min.js"></script>
+	<script type="module" defer src="/js/dist/customer.min.js?v=<?= (int) filemtime(dirname(__DIR__) . '/js/dist/customer.min.js') ?>"></script>
 </head>
 <?php
 $customerIsAccount = ($customerPage ?? '') === 'account';
