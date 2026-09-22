@@ -55,6 +55,16 @@ export class SupabaseIdentityProvider {
 		return data.session;
 	}
 
+	async verifyRecovery(tokenHash) {
+		const { data, error } = await this.client.auth.verifyOtp({
+			token_hash: tokenHash,
+			type: 'recovery',
+		});
+		throwIfError(error);
+		if (!data.session) throw new Error('The recovery link did not create a session.');
+		return data.session;
+	}
+
 	async requestRecovery(email) {
 		const redirectTo = new URL(this.config.callbackUrl);
 		redirectTo.searchParams.set('mode', 'recovery');

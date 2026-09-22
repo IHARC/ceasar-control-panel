@@ -100,6 +100,18 @@ describe('SupabaseIdentityProvider', () => {
 		expect(auth.updateUser).toHaveBeenCalledWith({ password: 'correct horse battery staple' });
 	});
 
+	it('verifies a recovery token hash through a POST before updating the password', async () => {
+		const verifyOtp = vi.fn().mockResolvedValue({
+			data: { session: { access_token: 'recovery-session' } },
+			error: null,
+		});
+		const { identity } = identityFixture({ verifyOtp });
+		await expect(identity.verifyRecovery('token-hash')).resolves.toEqual({
+			access_token: 'recovery-session',
+		});
+		expect(verifyOtp).toHaveBeenCalledWith({ token_hash: 'token-hash', type: 'recovery' });
+	});
+
 	it('uses maintained passkey methods without an MFA assurance check', async () => {
 		const deletePasskey = vi.fn().mockResolvedValue({ data: null, error: null });
 		const { identity, auth } = identityFixture({

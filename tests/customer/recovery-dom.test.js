@@ -18,6 +18,7 @@ async function recoveryForm() {
 	const dom = new JSDOM(
 		`
 		<div data-customer-notice data-customer-callback-status>Checking your confirmation link…</div>
+		<button class="u-hidden" data-customer-verify-recovery>Continue password reset</button>
 		<form class="u-hidden" data-customer-recovery>
 			<input name="password"><input name="password_confirm">
 		</form>
@@ -34,6 +35,7 @@ async function recoveryForm() {
 		accountAction,
 		bindAccountControls,
 		bindRecovery,
+		bindRecoveryVerification,
 		renderSupportDetail,
 		syncMigrationSiteType,
 	} = await import('../../web/js/src/customer/app.js');
@@ -41,6 +43,7 @@ async function recoveryForm() {
 		accountAction,
 		bindAccountControls,
 		bindRecovery,
+		bindRecoveryVerification,
 		renderSupportDetail,
 		syncMigrationSiteType,
 		dom,
@@ -54,6 +57,31 @@ async function submit(form) {
 }
 
 describe('customer recovery form', () => {
+	it('verifies a recovery token only after a person continues', async () => {
+		const { bindRecoveryVerification, form } = await recoveryForm();
+		const identity = { verifyRecovery: vi.fn().mockResolvedValue({ access_token: 'session' }) };
+		const button = document.querySelector('[data-customer-verify-recovery]');
+		bindRecoveryVerification({}, identity, 'token-hash');
+		expect(identity.verifyRecovery).not.toHaveBeenCalled();
+		expect(button.classList.contains('u-hidden')).toBe(false);
+		button.click();
+		await new Promise(setImmediate);
+		expect(identity.verifyRecovery).toHaveBeenCalledWith('token-hash');
+		expect(form.classList.contains('u-hidden')).toBe(false);
+	});
+
+	it('shows a rejected recovery token and keeps the continue action available', async () => {
+		const { bindRecoveryVerification, form } = await recoveryForm();
+		const identity = { verifyRecovery: vi.fn().mockRejectedValue(new Error('Link expired')) };
+		const button = document.querySelector('[data-customer-verify-recovery]');
+		bindRecoveryVerification({}, identity, 'expired-hash');
+		button.click();
+		await new Promise(setImmediate);
+		expect(document.querySelector('[data-customer-notice]').textContent).toBe('Link expired');
+		expect(button.disabled).toBe(false);
+		expect(form.classList.contains('u-hidden')).toBe(true);
+	});
+
 	it('uses the ordinary Supabase session for profile, email, and password changes', async () => {
 		const { accountAction } = await recoveryForm();
 		const identity = {

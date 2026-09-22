@@ -1,7 +1,7 @@
 {
 	"name": "ceasar",
 	"private": true,
-	"version": "1.0.29",
+	"version": "1.0.30",
 	"description": "Ceasar standalone hosting control panel for Ubuntu 24.04 amd64.",
 	"repository": "https://github.com/IHARC/ceasar-control-panel",
 	"license": "GPL-3.0-or-later",

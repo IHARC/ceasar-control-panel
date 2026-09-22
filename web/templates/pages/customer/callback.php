@@ -5,6 +5,7 @@
 	<div>
 		<h1 class="login-title">Secure confirmation</h1>
 		<p data-customer-notice data-customer-callback-status aria-live="polite">Checking your confirmation link…</p>
+		<button class="button u-hidden" type="button" data-customer-verify-recovery>Continue password reset</button>
 		<form class="u-hidden" data-customer-recovery>
 			<div class="u-mb20">
 				<label for="recovery-password" class="form-label">New password</label>

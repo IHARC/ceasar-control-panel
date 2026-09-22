@@ -16,6 +16,13 @@ if (configNode) {
 }
 
 async function boot(config, identity, backend) {
+	const page = document.body.dataset.customerPage;
+	const callbackParameters = page === 'callback' ? new URLSearchParams(location.search) : null;
+	if (callbackParameters?.has('token_hash')) {
+		const cleanUrl = new URL(location.href);
+		cleanUrl.searchParams.delete('token_hash');
+		history.replaceState(history.state, '', cleanUrl);
+	}
 	const analytics = configureAnalytics(config);
 	document.querySelector('[data-customer-sign-out]')?.addEventListener('click', async () => {
 		await identity.signOut();
@@ -23,11 +30,10 @@ async function boot(config, identity, backend) {
 	});
 
 	configurePasswordInputs(config);
-	const page = document.body.dataset.customerPage;
 	if (page === 'login') {
 		bindLogin(config, identity, analytics);
 	} else if (page === 'callback') {
-		await handleCallback(config, identity);
+		await handleCallback(config, identity, callbackParameters);
 	} else if (page === 'account') {
 		await bindAccount(config, identity, backend, analytics);
 	}
@@ -104,10 +110,15 @@ function showAuthView(view, config) {
 	}
 }
 
-async function handleCallback(config, identity) {
-	const parameters = new URLSearchParams(location.search);
+async function handleCallback(config, identity, parameters) {
+	const tokenHash = parameters.get('token_hash');
+	if (parameters.get('mode') === 'recovery' && tokenHash) {
+		bindRecoveryVerification(config, identity, tokenHash);
+		return;
+	}
 	const code = parameters.get('code');
-	if (!code) throw new Error('The confirmation link is incomplete.');
+	if (!code)
+		throw new Error(parameters.get('error_description') || 'The confirmation link is incomplete.');
 	await identity.exchangeConfirmation(code);
 	const setup = customerSetupSelection(location.search);
 	if (parameters.get('mode') === 'recovery') {
@@ -115,6 +126,26 @@ async function handleCallback(config, identity) {
 		return;
 	}
 	location.replace(customerSetupUrl(config.accountUrl, setup));
+}
+
+export function bindRecoveryVerification(config, identity, tokenHash) {
+	const button = document.querySelector('[data-customer-verify-recovery]');
+	if (!button) throw new Error('Password reset confirmation is unavailable.');
+	const notice = document.querySelector('[data-customer-notice]');
+	if (notice) notice.textContent = 'Continue to verify your recovery link.';
+	button.classList.remove('u-hidden');
+	button.addEventListener('click', async () => {
+		button.disabled = true;
+		clearNotice();
+		try {
+			await identity.verifyRecovery(tokenHash);
+			button.remove();
+			bindRecovery(config, identity);
+		} catch (error) {
+			showError(error);
+			button.disabled = false;
+		}
+	});
 }
 
 export function bindRecovery(config, identity) {
