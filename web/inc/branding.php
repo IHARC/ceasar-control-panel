@@ -184,7 +184,7 @@ function branding_name(): string {
 
 function branding_accent_style(): string {
 	$color = htmlspecialchars(branding_config()["accent_color"], ENT_QUOTES);
-	return "--branding-accent: {$color}; --color-text-link: {$color}; --color-text-link-hover: {$color}; --icon-color-purple: {$color}; --icon-color-maroon: {$color}; --icon-color-blue: {$color}; --iharc-blue: {$color}; --iharc-blue-deep: {$color};";
+	return "--branding-accent: {$color}; --color-text-link: {$color}; --color-text-link-hover: {$color}; --icon-color-purple: {$color}; --icon-color-maroon: {$color}; --icon-color-blue: {$color};";
 }
 
 function branding_validate_url(string $value): string {

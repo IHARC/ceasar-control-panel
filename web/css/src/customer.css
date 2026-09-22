@@ -1,8 +1,10 @@
 /* Customer portal: a small, flat layer over the Ceasar base theme. */
-.page-customer {
-	--iharc-blue: var(--branding-accent, #246bce);
-	--iharc-blue-deep: var(--branding-accent, #174b94);
-	--iharc-red: #d62832;
+.page-customer,
+body.page-login[data-customer-page] {
+	--customer-accent: var(--branding-accent, #246bce);
+	--customer-accent-strong: color-mix(in srgb, var(--customer-accent), #000 22%);
+	--customer-accent-tint: color-mix(in srgb, var(--customer-accent), white 92%);
+	--customer-alert: #d62832;
 	--iharc-ink: #171a1f;
 	--iharc-muted: #5e6672;
 	--iharc-paper: #f8f8f6;
@@ -89,8 +91,8 @@ body.page-login[data-customer-page] .login .form-control {
 }
 
 body.page-login[data-customer-page] .login .button {
-	background: var(--iharc-blue, #246bce);
-	border: 1px solid var(--iharc-blue, #246bce);
+	background: var(--customer-accent);
+	border: 1px solid var(--customer-accent);
 	border-radius: 2px;
 	box-shadow: none;
 	color: #fff;
@@ -103,11 +105,11 @@ body.page-login[data-customer-page] .login .button {
 
 body.page-login[data-customer-page] .login .button.button-secondary {
 	background: transparent;
-	color: var(--iharc-blue-deep, #174b94);
+	color: var(--customer-accent-strong);
 }
 
 body.page-login[data-customer-page] .login .login-form-link {
-	color: var(--iharc-blue-deep, #174b94);
+	color: var(--customer-accent-strong);
 	font-family: inherit;
 	font-weight: 700;
 	text-decoration: underline;
@@ -116,13 +118,13 @@ body.page-login[data-customer-page] .login .login-form-link {
 }
 
 body.page-login[data-customer-page] .customer-notice {
-	border-left: 4px solid var(--iharc-red, #d62832);
+	border-left: 4px solid var(--customer-alert);
 	margin-bottom: 24px;
 	padding: 10px 12px;
 }
 
 body.page-login[data-customer-page] :is(button, input, select, textarea, a):focus-visible {
-	outline: 3px solid var(--branding-accent, #d62832);
+	outline: 3px solid var(--customer-accent);
 	outline-offset: 3px;
 }
 
@@ -189,7 +191,7 @@ body.page-login[data-customer-page] :is(button, input, select, textarea, a):focu
 .customer-sign-out {
 	border: 0;
 	background: transparent;
-	color: var(--iharc-blue-deep);
+	color: var(--customer-accent-strong);
 	cursor: pointer;
 	padding: 8px 0;
 	text-decoration: underline;
@@ -219,7 +221,7 @@ body.page-login[data-customer-page] :is(button, input, select, textarea, a):focu
 }
 
 .customer-nav-link[aria-current="page"] {
-	border-color: var(--branding-accent, var(--iharc-red));
+	border-color: var(--customer-accent);
 	color: var(--iharc-ink);
 }
 
@@ -231,7 +233,7 @@ body.page-login[data-customer-page] :is(button, input, select, textarea, a):focu
 }
 
 .customer-notice {
-	border-left: 4px solid var(--iharc-red);
+	border-left: 4px solid var(--customer-alert);
 	margin-bottom: 28px;
 	padding: 12px 14px;
 }
@@ -321,7 +323,7 @@ button.customer-row {
 .customer-row-action {
 	background: transparent;
 	border: 0;
-	color: var(--iharc-blue-deep);
+	color: var(--customer-accent-strong);
 	cursor: pointer;
 	font: inherit;
 	font-weight: 700;
@@ -332,7 +334,7 @@ button.customer-row {
 
 button.customer-row:hover .customer-row-title,
 button.customer-row:focus-visible .customer-row-title {
-	color: var(--iharc-blue-deep);
+	color: var(--customer-accent-strong);
 	text-decoration: underline;
 	text-underline-offset: 3px;
 }
@@ -444,8 +446,8 @@ button.customer-row:focus-visible .customer-row-title {
 
 .page-customer .button {
 	align-items: center;
-	background: var(--iharc-blue);
-	border: 1px solid var(--iharc-blue);
+	background: var(--customer-accent);
+	border: 1px solid var(--customer-accent);
 	border-radius: 2px;
 	box-shadow: none;
 	box-sizing: border-box;
@@ -460,14 +462,14 @@ button.customer-row:focus-visible .customer-row-title {
 }
 
 .page-customer .button:hover {
-	background: var(--iharc-blue-deep);
-	border-color: var(--iharc-blue-deep);
+	background: var(--customer-accent-strong);
+	border-color: var(--customer-accent-strong);
 }
 
 .page-customer .button.button-secondary {
 	background: transparent;
-	border-color: var(--iharc-blue);
-	color: var(--iharc-blue-deep);
+	border-color: var(--customer-accent);
+	color: var(--customer-accent-strong);
 }
 
 .page-customer .button.button-secondary:hover {
@@ -491,6 +493,32 @@ button.customer-row:focus-visible .customer-row-title {
 	padding: 0;
 }
 
+.customer-setup-review {
+	border-top: 1px solid var(--iharc-line);
+	margin: 12px 0 18px;
+}
+
+.customer-setup-review > div {
+	border-bottom: 1px solid var(--iharc-line);
+	display: grid;
+	gap: 12px;
+	grid-template-columns: minmax(6rem, 0.25fr) minmax(0, 1fr);
+	padding: 10px 0;
+}
+
+.customer-setup-review dt {
+	font-weight: 700;
+}
+
+.customer-setup-review dd {
+	margin: 0;
+}
+
+[data-billing-summary] > .button {
+	display: inline-flex;
+	margin-top: 16px;
+}
+
 .customer-choice-list {
 	display: grid;
 	gap: 10px;
@@ -506,7 +534,8 @@ button.customer-row:focus-visible .customer-row-title {
 }
 
 .customer-choice:has(input:checked) {
-	border-color: var(--iharc-blue);
+	border-color: var(--customer-accent);
+	background: var(--customer-accent-tint);
 }
 
 .customer-choice input {
@@ -556,7 +585,7 @@ button.customer-row:focus-visible .customer-row-title {
 }
 
 .customer-case[aria-current="true"] .customer-row-title {
-	color: var(--iharc-blue-deep);
+	color: var(--customer-accent-strong);
 }
 
 .customer-message-list {
@@ -631,7 +660,7 @@ button.customer-row:focus-visible .customer-row-title {
 }
 
 .page-customer :is(button, input, select, textarea, a):focus-visible {
-	outline: 3px solid var(--branding-accent, var(--iharc-red));
+	outline: 3px solid var(--customer-accent);
 	outline-offset: 3px;
 }
 

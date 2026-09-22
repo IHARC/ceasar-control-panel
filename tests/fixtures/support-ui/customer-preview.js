@@ -65,6 +65,13 @@
       });
       return result.checkoutUrl ? { ...result, checkoutUrl: this.#hostedUrl(result.checkoutUrl) } : result;
     }
+    updateAnalyticsAttribution(accountId, attribution) {
+      return this.#request(
+        "POST",
+        `/accounts/${pathId(accountId)}/analytics-attribution`,
+        attribution
+      );
+    }
     confirmMigration(serviceId, { accountId, workspaceReadyOperationId, idempotencyKey }) {
       return this.#request("POST", `/migrations/${pathId(serviceId)}/confirm`, {
         accountId,
@@ -110,11 +117,11 @@
         idempotencyKey
       });
     }
-    async uploadSupportAttachments(caseId, messageId, attachments) {
+    async uploadSupportAttachments(caseId, messageId, attachments, idempotencyKey = "") {
       const session = await this.identity.session();
       if (!session?.access_token) throw new Error("Sign in to continue.");
-      for (const file of attachments) {
-        const requestId = crypto.randomUUID();
+      for (const [index, file] of attachments.entries()) {
+        const requestId = idempotencyKey ? `${idempotencyKey}:attachment:${index}` : crypto.randomUUID();
         const form = new FormData();
         form.set("action", "attachment");
         form.set("id", caseId);
@@ -285,14 +292,37 @@
   Object.assign(backend, {
     async sessionState() {
       return {
-        identity: { userId: "customer-1", email: "customer@example.test", displayName: "Alex Morgan" },
+        identity: {
+          userId: "customer-1",
+          email: "customer@example.test",
+          displayName: "Alex Morgan"
+        },
         accounts: [{ accountId: "account-1", displayName: "Example Studio" }],
         selectedAccountId: "account-1"
       };
     },
     async accountState() {
-      return { services: [], setups: [], offers: [], billing: [] };
+      const trialAvailable = new URLSearchParams(location.search).get("previewCap") !== "full";
+      return {
+        services: [],
+        setups: [],
+        billing: [],
+        trialEligibility: trialAvailable ? { status: "eligible", canStartTrial: true, reason: "trial_available" } : { status: "unavailable", canStartTrial: false, reason: "trial_capacity_full" },
+        offers: [{
+          planCode: "starter",
+          displayName: "Starter",
+          monthlyPriceCadCents: 1295,
+          websiteLimit: 1,
+          storageBytes: 5368709120,
+          transferBytes: 10737418240,
+          trialAvailable,
+          paidAvailable: true
+        }]
+      };
     }
   });
+  if (new URLSearchParams(location.search).has("previewEmptySupport")) {
+    backend.supportCases = async () => ({ cases: [], page: 1, totalPages: 1 });
+  }
   window.__CEASAR_CUSTOMER_PREVIEW__ = { identity, backend };
 })();

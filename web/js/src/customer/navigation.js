@@ -9,7 +9,7 @@ export function customerSetupSelection(search) {
 	};
 }
 
-export function customerSetupUrl(baseUrl, selection, hash = 'services') {
+export function customerSetupUrl(baseUrl, selection, hash = 'setup') {
 	const destination = new URL(baseUrl);
 	if (!selection.planCode) return destination.toString();
 	destination.searchParams.set('planCode', selection.planCode);

@@ -9,7 +9,7 @@ describe('customer setup navigation', () => {
 			'https://app.example/customer/login?planCode=plus&intent=migration',
 		);
 		expect(customerSetupUrl('https://app.example/customer/account', selection)).toBe(
-			'https://app.example/customer/account?planCode=plus&intent=migration#services',
+			'https://app.example/customer/account?planCode=plus&intent=migration#setup',
 		);
 	});
 

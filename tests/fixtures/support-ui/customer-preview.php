@@ -11,6 +11,9 @@ putenv("CEASAR_BRANDING_DIR=" . sys_get_temp_dir() . "/ceasar-branding-preview")
 session_start();
 $_SESSION += ["APP_NAME" => "Ceasar", "FROM_NAME" => "Ceasar Support"];
 require dirname(__DIR__, 3) . "/web/inc/customer.php";
+if (($_GET["previewAccent"] ?? "") === "red") {
+	$GLOBALS["ceasar_branding_config"] = [...branding_defaults(), "accent_color" => "#d62832"];
+}
 
 $config = [
 	"schema" => 1,
@@ -28,6 +31,7 @@ $config = [
 	"callback_url" => "/customer-preview",
 	"account_url" => "/customer-preview",
 	"worker_api_base" => "/fixture/customer-api",
+	"analytics" => ["measurement_id" => "", "consent_cookie_domain" => ""],
 ];
 $title = "Customer account";
 $customerPage = "account";

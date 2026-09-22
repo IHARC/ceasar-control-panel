@@ -10,8 +10,8 @@
 	<p class="customer-view-intro">Start with a preview address, then connect your domain in the hosting controls when your service is ready.</p>
 
 	<section class="customer-section u-hidden" data-account-onboarding>
-		<h2>Set up your customer account</h2>
-		<p>Create an account name before starting hosting or opening a support case.</p>
+		<h2>Name your customer account</h2>
+		<p>Your sign-in is ready. Give this account a name before starting hosting or opening a support case.</p>
 		<form class="customer-form" data-account-action="account-create">
 			<div class="customer-form-field">
 				<label class="customer-form-label" for="account-name">Account name</label>
@@ -63,10 +63,11 @@
 		</fieldset>
 		<fieldset class="customer-setup-step">
 			<legend>3. Review and continue</legend>
-			<p class="customer-form-help" data-setup-review>Your selection will appear here.</p>
+			<dl class="customer-setup-review" data-setup-review aria-live="polite"><div><dt>Plan</dt><dd>Loading plans…</dd></div></dl>
+			<p class="customer-form-help" data-setup-availability aria-live="polite"></p>
 			<div class="customer-choice-list" data-setup-billing-choice>
-				<label class="customer-choice" data-paid-choice hidden><input type="radio" name="setup_mode" value="paid" checked><span><strong>Pay monthly</strong><span>Continue to secure checkout.</span></span></label>
-				<label class="customer-choice" data-trial-choice hidden><input type="radio" name="setup_mode" value="trial"><span><strong>Start free trial</strong><span>Payment details are collected before the trial begins.</span></span></label>
+				<label class="customer-choice" data-trial-choice hidden><input type="radio" name="setup_mode" value="trial"><span><strong>Start seven-day free trial</strong><span>A card is required before setup; the trial starts when hosting is ready.</span></span></label>
+				<label class="customer-choice" data-paid-choice hidden><input type="radio" name="setup_mode" value="paid"><span><strong>Pay monthly</strong><span>Continue to secure checkout.</span></span></label>
 			</div>
 			<div class="customer-actions"><button class="button" type="submit">Continue</button><button class="button button-secondary" type="button" data-back-to-hosting>Back to hosting</button></div>
 		</fieldset>
@@ -86,8 +87,8 @@
 	<h1 class="customer-view-heading" tabindex="-1">Support</h1>
 	<p class="customer-view-intro">Ask for help with your hosting or account.</p>
 	<p class="customer-empty u-hidden" data-support-fallback>Need help now? <a data-support-contact>Contact <?= htmlspecialchars((string) $config['brand_name'], ENT_QUOTES) ?>.</a></p>
-	<div class="customer-support-layout">
-		<section class="customer-section">
+	<div class="customer-support-layout" data-support-layout>
+		<section class="customer-section" data-support-list-section>
 			<h2>Your cases</h2>
 			<form class="customer-form customer-support-search" data-support-search>
 				<label class="customer-form-label" for="support-search">Find a case</label>
@@ -96,7 +97,7 @@
 			<div class="customer-case-list" data-support-case-list><p class="customer-empty">Loading support cases…</p></div>
 			<div class="customer-actions"><button class="button button-secondary" type="button" data-support-next hidden>More cases</button><button class="button button-secondary" type="button" data-support-retry hidden>Retry cases</button></div>
 		</section>
-		<section class="customer-section">
+		<section class="customer-section" data-support-detail-section>
 			<div data-support-case-detail><p class="customer-empty">Choose a case to read the conversation.</p></div>
 			<p><button class="button button-secondary" type="button" data-support-earlier hidden>Load earlier messages</button></p>
 			<div class="customer-message-list" data-support-message-list></div>
@@ -116,7 +117,7 @@
 			<button class="button" type="submit">Open case</button>
 		</form>
 	</section>
-	<section class="customer-section u-hidden" data-support-account-required><p>Create your customer account before opening a case. <a href="#hosting" data-open-onboarding>Set up your account.</a></p></section>
+	<section class="customer-section u-hidden" data-support-account-required><p>Name your customer account before opening a case. <a href="#hosting" data-open-onboarding>Name your account.</a></p></section>
 </section>
 
 <section class="customer-view" data-customer-view="profile" hidden>

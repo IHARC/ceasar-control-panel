@@ -36,8 +36,32 @@ Object.assign(backend, {
 		};
 	},
 	async accountState() {
-		return { services: [], setups: [], offers: [], billing: [] };
+		const trialAvailable = new URLSearchParams(location.search).get('previewCap') !== 'full';
+		return {
+			services: [],
+			setups: [],
+			billing: [],
+			trialEligibility: trialAvailable
+				? { status: 'eligible', canStartTrial: true, reason: 'trial_available' }
+				: { status: 'unavailable', canStartTrial: false, reason: 'trial_capacity_full' },
+			offers: [
+				{
+					planCode: 'starter',
+					displayName: 'Starter',
+					monthlyPriceCadCents: 1295,
+					websiteLimit: 1,
+					storageBytes: 5368709120,
+					transferBytes: 10737418240,
+					trialAvailable,
+					paidAvailable: true,
+				},
+			],
+		};
 	},
 });
+
+if (new URLSearchParams(location.search).has('previewEmptySupport')) {
+	backend.supportCases = async () => ({ cases: [], page: 1, totalPages: 1 });
+}
 
 window.__CEASAR_CUSTOMER_PREVIEW__ = { identity, backend };

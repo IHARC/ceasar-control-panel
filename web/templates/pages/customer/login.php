@@ -4,6 +4,7 @@
 	</a>
 	<div class="u-width-full">
 		<div data-customer-notice aria-live="polite"></div>
+		<p class="customer-form-help" data-selected-plan hidden></p>
 		<form id="sign-in" data-customer-auth-form="sign-in">
 			<h1 class="login-title">Sign in to <?= htmlspecialchars((string) $config['brand_name'], ENT_QUOTES) ?></h1>
 			<div class="u-mb20">
@@ -22,7 +23,7 @@
 			</p>
 		</form>
 		<form id="create-account" class="u-hidden" data-customer-auth-form="sign-up">
-			<h1 class="login-title">Create customer account</h1>
+			<h1 class="login-title">Create your sign-in</h1>
 			<p class="u-mb20">We will email a confirmation link before you can sign in.</p>
 			<div class="u-mb20">
 				<label for="signup-email" class="form-label">Email</label>

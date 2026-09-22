@@ -41,7 +41,8 @@ branding_test_assert(
 	"Brand accent does not override native icon colors.",
 );
 branding_test_assert(
-	str_contains(branding_accent_style(), "--iharc-blue: #123456"),
+	str_contains(branding_accent_style(), "--branding-accent: #123456") &&
+		!str_contains(branding_accent_style(), "--iharc-blue"),
 	"Brand accent does not override customer colors.",
 );
 $asset = CEASAR_BRANDING_ASSET_DIR . "/header_logo.svg";

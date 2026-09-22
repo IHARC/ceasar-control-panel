@@ -24,9 +24,8 @@ describe('customer support UI contract', () => {
 		]);
 		expect(account.match(/data-account-action="account-create"/g)).toHaveLength(1);
 		expect(account).toContain('data-account-onboarding');
-		expect(account).toContain(
-			'Create an account name before starting hosting or opening a support case.',
-		);
+		expect(account).toContain('Name your customer account');
+		expect(account).toContain('Your sign-in is ready.');
 		expect(account).toContain('data-customer-view="setup"');
 		expect(account.match(/data-account-action="hosting-setup"/g)).toHaveLength(1);
 		expect(account).not.toContain('data-account-action="admission-trial"');
