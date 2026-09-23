@@ -1,7 +1,7 @@
 /* Customer portal: a small, flat layer over the Ceasar base theme. */
 .page-customer,
 body.page-login[data-customer-page] {
-	--customer-accent: var(--branding-accent, #246bce);
+	--customer-accent: var(--branding-accent, #5b5bd6);
 	--customer-accent-strong: color-mix(in srgb, var(--customer-accent), #000 22%);
 	--customer-accent-tint: color-mix(in srgb, var(--customer-accent), white 92%);
 	--customer-alert: #d62832;
