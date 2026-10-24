@@ -7,7 +7,7 @@
 	<title><?= htmlspecialchars($title, ENT_QUOTES) ?> · <?= htmlspecialchars((string) $config['brand_name'], ENT_QUOTES) ?></title>
 	<link rel="icon" href="<?= htmlspecialchars(branding_asset_url('favicon'), ENT_QUOTES) ?>">
 	<link rel="stylesheet" href="/css/themes/default.min.css">
-	<link rel="stylesheet" href="/css/themes/customer.min.css">
+	<link rel="stylesheet" href="/css/themes/customer.min.css?v=<?= (int) filemtime(dirname(__DIR__) . '/css/themes/customer.min.css') ?>">
 	<style nonce="<?= htmlspecialchars((string) ($customer_style_nonce ?? ''), ENT_QUOTES) ?>">:root { <?= branding_accent_style() ?> }</style>
 	<script type="module" defer src="/js/dist/customer.min.js?v=<?= (int) filemtime(dirname(__DIR__) . '/js/dist/customer.min.js') ?>"></script>
 </head>
