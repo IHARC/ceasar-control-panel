@@ -1159,7 +1159,9 @@ export function createOnboardingWizard({
 			} else if (action === 'hosting-access' || action === 'wordpress-access') {
 				const userId =
 					draft.setupKind === 'wordpress-move'
-						? root.querySelector('[name=importedAdministrator]')?.value.trim() || ''
+						? root.querySelector('[name=importedAdministrator]')?.value.trim() ||
+							draft.importedAdministrator ||
+							''
 						: '';
 				if (
 					action === 'wordpress-access' &&
@@ -1251,8 +1253,7 @@ export function createOnboardingWizard({
 		}
 		const url = safeUrl(access?.url || access?.actionUrl);
 		if (!url) throw new Error('Access is not ready yet. Refresh progress and try again.');
-		const tab = window.open(url, '_blank', 'noopener');
-		if (!tab) location.assign(url);
+		location.assign(url);
 	}
 
 	root.addEventListener('click', (event) => {
