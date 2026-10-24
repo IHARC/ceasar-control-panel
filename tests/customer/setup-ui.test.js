@@ -7,7 +7,11 @@ import {
 } from '../../web/js/src/customer/wizard.js';
 import { createRequestKeys } from '../../web/js/src/customer/request-keys.js';
 
-const original = { document: globalThis.document, location: globalThis.location };
+const original = {
+	document: globalThis.document,
+	location: globalThis.location,
+	window: globalThis.window,
+};
 afterEach(() => Object.assign(globalThis, original));
 
 function mount(overrides = {}) {
@@ -405,5 +409,47 @@ describe('customer onboarding wizard', () => {
 			}),
 		);
 		expect(hostingAccess).toHaveBeenCalledWith('account-1', 'service-1');
+	});
+
+	it('opens imported WordPress from Ready with the saved administrator', async () => {
+		const wordpressAccess = vi.fn().mockResolvedValue({
+			url: 'https://preview.example.test/wp-admin/',
+			method: 'single_use',
+		});
+		const { wizard, provider } = mount({
+			provider: {
+				readOnboarding: vi.fn().mockResolvedValue({
+					draft: {
+						step: 'ready',
+						setupKind: 'wordpress-move',
+						intent: 'migration',
+						siteType: 'wordpress',
+						serviceId: 'service-1',
+						importedAdministrator: 'existing-admin',
+					},
+					capabilities: {},
+				}),
+				serviceOnboarding: vi.fn().mockResolvedValue({ status: 'ready', stage: 'verified' }),
+				wordpressAccess,
+			},
+		});
+		const navigate = vi.fn();
+		const popup = vi.fn(() => null);
+		globalThis.location = { origin: 'https://customer.example.test', assign: navigate };
+		globalThis.window = { open: popup };
+		await wizard.load();
+		expect(document.querySelector('[name=importedAdministrator]')).toBeNull();
+		click('wordpress-access');
+		await vi.waitFor(() =>
+			expect(wordpressAccess).toHaveBeenCalledWith('account-1', 'service-1', 'existing-admin'),
+		);
+		expect(navigate).toHaveBeenCalledOnce();
+		expect(navigate).toHaveBeenCalledWith('https://preview.example.test/wp-admin/');
+		expect(popup).not.toHaveBeenCalled();
+		expect(document.querySelector('[role=alert]')).toBeNull();
+		expect(provider.saveOnboarding).toHaveBeenCalledWith(
+			'account-1',
+			expect.objectContaining({ importedAdministrator: 'existing-admin' }),
+		);
 	});
 });
