@@ -165,6 +165,118 @@ describe('customer onboarding wizard', () => {
 		expect(document.querySelector('[value="paid"]').checked).toBe(true);
 	});
 
+	it.each(['trial', 'paid'])(
+		'preserves a saved Plus %s choice while initial offers and draft load asynchronously',
+		async (setupMode) => {
+			let finishRead;
+			const plus = {
+				planCode: 'plus',
+				displayName: 'Plus',
+				trialAvailable: true,
+				paidAvailable: true,
+			};
+			const starter = {
+				planCode: 'starter',
+				displayName: 'Starter',
+				trialAvailable: true,
+				paidAvailable: true,
+			};
+			const { wizard, provider } = mount({
+				accountId: '',
+				offers: [],
+				trialEligibility: null,
+				capabilities: {},
+				provider: {
+					readOnboarding: vi.fn(
+						() =>
+							new Promise((resolve) => {
+								finishRead = resolve;
+							}),
+					),
+				},
+			});
+			const updating = wizard.update({
+				accountId: 'account-1',
+				offers: [],
+				trialEligibility: null,
+			});
+			finishRead({
+				draft: {
+					step: 'hosting',
+					setupKind: 'wordpress-move',
+					siteType: 'wordpress',
+					intent: 'migration',
+					planCode: 'plus',
+					setupMode,
+				},
+				capabilities: { setupMethods: { 'wordpress-move': { trial: true, paid: true } } },
+			});
+			await updating;
+			expect(wizard.state.draft.planCode).toBe('plus');
+			expect(wizard.state.draft.setupMode).toBe(setupMode);
+			expect(provider.saveOnboarding).not.toHaveBeenCalled();
+			await wizard.update({ offers: [starter, plus], trialEligibility: { canStartTrial: true } });
+			expect(document.querySelector('[name=planCode]').value).toBe('plus');
+			expect(document.querySelector(`[name=setupMode][value=${setupMode}]`).checked).toBe(true);
+			expect(provider.saveOnboarding).not.toHaveBeenCalled();
+		},
+	);
+
+	it('keeps saved Plus while a full trial offer changes its payment choice to monthly', async () => {
+		let finishRead;
+		const plus = {
+			planCode: 'plus',
+			displayName: 'Plus',
+			trialAvailable: false,
+			paidAvailable: true,
+		};
+		const { wizard, provider } = mount({
+			accountId: '',
+			offers: [],
+			trialEligibility: null,
+			capabilities: {},
+			provider: {
+				readOnboarding: vi.fn(
+					() =>
+						new Promise((resolve) => {
+							finishRead = resolve;
+						}),
+				),
+			},
+		});
+		const updating = wizard.update({
+			accountId: 'account-1',
+			offers: [
+				{ planCode: 'starter', displayName: 'Starter', trialAvailable: false, paidAvailable: true },
+				plus,
+			],
+			trialEligibility: { canStartTrial: false, reason: 'trial_capacity_full' },
+		});
+		finishRead({
+			draft: {
+				step: 'hosting',
+				setupKind: 'wordpress-move',
+				siteType: 'wordpress',
+				intent: 'migration',
+				planCode: 'plus',
+				setupMode: 'trial',
+			},
+			capabilities: { setupMethods: { 'wordpress-move': { trial: true, paid: true } } },
+		});
+		await updating;
+		expect(document.querySelector('[name=planCode]').value).toBe('plus');
+		expect(document.querySelector('[name=setupMode][value=paid]').checked).toBe(true);
+		await vi.waitFor(() =>
+			expect(provider.saveOnboarding).toHaveBeenCalledWith(
+				'account-1',
+				expect.objectContaining({ planCode: 'plus', setupMode: 'paid' }),
+			),
+		);
+		expect(provider.saveOnboarding.mock.calls.every(([, draft]) => draft.planCode === 'plus')).toBe(
+			true,
+		);
+	});
+
 	it('retains the plan and stops admission when trial capacity fills', async () => {
 		const { wizard, onCommit } = mount({
 			onRefreshOffers: vi.fn().mockResolvedValue({

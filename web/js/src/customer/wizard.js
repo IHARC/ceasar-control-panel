@@ -246,7 +246,11 @@ export function createOnboardingWizard({
 		trialEligibility: nextEligibility,
 		setups,
 	} = {}) {
+		if (nextOffers !== undefined) state.offers = nextOffers;
+		if (nextEligibility !== undefined) state.trialEligibility = nextEligibility;
 		if (nextAccount !== undefined && nextAccount !== state.accountId) {
+			if (nextOffers === undefined) state.offers = [];
+			if (nextEligibility === undefined) state.trialEligibility = null;
 			if (state.accountId) {
 				state.draft = initialDraft();
 				state.accountName = '';
@@ -262,8 +266,6 @@ export function createOnboardingWizard({
 			render(true);
 			await load();
 		}
-		if (nextOffers !== undefined) state.offers = nextOffers;
-		if (nextEligibility !== undefined) state.trialEligibility = nextEligibility;
 		const request = setups?.find((item) => item.requestId === state.draft.requestId);
 		if (request) {
 			state.checkoutPending =
@@ -373,6 +375,7 @@ export function createOnboardingWizard({
 
 	function normalizeHostingSelection() {
 		if (mode === 'native' || state.draft.step !== 'hosting') return;
+		if (!state.offers.length || !state.capabilities.setupMethods || !state.trialEligibility) return;
 		const draft = state.draft;
 		const previous = `${draft.planCode}:${draft.setupMode}`;
 		if (!state.offers.some((offer) => offer.planCode === draft.planCode))
