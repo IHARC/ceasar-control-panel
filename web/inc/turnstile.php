@@ -73,10 +73,11 @@ function native_turnstile_verify(string $token, string $action): bool {
 	) {
 		return false;
 	}
+	// The immediate peer may be a reverse proxy. Do not send its address as
+	// the visitor's optional remoteip or trust an arbitrary forwarded header.
 	$body = http_build_query([
 		"secret" => $config["secret_key"],
 		"response" => $token,
-		"remoteip" => $_SERVER["REMOTE_ADDR"] ?? "",
 	]);
 	$context = stream_context_create([
 		"http" => [
