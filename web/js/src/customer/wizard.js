@@ -544,7 +544,7 @@ export function createOnboardingWizard({
 				make(
 					'p',
 					'customer-form-help',
-					'Use a hostname you control. You can connect this domain or add another domain after preparation.',
+					"Point this hostname to your hosting server in DNS before preparation. For a move, use a preview subdomain and keep the original website's DNS unchanged. You can add another domain later.",
 				),
 			);
 			if (state.draft.setupKind === 'php-static') {
