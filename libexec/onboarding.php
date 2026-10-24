@@ -751,7 +751,7 @@ function onboarding_domain(
 		"wwwObserved" => $wwwTargets,
 		"ownershipReady" => $ownershipReady,
 		"dnsReady" => $matches && $conflicts === [],
-		"certificateReady" => onboarding_tls_ready($domain),
+		"certificateReady" => onboarding_tls_ready($domain, $expected),
 		"status" => $prior["status"] ?? "awaiting_dns",
 	];
 	if (!$record["dnsReady"]) {
@@ -784,7 +784,7 @@ function onboarding_domain(
 		[$user, $host, implode(",", $certificateAliases)],
 		150,
 	);
-	if (!$cert["ok"] && !onboarding_tls_ready($domain)) {
+	if (!$cert["ok"] && !onboarding_tls_ready($domain, $expected)) {
 		$record["status"] = "awaiting_certificate";
 		$db->prepare(
 			"INSERT INTO domains(owner,hostname,domain,status,updated_at) VALUES (?,?,?,?,?)
@@ -792,14 +792,14 @@ function onboarding_domain(
 		)->execute([$user, $host, $domain, $record["status"], time()]);
 		return $record;
 	}
-	if (!onboarding_tls_ready($domain)) {
+	if (!onboarding_tls_ready($domain, $expected)) {
 		$record["status"] = "awaiting_certificate";
 		$db->prepare(
 			"UPDATE domains SET status='awaiting_certificate',updated_at=? WHERE owner=? AND hostname=? AND domain=?",
 		)->execute([time(), $user, $host, $domain]);
 		return $record;
 	}
-	if (!onboarding_https_ready($domain)) {
+	if (!onboarding_https_ready($domain, $expected)) {
 		$record["status"] = "awaiting_website";
 		$db->prepare(
 			"UPDATE domains SET status='awaiting_certificate',updated_at=? WHERE owner=? AND hostname=? AND domain=?",
@@ -918,23 +918,54 @@ function onboarding_backup_required(?array $prior, string $path): bool {
 	return !is_file($path);
 }
 
-function onboarding_tls_ready(string $domain): bool {
-	$context = stream_context_create([
+function onboarding_tls_endpoint(string $address): string {
+	if (
+		!filter_var(
+			$address,
+			FILTER_VALIDATE_IP,
+			FILTER_FLAG_NO_PRIV_RANGE | FILTER_FLAG_NO_RES_RANGE,
+		)
+	) {
+		throw new InvalidArgumentException("Invalid website probe address.");
+	}
+	return "ssl://" . (str_contains($address, ":") ? "[" . $address . "]" : $address) . ":443";
+}
+
+function onboarding_tls_context_options(string $domain): array {
+	return [
 		"ssl" => [
 			"verify_peer" => true,
 			"verify_peer_name" => true,
 			"peer_name" => $domain,
 			"SNI_enabled" => true,
+			"SNI_server_name" => $domain,
 		],
-	]);
-	$socket = @stream_socket_client(
-		"ssl://" . $domain . ":443",
-		$number,
-		$message,
-		5,
-		STREAM_CLIENT_CONNECT,
-		$context,
-	);
+	];
+}
+
+function onboarding_tls_socket(string $domain, array $expected) {
+	$context = stream_context_create(onboarding_tls_context_options($domain));
+	foreach ($expected as $address) {
+		if (!is_string($address)) {
+			throw new InvalidArgumentException("Invalid website probe address.");
+		}
+		$socket = @stream_socket_client(
+			onboarding_tls_endpoint($address),
+			$number,
+			$message,
+			5,
+			STREAM_CLIENT_CONNECT,
+			$context,
+		);
+		if (is_resource($socket)) {
+			return $socket;
+		}
+	}
+	return false;
+}
+
+function onboarding_tls_ready(string $domain, array $expected): bool {
+	$socket = onboarding_tls_socket($domain, $expected);
 	if (!is_resource($socket)) {
 		return false;
 	}
@@ -942,23 +973,8 @@ function onboarding_tls_ready(string $domain): bool {
 	return true;
 }
 
-function onboarding_https_ready(string $domain): bool {
-	$context = stream_context_create([
-		"ssl" => [
-			"verify_peer" => true,
-			"verify_peer_name" => true,
-			"peer_name" => $domain,
-			"SNI_enabled" => true,
-		],
-	]);
-	$socket = @stream_socket_client(
-		"ssl://" . $domain . ":443",
-		$number,
-		$message,
-		5,
-		STREAM_CLIENT_CONNECT,
-		$context,
-	);
+function onboarding_https_ready(string $domain, array $expected): bool {
+	$socket = onboarding_tls_socket($domain, $expected);
 	if (!is_resource($socket)) {
 		return false;
 	}

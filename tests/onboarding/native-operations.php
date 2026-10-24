@@ -25,6 +25,29 @@ try {
 		in_array("--property=User=nobody", $isolated, true),
 		"Application command does not use the owning tenant.",
 	);
+	$probeAddresses = onboarding_public_addresses(["IP" => "10.0.0.5"]);
+	check(
+		$probeAddresses === ["1.1.1.1"] &&
+			onboarding_tls_endpoint($probeAddresses[0]) === "ssl://1.1.1.1:443",
+		"TLS target was not pinned to the configured public website address.",
+	);
+	check(
+		onboarding_tls_endpoint("2606:4700:4700::1111") === "ssl://[2606:4700:4700::1111]:443",
+		"IPv6 TLS target was not bracketed.",
+	);
+	$identity = onboarding_tls_context_options("customer.example.test")["ssl"];
+	check(
+		$identity["peer_name"] === "customer.example.test" &&
+			$identity["SNI_server_name"] === "customer.example.test" &&
+			$identity["verify_peer_name"] === true,
+		"TLS peer identity was not the customer domain.",
+	);
+	try {
+		onboarding_tls_endpoint("10.0.0.5");
+		throw new RuntimeException("Private probe target accepted.");
+	} catch (InvalidArgumentException $error) {
+		/* required */
+	}
 	check(
 		in_array("--description=Ceasar website operation", $isolated, true),
 		"Transient unit description exposes command arguments.",
