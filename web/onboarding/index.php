@@ -24,10 +24,14 @@ header(
   ) ?>">
   <title>Set up website · <?= htmlspecialchars(branding_name(), ENT_QUOTES) ?></title>
   <link rel="stylesheet" href="/css/themes/default.min.css">
-  <link rel="stylesheet" href="/css/themes/customer.min.css">
+  <link rel="stylesheet" href="/css/themes/customer.min.css?v=<?= (int) filemtime(
+  	dirname(__DIR__) . "/css/themes/customer.min.css",
+  ) ?>">
   <link rel="icon" href="<?= htmlspecialchars(branding_asset_url("favicon"), ENT_QUOTES) ?>">
   <style>:root { <?= branding_accent_style() ?> }</style>
-  <script type="module" src="/js/dist/onboarding-native.min.js"></script>
+  <script type="module" src="/js/dist/onboarding-native.min.js?v=<?= (int) filemtime(
+  	dirname(__DIR__) . "/js/dist/onboarding-native.min.js",
+  ) ?>"></script>
 </head>
 <body class="page-customer" data-ceasar-user="<?= htmlspecialchars(
 	$ceasarUser,

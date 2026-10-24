@@ -1,0 +1,5 @@
+#!/bin/sh
+[ "$1" = alice ] && [ "$2" = preview.example.test ] && [ -z "$3" ] || exit 1
+printf '%s|%s\n' "$1" "$2" >> /tmp/ceasar-fixture-cert-invocations
+[ -f /tmp/ceasar-fixture-dns-ready ] || exit 1
+touch /tmp/ceasar-fixture-tls-ready

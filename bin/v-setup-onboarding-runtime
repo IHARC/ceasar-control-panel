@@ -4,7 +4,14 @@ install -d -o root -g root -m 0700 /var/lib/ceasar/onboarding
 if getent group ceasarweb > /dev/null && [[ -d /usr/local/ceasar/conf && ! -e /usr/local/ceasar/conf/onboarding.json ]]; then
 	panel_hostname=$(hostname -f 2> /dev/null || true)
 	if [[ "$panel_hostname" =~ ^[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$ ]]; then
+		panel_port=$(sed -nE "s/^BACKEND_PORT='([0-9]+)'$/\\1/p" /usr/local/ceasar/conf/ceasar.conf 2> /dev/null || true)
+		if [[ ! "$panel_port" =~ ^[0-9]{1,5}$ ]] || ((10#$panel_port < 1 || 10#$panel_port > 65535)); then
+			panel_port=8083
+		fi
 		panel_origin="https://$panel_hostname"
+		if [[ "$panel_port" != 443 ]]; then
+			panel_origin+=":$panel_port"
+		fi
 		printf '{"panel_origin":"%s","grant_origins":["%s"]}\n' "$panel_origin" "$panel_origin" \
 			> /usr/local/ceasar/conf/onboarding.json
 	else

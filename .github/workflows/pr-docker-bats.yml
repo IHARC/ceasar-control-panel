@@ -183,6 +183,9 @@ jobs:
               | grep -Fq "data-customer-auth-form=\"sign-in\""
           '
 
+      - name: Verify installed standalone WordPress onboarding
+        run: docker exec -e CEASAR_ONBOARDING_TEST=1 ceasar-ci bash /ceasar-git/test/onboarding-wordpress.sh
+
       - name: Collect logs on failure
         if: failure()
         run: |

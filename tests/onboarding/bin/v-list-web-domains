@@ -2,7 +2,10 @@
 if [ "$1" = alice ]; then
 	backend=php-8.3
 	[ -f /tmp/ceasar-fixture-no-php ] && backend=no-php
-	printf '{"preview.example.test":{"IP":"203.0.113.7","IP6":"","ALIAS":"","BACKEND":"%s","SSL":"yes","SUSPENDED":"no"}}\n' "$backend"
+	ssl=yes
+	[ -f /tmp/ceasar-fixture-no-tls ] && ssl=no
+	[ -f /tmp/ceasar-fixture-tls-ready ] && ssl=yes
+	printf '{"preview.example.test":{"IP":"203.0.113.7","IP6":"","ALIAS":"","BACKEND":"%s","SSL":"%s","SUSPENDED":"no"}}\n' "$backend" "$ssl"
 else
 	printf '{}\n'
 fi
