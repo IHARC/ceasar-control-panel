@@ -65,6 +65,37 @@ describe('SupabaseIdentityProvider', () => {
 		});
 	});
 
+	it('passes one CAPTCHA token to each Supabase authentication boundary', async () => {
+		const resetPasswordForEmail = vi.fn().mockResolvedValue({ error: null });
+		const { identity, auth } = identityFixture({ resetPasswordForEmail });
+		await identity.signUp(
+			'customer@example.com',
+			'long password',
+			true,
+			config.callbackUrl,
+			'signup-token',
+			'Example account',
+		);
+		await identity.signIn('customer@example.com', 'long password', 'signin-token');
+		await identity.requestRecovery('customer@example.com', 'recovery-token');
+		expect(auth.signUp).toHaveBeenCalledWith(
+			expect.objectContaining({
+				options: {
+					emailRedirectTo: config.callbackUrl,
+					captchaToken: 'signup-token',
+					data: { display_name: 'Example account' },
+				},
+			}),
+		);
+		expect(auth.signInWithPassword).toHaveBeenCalledWith(
+			expect.objectContaining({ options: { captchaToken: 'signin-token' } }),
+		);
+		expect(resetPasswordForEmail).toHaveBeenCalledWith(
+			'customer@example.com',
+			expect.objectContaining({ captchaToken: 'recovery-token' }),
+		);
+	});
+
 	it('rejects an auth project that auto-confirms customer signup', async () => {
 		const { identity, auth } = identityFixture({
 			signUp: vi.fn().mockResolvedValue({
@@ -126,6 +157,33 @@ describe('SupabaseIdentityProvider', () => {
 });
 
 describe('CustomerBusinessBackend', () => {
+	it('bounds token acquisition, fetch, and response body with the same deadline', async () => {
+		vi.useFakeTimers();
+		try {
+			for (const phase of ['session', 'fetch', 'body']) {
+				const identity = { session: vi.fn().mockResolvedValue({ access_token: 'token' }) };
+				const fetcher = vi.fn().mockResolvedValue(
+					new Response(JSON.stringify({ data: {} }), {
+						headers: { 'content-type': 'application/json' },
+					}),
+				);
+				if (phase === 'session') identity.session.mockImplementation(() => new Promise(() => {}));
+				if (phase === 'fetch') fetcher.mockImplementation(() => new Promise(() => {}));
+				if (phase === 'body')
+					fetcher.mockResolvedValue({
+						ok: true,
+						headers: { get: () => 'application/json' },
+						json: () => new Promise(() => {}),
+					});
+				const backend = new CustomerBusinessBackend(identity, config.workerApiBase, fetcher);
+				const pending = expect(backend.sessionState()).rejects.toThrow('timed out');
+				await vi.advanceTimersByTimeAsync(60000);
+				await pending;
+			}
+		} finally {
+			vi.useRealTimers();
+		}
+	});
 	it('sends consented attribution only to the selected account route', async () => {
 		const identity = { session: vi.fn().mockResolvedValue({ access_token: 'customer-token' }) };
 		const fetcher = vi.fn().mockResolvedValue(

@@ -27,6 +27,11 @@ module.exports = {
 				parser: 'sh',
 			},
 		},
+		// PHP CLI entrypoints
+		{
+			files: ['bin/v-onboarding-request', 'bin/v-onboarding-consume-grant'],
+			options: { parser: 'php' },
+		},
 		// Nginx config
 		{
 			files: ['**/nginx/*.inc', '**/nginx/*.conf'],

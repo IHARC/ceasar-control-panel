@@ -23,6 +23,7 @@ use Ceasar\Shell\quoteshellarg;
 session_start();
 require_once __DIR__ . "/../web/inc/vendor/autoload.php";
 require_once __DIR__ . "/../web/src/init.php";
+require_once __DIR__ . "/../libexec/quick-install-options.php";
 
 define("CEASAR_DIR_BIN", "/usr/local/ceasar/bin/");
 define("CEASAR_CMD", "/usr/bin/sudo /usr/local/ceasar/bin/");
@@ -83,6 +84,12 @@ $application
 			}
 		}
 		$data = array_merge($array, $data);
+		try {
+			$data = ceasar_quick_install_options($app, $data);
+		} catch (InvalidArgumentException $error) {
+			$output->writeln($error->getMessage());
+			return Command::FAILURE;
+		}
 		//loop trough data and check all fields are set
 
 		$error = false;

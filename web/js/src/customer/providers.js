@@ -14,14 +14,18 @@ export class SupabaseIdentityProvider {
 		});
 	}
 
-	async signUp(email, password, acceptedTerms, callbackUrl) {
+	async signUp(email, password, acceptedTerms, callbackUrl, captchaToken = '', accountName = '') {
 		if (!acceptedTerms) {
 			throw new Error('Accept the Terms of Service and Privacy Policy to continue.');
 		}
 		const { data, error } = await this.client.auth.signUp({
 			email,
 			password,
-			options: { emailRedirectTo: callbackUrl },
+			options: {
+				emailRedirectTo: callbackUrl,
+				...(captchaToken ? { captchaToken } : {}),
+				...(accountName.trim() ? { data: { display_name: accountName.trim().slice(0, 120) } } : {}),
+			},
 		});
 		throwIfError(error);
 		if (data.session) {
@@ -31,10 +35,11 @@ export class SupabaseIdentityProvider {
 		return data.user;
 	}
 
-	async signIn(email, password) {
+	async signIn(email, password, captchaToken = '') {
 		const { data, error } = await this.client.auth.signInWithPassword({
 			email,
 			password,
+			options: captchaToken ? { captchaToken } : undefined,
 		});
 		throwIfError(error);
 		return data.session;
@@ -65,11 +70,12 @@ export class SupabaseIdentityProvider {
 		return data.session;
 	}
 
-	async requestRecovery(email) {
+	async requestRecovery(email, captchaToken = '') {
 		const redirectTo = new URL(this.config.callbackUrl);
 		redirectTo.searchParams.set('mode', 'recovery');
 		const { error } = await this.client.auth.resetPasswordForEmail(email, {
 			redirectTo: redirectTo.toString(),
+			...(captchaToken ? { captchaToken } : {}),
 		});
 		throwIfError(error);
 	}
@@ -197,16 +203,53 @@ export class CustomerBusinessBackend {
 		return this.#request('POST', '/accounts', { displayName, idempotencyKey });
 	}
 
-	async requestTrialAdmission({ accountId, planCode, siteType, idempotencyKey }) {
+	async requestTrialAdmission({ accountId, planCode, siteType, intent, idempotencyKey }) {
 		const result = await this.#request('POST', '/admissions/trial', {
 			accountId,
 			planCode,
 			siteType,
+			intent,
 			idempotencyKey,
 		});
 		return result.checkoutUrl
 			? { ...result, checkoutUrl: this.#hostedUrl(result.checkoutUrl) }
 			: result;
+	}
+
+	readOnboarding(accountId) {
+		return this.#request('GET', `/accounts/${pathId(accountId)}/onboarding`);
+	}
+
+	saveOnboarding(accountId, draft) {
+		return this.#request('PUT', `/accounts/${pathId(accountId)}/onboarding`, { draft });
+	}
+
+	serviceOnboarding(_accountId, serviceId) {
+		return this.#request('GET', `/services/${pathId(serviceId)}/onboarding`);
+	}
+
+	hostingAccess(accountId, serviceId) {
+		return this.#request('POST', `/services/${pathId(serviceId)}/hosting-access`, { accountId });
+	}
+
+	wordpressAccess(accountId, serviceId, userId = '') {
+		return this.#request('POST', `/services/${pathId(serviceId)}/wordpress-access`, {
+			accountId,
+			...(userId ? { userId } : {}),
+		});
+	}
+
+	domainStatus(_accountId, serviceId, domain = '') {
+		const query = domain ? `?domain=${encodeURIComponent(domain)}` : '';
+		return this.#request('GET', `/services/${pathId(serviceId)}/domain${query}`);
+	}
+
+	connectDomain(accountId, serviceId, domain, idempotencyKey) {
+		return this.#request('POST', `/services/${pathId(serviceId)}/domain`, {
+			accountId,
+			domain,
+			idempotencyKey,
+		});
 	}
 
 	async requestPaidAdmission({ accountId, planCode, intent, siteType, idempotencyKey }) {
@@ -233,7 +276,7 @@ export class CustomerBusinessBackend {
 	confirmMigration(serviceId, { accountId, workspaceReadyOperationId, idempotencyKey }) {
 		return this.#request('POST', `/migrations/${pathId(serviceId)}/confirm`, {
 			accountId,
-			workspaceReadyOperationId,
+			...(workspaceReadyOperationId ? { workspaceReadyOperationId } : {}),
 			customerAttestsImportComplete: true,
 			idempotencyKey,
 		});
@@ -282,44 +325,52 @@ export class CustomerBusinessBackend {
 	}
 
 	async uploadSupportAttachments(caseId, messageId, attachments, idempotencyKey = '') {
-		const session = await this.identity.session();
-		if (!session?.access_token) throw new Error('Sign in to continue.');
-		for (const [index, file] of attachments.entries()) {
-			const requestId = idempotencyKey
-				? `${idempotencyKey}:attachment:${index}`
-				: crypto.randomUUID();
-			const form = new FormData();
-			form.set('action', 'attachment');
-			form.set('id', caseId);
-			form.set('messageId', messageId);
-			form.set('file', file);
-			const response = await this.fetch(`${this.supportApiBase}/attachment/`, {
-				method: 'POST',
-				headers: {
-					Accept: 'application/json',
-					Authorization: `Bearer ${session.access_token}`,
-					'Idempotency-Key': requestId,
-				},
-				body: form,
-				redirect: 'error',
-			});
-			const body = await response.json();
-			if (!response.ok || !body?.data) throw new Error(customerErrorMessage(body?.error));
-		}
+		return bounded(120000, async (signal) => {
+			const session = await this.identity.session();
+			if (signal.aborted) throw new Error('The request timed out. Refresh and try again.');
+			if (!session?.access_token) throw new Error('Sign in to continue.');
+			for (const [index, file] of attachments.entries()) {
+				const requestId = idempotencyKey
+					? `${idempotencyKey}:attachment:${index}`
+					: crypto.randomUUID();
+				const form = new FormData();
+				form.set('action', 'attachment');
+				form.set('id', caseId);
+				form.set('messageId', messageId);
+				form.set('file', file);
+				const response = await this.fetch(`${this.supportApiBase}/attachment/`, {
+					method: 'POST',
+					headers: {
+						Accept: 'application/json',
+						Authorization: `Bearer ${session.access_token}`,
+						'Idempotency-Key': requestId,
+					},
+					body: form,
+					redirect: 'error',
+					signal,
+				});
+				const body = await response.json();
+				if (!response.ok || !body?.data) throw new Error(customerErrorMessage(body?.error));
+			}
+		});
 	}
 
 	async downloadSupportAttachment(attachment) {
-		const session = await this.identity.session();
-		if (!session?.access_token) throw new Error('Sign in to continue.');
-		const response = await this.fetch(
-			`${this.supportApiBase}/attachment/?attachmentId=${encodeURIComponent(attachment.id)}`,
-			{
-				headers: { Authorization: `Bearer ${session.access_token}` },
-				redirect: 'error',
-			},
-		);
-		if (!response.ok) throw new Error('This attachment could not be downloaded.');
-		return response.blob();
+		return bounded(60000, async (signal) => {
+			const session = await this.identity.session();
+			if (signal.aborted) throw new Error('The request timed out. Refresh and try again.');
+			if (!session?.access_token) throw new Error('Sign in to continue.');
+			const response = await this.fetch(
+				`${this.supportApiBase}/attachment/?attachmentId=${encodeURIComponent(attachment.id)}`,
+				{
+					headers: { Authorization: `Bearer ${session.access_token}` },
+					redirect: 'error',
+					signal,
+				},
+			);
+			if (!response.ok) throw new Error('This attachment could not be downloaded.');
+			return response.blob();
+		});
 	}
 
 	#hostedUrl(value) {
@@ -331,62 +382,88 @@ export class CustomerBusinessBackend {
 	}
 
 	async #request(method, path, payload) {
-		const session = await this.identity.session();
-		if (!session?.access_token) throw new Error('Sign in to continue.');
-		const options = {
-			method,
-			headers: {
-				Accept: 'application/json',
-				Authorization: `Bearer ${session.access_token}`,
-			},
-			redirect: 'error',
-		};
-		if (payload !== undefined) {
-			options.headers['Content-Type'] = 'application/json';
-			options.body = JSON.stringify(payload);
-		}
-		const response = await this.fetch(`${this.apiBase}${path}`, options);
-		const contentType = response.headers.get('content-type') || '';
-		if (!contentType.includes('application/json')) {
-			throw new Error('Customer backend returned an invalid response.');
-		}
-		const body = await response.json();
-		if (!response.ok) {
-			throw new Error(customerErrorMessage(body?.error));
-		}
-		if (!Object.hasOwn(body, 'data')) {
-			throw new Error('Customer backend returned an invalid response.');
-		}
-		return body.data;
+		return bounded(60000, async (signal) => {
+			const session = await this.identity.session();
+			if (signal.aborted) throw new Error('The request timed out. Refresh and try again.');
+			if (!session?.access_token) throw new Error('Sign in to continue.');
+			const options = {
+				method,
+				headers: {
+					Accept: 'application/json',
+					Authorization: `Bearer ${session.access_token}`,
+				},
+				redirect: 'error',
+				signal,
+			};
+			if (payload !== undefined) {
+				options.headers['Content-Type'] = 'application/json';
+				options.body = JSON.stringify(payload);
+			}
+			const response = await this.fetch(`${this.apiBase}${path}`, options);
+			const contentType = response.headers.get('content-type') || '';
+			if (!contentType.includes('application/json')) {
+				throw new Error('Customer backend returned an invalid response.');
+			}
+			const body = await response.json();
+			if (!response.ok) {
+				throw new Error(customerErrorMessage(body?.error));
+			}
+			if (!Object.hasOwn(body, 'data')) {
+				throw new Error('Customer backend returned an invalid response.');
+			}
+			return body.data;
+		});
 	}
 
 	async #supportRequest(method, path, payload) {
-		const session = await this.identity.session();
-		if (!session?.access_token) throw new Error('Sign in to continue.');
-		const options = {
-			method,
-			headers: { Accept: 'application/json', Authorization: `Bearer ${session.access_token}` },
-			redirect: 'error',
-		};
-		if (payload !== undefined) {
-			const requestId = payload.idempotencyKey;
-			options.headers['Content-Type'] = 'application/json';
-			if (requestId) options.headers['Idempotency-Key'] = requestId;
-			options.body = JSON.stringify({
-				...payload,
-				...(requestId ? { requestId } : {}),
-			});
-		}
-		const response = await this.fetch(`${this.supportApiBase}${path}`, options);
-		const contentType = response.headers.get('content-type') || '';
-		if (!contentType.includes('application/json'))
-			throw new Error('Support service returned an invalid response.');
-		const body = await response.json();
-		if (!response.ok) throw new Error(customerErrorMessage(body?.error));
-		if (!Object.hasOwn(body, 'data'))
-			throw new Error('Support service returned an invalid response.');
-		return body.data;
+		return bounded(60000, async (signal) => {
+			const session = await this.identity.session();
+			if (signal.aborted) throw new Error('The request timed out. Refresh and try again.');
+			if (!session?.access_token) throw new Error('Sign in to continue.');
+			const options = {
+				method,
+				headers: { Accept: 'application/json', Authorization: `Bearer ${session.access_token}` },
+				redirect: 'error',
+				signal,
+			};
+			if (payload !== undefined) {
+				const requestId = payload.idempotencyKey;
+				options.headers['Content-Type'] = 'application/json';
+				if (requestId) options.headers['Idempotency-Key'] = requestId;
+				options.body = JSON.stringify({
+					...payload,
+					...(requestId ? { requestId } : {}),
+				});
+			}
+			const response = await this.fetch(`${this.supportApiBase}${path}`, options);
+			const contentType = response.headers.get('content-type') || '';
+			if (!contentType.includes('application/json'))
+				throw new Error('Support service returned an invalid response.');
+			const body = await response.json();
+			if (!response.ok) throw new Error(customerErrorMessage(body?.error));
+			if (!Object.hasOwn(body, 'data'))
+				throw new Error('Support service returned an invalid response.');
+			return body.data;
+		});
 	}
+}
+
+function bounded(milliseconds, action) {
+	const controller = new AbortController();
+	let timer;
+	const deadline = new Promise((_, reject) => {
+		timer = setTimeout(() => {
+			controller.abort();
+			reject(new Error('The request timed out. Refresh and try again.'));
+		}, milliseconds);
+	});
+	return Promise.race([Promise.resolve().then(() => action(controller.signal)), deadline])
+		.catch((error) => {
+			if (controller.signal.aborted)
+				throw new Error('The request timed out. Refresh and try again.');
+			throw error;
+		})
+		.finally(() => clearTimeout(timer));
 }
 
 function supportTicket(ticket) {

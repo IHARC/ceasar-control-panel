@@ -1,0 +1,34 @@
+#!/usr/local/ceasar/php/bin/php
+<?php
+declare(strict_types=1);
+// Root-trusted control-plane and native-session entrypoint to the same typed API.
+require_once __DIR__ . "/../libexec/onboarding.php";
+if (PHP_SAPI !== "cli" || count($argv) !== 4) {
+	fwrite(STDERR, "Usage: v-onboarding-request USER ACTION BASE64_JSON\n");
+	exit(2);
+}
+try {
+	onboarding_require_root();
+	if (strlen($argv[3]) > 32768 || !preg_match('/^[A-Za-z0-9+\/=]+$/D', $argv[3])) {
+		throw new InvalidArgumentException("Invalid request encoding.");
+	}
+	$decoded = base64_decode($argv[3], true);
+	if ($decoded === false || strlen($decoded) > 24576) {
+		throw new InvalidArgumentException("Request too large.");
+	}
+	$input = json_decode($decoded, true, 32, JSON_THROW_ON_ERROR);
+	if (!is_array($input) || (array_is_list($input) && $input !== [])) {
+		throw new InvalidArgumentException("Invalid request.");
+	}
+	$response = onboarding_dispatch($argv[1], $argv[2], $input);
+	echo json_encode($response, JSON_THROW_ON_ERROR | JSON_UNESCAPED_SLASHES) . PHP_EOL;
+} catch (Throwable $error) {
+	fwrite(
+		STDERR,
+		$error instanceof InvalidArgumentException
+			? $error->getMessage() . "\n"
+			: "Onboarding request failed.\n",
+	);
+	exit(1);
+}
+

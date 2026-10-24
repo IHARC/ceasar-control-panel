@@ -3,6 +3,9 @@
 	<div class="toolbar-inner">
 		<div class="toolbar-buttons">
 			<?php if ($read_only !== true) { ?>
+				<a href="/onboarding/" class="button js-button-create">
+					<i class="fas fa-wand-magic-sparkles"></i><?= tohtml( _("Set Up a Website")) ?>
+				</a>
 				<a href="/add/web/" class="button button-secondary js-button-create">
 					<i class="fas fa-circle-plus icon-green"></i><?= tohtml( _("Add Web Domain")) ?>
 				</a>

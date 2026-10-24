@@ -2,6 +2,12 @@
 
 declare(strict_types=1);
 
+if (($_GET["customer"] ?? "") === "1") {
+	$GLOBALS["customer_preview_page"] = "login";
+	require __DIR__ . "/customer-preview.php";
+	return;
+}
+
 /** Read-only visual preview composed from the real native authentication templates. */
 putenv("CEASAR_BRANDING_DIR=" . sys_get_temp_dir() . "/ceasar-branding-preview");
 session_start();

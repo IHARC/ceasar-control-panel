@@ -1,0 +1,5 @@
+#!/bin/sh
+case "$1" in
+	alice | bob) printf '{"%s":{"SUSPENDED":"no","ROLE":"user","CONTACT":"owner@example.test"}}\n' "$1" ;;
+	*) exit 1 ;;
+esac

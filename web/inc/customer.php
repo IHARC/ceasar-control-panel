@@ -24,10 +24,12 @@ function customer_bootstrap(): void {
 		$config["analytics"]["measurement_id"] !== ""
 			? " https://www.googletagmanager.com https://www.google-analytics.com https://region1.google-analytics.com"
 			: "";
+	$turnstileSources = $config["captcha_enabled"] ? " https://challenges.cloudflare.com" : "";
+	$panelFormSource = customer_form_action_origins();
 	header(
 		"Content-Security-Policy: default-src 'self'; img-src 'self' data:{$logoSource}; style-src 'self' 'nonce-{$customer_style_nonce}'; " .
-			"script-src 'self'{$analyticsSources}; connect-src 'self' {$connectSource}{$analyticsSources}; frame-ancestors 'none'; " .
-			"base-uri 'none'; form-action 'self' https://checkout.stripe.com https://billing.stripe.com",
+			"script-src 'self'{$analyticsSources}{$turnstileSources}; connect-src 'self' {$connectSource}{$analyticsSources}{$turnstileSources}; frame-src{$turnstileSources}; frame-ancestors 'none'; " .
+			"base-uri 'none'; form-action 'self' https://checkout.stripe.com https://billing.stripe.com{$panelFormSource}",
 	);
 	header("Referrer-Policy: strict-origin-when-cross-origin");
 	header("X-Content-Type-Options: nosniff");
@@ -82,6 +84,9 @@ function customer_config(): array {
 			"callback_url" => "",
 			"account_url" => "",
 			"worker_api_base" => "/api/customer/v1",
+			"turnstile_site_key" => "",
+			"captcha_enabled" => false,
+			"panel_origin" => "",
 			"analytics" => ["measurement_id" => "", "consent_cookie_domain" => ""],
 		];
 
@@ -97,6 +102,14 @@ function customer_config(): array {
 	$callbackUrl = $data["callback_url"] ?? $requestOrigin . "/auth/callback";
 	$accountUrl = $data["account_url"] ?? $requestOrigin . "/customer/account";
 	$workerApiBase = $data["worker_api_base"] ?? "/api/customer/v1";
+	$turnstileSiteKey = $data["turnstile_site_key"] ?? "";
+	if (
+		!is_string($turnstileSiteKey) ||
+		($turnstileSiteKey !== "" &&
+			preg_match('/^[A-Za-z0-9_-]{3,128}$/D', $turnstileSiteKey) !== 1)
+	) {
+		throw new RuntimeException("Customer Turnstile site key is invalid.");
+	}
 	if (
 		!is_string($supabaseUrl) ||
 		!is_string($publishableKey) ||
@@ -155,6 +168,9 @@ function customer_config(): array {
 		"callback_url" => rtrim($callbackUrl, "/"),
 		"account_url" => rtrim($accountUrl, "/"),
 		"worker_api_base" => $workerApiBase,
+		"turnstile_site_key" => $turnstileSiteKey,
+		"captcha_enabled" => $turnstileSiteKey !== "",
+		"panel_origin" => customer_panel_origin(),
 		"analytics" => $analytics,
 	];
 	if ($config["schema"] !== 1) {
@@ -247,6 +263,9 @@ function customer_config_json(array $config): string {
 		"callbackUrl" => $config["callback_url"],
 		"accountUrl" => $config["account_url"],
 		"workerApiBase" => $config["worker_api_base"],
+		"turnstileSiteKey" => $config["turnstile_site_key"],
+		"captchaEnabled" => $config["captcha_enabled"],
+		"panelOrigin" => $config["panel_origin"],
 		"analytics" => [
 			"measurementId" => $config["analytics"]["measurement_id"],
 			"consentCookieDomain" => $config["analytics"]["consent_cookie_domain"],
@@ -257,6 +276,56 @@ function customer_config_json(array $config): string {
 		json_encode($public, JSON_THROW_ON_ERROR | JSON_HEX_TAG | JSON_HEX_AMP),
 		ENT_NOQUOTES,
 	);
+}
+
+function customer_panel_origin(): string {
+	$path = "/usr/local/ceasar/conf/onboarding.json";
+	if (!is_file($path)) {
+		return "";
+	}
+	$data = json_decode((string) file_get_contents($path), true, 8);
+	$origin = is_array($data) ? $data["panel_origin"] ?? "" : "";
+	if (
+		!is_string($origin) ||
+		preg_match('#^https://[a-z0-9.-]+(?::[0-9]{1,5})?$#D', $origin) !== 1
+	) {
+		return "";
+	}
+	return $origin;
+}
+
+function customer_form_action_origins(): string {
+	$path = "/usr/local/ceasar/conf/onboarding.json";
+	if (!is_file($path)) {
+		return "";
+	}
+	$data = json_decode((string) file_get_contents($path), true, 8);
+	if (!is_array($data)) {
+		throw new RuntimeException("Panel access configuration is invalid.");
+	}
+	$origins = $data["access_origins"] ?? [];
+	if (!is_array($origins) || !array_is_list($origins)) {
+		throw new RuntimeException("Panel access origins are invalid.");
+	}
+	$panel = customer_panel_origin();
+	if ($panel !== "") {
+		$origins[] = $panel;
+	}
+	foreach ($origins as $origin) {
+		$exact =
+			is_string($origin) &&
+			preg_match('#^https://[a-z0-9.-]+(?::[0-9]{1,5})?$#D', $origin) === 1;
+		$wildcard =
+			is_string($origin) &&
+			preg_match(
+				'#^https://\*\.(?:[a-z0-9-]+\.){2,}[a-z]{2,63}(?::[0-9]{1,5})?$#D',
+				$origin,
+			) === 1;
+		if (!$exact && !$wildcard) {
+			throw new RuntimeException("Panel access origin is invalid.");
+		}
+	}
+	return $origins === [] ? "" : " " . implode(" ", array_unique($origins));
 }
 
 function customer_request_scheme(): string {

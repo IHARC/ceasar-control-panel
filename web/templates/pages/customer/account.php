@@ -7,19 +7,7 @@
 
 <section class="customer-view" data-customer-view="hosting">
 	<h1 class="customer-view-heading" tabindex="-1">Hosting</h1>
-	<p class="customer-view-intro">Start with a preview address, then connect your domain in the hosting controls when your service is ready.</p>
-
-	<section class="customer-section u-hidden" data-account-onboarding>
-		<h2>Name your customer account</h2>
-		<p>Your sign-in is ready. Give this account a name before starting hosting or opening a support case.</p>
-		<form class="customer-form" data-account-action="account-create">
-			<div class="customer-form-field">
-				<label class="customer-form-label" for="account-name">Account name</label>
-				<input class="form-control" id="account-name" name="display_name" autocomplete="organization" required>
-			</div>
-			<button class="button" type="submit">Continue</button>
-		</form>
-	</section>
+	<p class="customer-view-intro">Set up a website, follow its progress, and connect your domain when it is ready.</p>
 
 	<section class="customer-section">
 		<h2>Your hosting</h2>
@@ -37,41 +25,8 @@
 </section>
 
 <section class="customer-view" data-customer-view="setup" hidden>
-	<h1 class="customer-view-heading" tabindex="-1">Add hosting</h1>
-	<p class="customer-view-intro">Choose a plan, tell us what you are hosting, then review before continuing.</p>
 	<p class="customer-empty" data-setup-load-failure hidden>Hosting options are unavailable right now. Return to hosting and try again.</p>
-	<form class="customer-form" data-account-action="hosting-setup" data-setup-form data-request-key="hosting-setup">
-		<fieldset class="customer-setup-step">
-			<legend>1. Choose a plan</legend>
-			<div class="customer-form-field">
-				<label class="customer-form-label" for="setup-plan">Plan</label>
-				<select class="form-select" id="setup-plan" name="plan_code" data-plan-select required disabled><option>Loading plans…</option></select>
-				<p class="customer-form-help" data-plan-limits></p>
-			</div>
-		</fieldset>
-		<fieldset class="customer-setup-step">
-			<legend>2. Tell us about your site</legend>
-			<div class="customer-choice-list">
-				<label class="customer-choice"><input type="radio" name="intent" value="new_site" checked><span><strong>Start a new site</strong><span>Set up WordPress, PHP, or a static site.</span></span></label>
-				<label class="customer-choice"><input type="radio" name="intent" value="migration"><span><strong>Import an existing PHP site</strong><span>You will receive import steps after checkout.</span></span></label>
-			</div>
-			<div class="customer-form-field u-mt20">
-				<label class="customer-form-label" for="setup-site-type" data-site-type-label>Site type</label>
-				<select class="form-select" id="setup-site-type" name="site_type"><option value="wordpress">WordPress</option><option value="php">PHP</option><option value="static">Static site</option></select>
-				<p class="customer-form-help" data-migration-site-type hidden>Site type: PHP</p>
-			</div>
-		</fieldset>
-		<fieldset class="customer-setup-step">
-			<legend>3. Review and continue</legend>
-			<dl class="customer-setup-review" data-setup-review aria-live="polite"><div><dt>Plan</dt><dd>Loading plans…</dd></div></dl>
-			<p class="customer-form-help" data-setup-availability aria-live="polite"></p>
-			<div class="customer-choice-list" data-setup-billing-choice>
-				<label class="customer-choice" data-trial-choice hidden><input type="radio" name="setup_mode" value="trial"><span><strong>Start seven-day free trial</strong><span>A card is required before setup; the trial starts when hosting is ready.</span></span></label>
-				<label class="customer-choice" data-paid-choice hidden><input type="radio" name="setup_mode" value="paid"><span><strong>Pay monthly</strong><span>Continue to secure checkout.</span></span></label>
-			</div>
-			<div class="customer-actions"><button class="button" type="submit">Continue</button><button class="button button-secondary" type="button" data-back-to-hosting>Back to hosting</button></div>
-		</fieldset>
-	</form>
+	<div data-onboarding-wizard></div>
 </section>
 
 <section class="customer-view" data-customer-view="billing" hidden>
@@ -117,7 +72,7 @@
 			<button class="button" type="submit">Open case</button>
 		</form>
 	</section>
-	<section class="customer-section u-hidden" data-support-account-required><p>Name your customer account before opening a case. <a href="#hosting" data-open-onboarding>Name your account.</a></p></section>
+	<section class="customer-section u-hidden" data-support-account-required><p>Name your customer account before opening a case. <a href="#setup" data-open-onboarding>Name your account.</a></p></section>
 </section>
 
 <section class="customer-view" data-customer-view="profile" hidden>

@@ -1,0 +1,3 @@
+#!/bin/bash
+# info: Process one durable onboarding operation.
+exec /usr/local/ceasar/php/bin/php /usr/local/ceasar/libexec/onboarding-worker.php

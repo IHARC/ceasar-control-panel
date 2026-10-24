@@ -2,6 +2,8 @@ import { CustomerBusinessBackend, SupabaseIdentityProvider } from './providers.j
 import { customerSetupSelection, customerSetupUrl } from './navigation.js';
 import { createRequestKeys } from './request-keys.js';
 import { configureAnalytics } from './analytics.js';
+import { createAuthCaptcha } from './captcha.js';
+import { createOnboardingWizard, websiteSelection } from './wizard.js';
 
 const configNode = document.querySelector('#customer-config');
 const submissionKeys = createRequestKeys();
@@ -41,16 +43,56 @@ async function boot(config, identity, backend) {
 }
 
 function bindLogin(config, identity, analytics) {
+	let captcha;
+	let captchaLoad;
+	function getCaptcha() {
+		if (captcha) return Promise.resolve(captcha);
+		captchaLoad ||= createAuthCaptcha(
+			config,
+			document.querySelectorAll('[data-customer-auth-form]'),
+		)
+			.then((loaded) => {
+				captcha = loaded;
+				return loaded;
+			})
+			.catch((error) => {
+				captchaLoad = undefined;
+				throw error;
+			});
+		return captchaLoad;
+	}
+	void getCaptcha().catch(showError);
 	const setup = customerSetupSelection(location.search);
+	for (const choice of document.querySelectorAll('[name=login_setup_kind]')) {
+		choice.checked = choice.value === setup.setupKind;
+		choice.addEventListener('change', () => {
+			setup.setupKind = choice.value;
+			setup.intent = ['wordpress-move', 'php-import'].includes(choice.value)
+				? 'migration'
+				: 'new_site';
+			const url = new URL(location.href);
+			url.searchParams.set('setupKind', choice.value);
+			url.searchParams.set('intent', setup.intent);
+			history.replaceState(history.state, '', url);
+		});
+	}
 	const selectedPlan = document.querySelector('[data-selected-plan]');
 	if (selectedPlan && setup.planCode) {
 		selectedPlan.textContent = `Continue with the ${titleCase(setup.planCode)} hosting plan after signing in.`;
 		selectedPlan.hidden = false;
 	}
-	const accountUrl = customerSetupUrl(config.accountUrl, setup);
-	const callbackUrl = customerSetupUrl(config.callbackUrl, setup, '');
 	for (const control of document.querySelectorAll('[data-auth-view]')) {
-		control.addEventListener('click', () => showAuthView(control.dataset.authView, config));
+		control.addEventListener('click', () => {
+			captcha?.reset(document.querySelector('[data-customer-auth-form]:not(.u-hidden)'));
+			showAuthView(control.dataset.authView, config);
+			void getCaptcha()
+				.then((loaded) =>
+					loaded.activate(
+						document.querySelector(`[data-customer-auth-form="${control.dataset.authView}"]`),
+					),
+				)
+				.catch(showError);
+		});
 	}
 	for (const form of document.querySelectorAll('[data-customer-auth-form]')) {
 		form.addEventListener('submit', async (event) => {
@@ -59,22 +101,31 @@ function bindLogin(config, identity, analytics) {
 			const data = new FormData(form);
 			try {
 				setSubmitting(form, true);
+				const challenge = await getCaptcha();
+				const captchaToken = challenge.token(form);
 				if (form.dataset.customerAuthForm === 'sign-in') {
-					await identity.signIn(String(data.get('email')), String(data.get('password')));
-					location.assign(accountUrl);
+					await identity.signIn(
+						String(data.get('email')),
+						String(data.get('password')),
+						captchaToken,
+					);
+					location.assign(customerSetupUrl(config.accountUrl, setup));
 				} else if (form.dataset.customerAuthForm === 'sign-up') {
 					await identity.signUp(
 						String(data.get('email')),
 						String(data.get('password')),
 						data.get('terms') === 'yes',
-						callbackUrl,
+						customerSetupUrl(config.callbackUrl, setup, ''),
+						captchaToken,
+						String(data.get('account_name') || ''),
 					);
 					analytics.track('sign_up');
 					showNotice('Check your email and confirm your address before signing in.', 'success');
-					form.reset();
+					form.querySelector('[name=password]').value = '';
 					showAuthView('sign-in', config);
+					captcha?.activate(document.querySelector('[data-customer-auth-form="sign-in"]'));
 				} else {
-					await identity.requestRecovery(String(data.get('email')));
+					await identity.requestRecovery(String(data.get('email')), captchaToken);
 					showNotice(
 						'If the address belongs to an account, a recovery email is on its way.',
 						'success',
@@ -83,6 +134,7 @@ function bindLogin(config, identity, analytics) {
 			} catch (error) {
 				showError(error);
 			} finally {
+				captcha?.reset(form);
 				setSubmitting(form, false);
 			}
 		});
@@ -95,7 +147,7 @@ function bindLogin(config, identity, analytics) {
 			try {
 				passkey.disabled = true;
 				await identity.signInWithPasskey();
-				location.assign(accountUrl);
+				location.assign(customerSetupUrl(config.accountUrl, setup));
 			} catch (error) {
 				showError(error);
 				passkey.disabled = false;
@@ -197,9 +249,6 @@ async function bindAccount(config, identity, backend, analytics) {
 		supportDetail: null,
 		userId: '',
 		state: emptyState(),
-		setupPlanCode: setupSelection.planCode,
-		setupIntent: setupSelection.planCode ? setupSelection.intent : '',
-		setupModeChosen: false,
 		setupAvailabilityTimer: undefined,
 		setupAvailabilityInFlight: false,
 		pollTimer: undefined,
@@ -224,6 +273,51 @@ async function bindAccount(config, identity, backend, analytics) {
 		analyticsViewedPlans: new Set(),
 	};
 	const user = await identity.user();
+	context.wizard = createOnboardingWizard({
+		root: document.querySelector('[data-onboarding-wizard]'),
+		provider: backend,
+		onCreateAccount: async (name) => {
+			const target = document.querySelector('[data-onboarding-wizard]');
+			target.dataset.requestKey = `account-create:${context.userId}`;
+			const created = await backend.createAccount(name, submissionKeys.current(target));
+			context.accountId = created.accountId;
+			return created.accountId;
+		},
+		onRefreshOffers: async () => backend.accountState(context.accountId),
+		onCommit: async (draft) => {
+			const target = document.querySelector('[data-onboarding-wizard]');
+			target.dataset.requestKey = requestKeyScope('hosting-setup', context);
+			const input = {
+				accountId: context.accountId,
+				planCode: draft.planCode,
+				intent: draft.intent,
+				siteType: draft.siteType,
+				idempotencyKey: submissionKeys.current(target),
+			};
+			const result =
+				draft.setupMode === 'trial'
+					? await backend.requestTrialAdmission(input)
+					: await backend.requestPaidAdmission(input);
+			context.state.setups = [
+				result,
+				...(context.state.setups || []).filter((row) => row.requestId !== result.requestId),
+			];
+			renderSetups(context.state.setups);
+			startSetupPolling(context);
+			if (draft.setupMode === 'trial' && result.requestId)
+				rememberTrialCheckoutReturn(context.accountId, result.requestId);
+			return result;
+		},
+		onUpdate: () =>
+			void (context.accounts.length
+				? refreshCustomerState(backend, context)
+				: loadCustomerState(backend, context)),
+	});
+	context.wizard.state.draft.planCode = setupSelection.planCode;
+	context.wizard.state.draft.setupKind =
+		setupSelection.setupKind ||
+		(setupSelection.planCode && setupSelection.intent === 'migration' ? 'php-import' : '');
+	context.wizard.render();
 	document.querySelector('[data-customer-sign-out]')?.classList.remove('u-hidden');
 	setText('[data-customer-email]', user.email || '');
 	configureSupportFallback(config);
@@ -236,9 +330,33 @@ async function bindAccount(config, identity, backend, analytics) {
 
 	try {
 		await loadCustomerState(backend, context);
-		if (setupSelection.planCode && !context.initialStateUnavailable && context.accountId)
+		if (!context.accountId && typeof user.user_metadata?.display_name === 'string') {
+			const accountName = user.user_metadata.display_name.trim().slice(0, 120);
+			if (accountName) {
+				try {
+					const target = document.querySelector('[data-onboarding-wizard]');
+					target.dataset.requestKey = `account-create:${context.userId}`;
+					await backend.createAccount(accountName, submissionKeys.current(target));
+					await loadCustomerState(backend, context);
+				} catch (error) {
+					showError(error);
+				}
+			}
+		}
+		if (context.accountId && setupSelection.setupKind) {
+			await context.wizard.load();
+			if (!context.wizard.state.draft.setupKind) {
+				Object.assign(context.wizard.state.draft, {
+					setupKind: setupSelection.setupKind,
+					...websiteSelection(setupSelection.setupKind),
+					step: 'hosting',
+				});
+				await backend.saveOnboarding(context.accountId, context.wizard.state.draft);
+				context.wizard.render();
+			}
+		}
+		if ((setupSelection.planCode || setupSelection.setupKind) && !context.initialStateUnavailable)
 			location.hash = 'setup';
-		else if (setupSelection.planCode && !context.accountId) location.hash = 'hosting';
 	} catch {
 		renderInitialCustomerStateFailure(context);
 	} finally {
@@ -269,11 +387,13 @@ function bindNavigation(context) {
 		clearNotice();
 		renderCurrentView(context, true);
 		context.analytics?.pageView();
-		if (currentView() === 'hosting' && !document.hidden) startSetupPolling(context);
+		if (['hosting', 'setup'].includes(currentView()) && !document.hidden)
+			startSetupPolling(context);
 		startSetupAvailabilityPolling(context);
 	});
 	document.addEventListener('visibilitychange', () => {
-		if (!document.hidden && currentView() === 'hosting') startSetupPolling(context);
+		if (!document.hidden && ['hosting', 'setup'].includes(currentView()))
+			startSetupPolling(context);
 		if (!document.hidden && currentView() === 'setup') void refreshSetupAvailability(context);
 		startSetupAvailabilityPolling(context);
 	});
@@ -287,26 +407,15 @@ function bindNavigation(context) {
 		});
 	}
 	document.querySelector('[data-open-onboarding]')?.addEventListener('click', () => {
-		setTimeout(() => document.querySelector('#account-name')?.focus(), 0);
+		setTimeout(() => document.querySelector('[data-onboarding-wizard] h1')?.focus(), 0);
 	});
 }
 
 export function bindAccountControls(config, identity, backend, context) {
 	document.querySelector('[data-open-setup]')?.addEventListener('click', () => {
 		clearNotice();
-		if (!context.accountId) {
-			showNotice('Name your customer account before adding hosting.');
-			location.hash = 'hosting';
-			document.querySelector('#account-name')?.focus();
-			return;
-		}
-		const setupForm = document.querySelector('[data-setup-form]');
-		if (setupForm) submissionKeys.clear(setupForm);
 		location.hash = 'setup';
 		startSetupAvailabilityPolling(context);
-	});
-	document.querySelector('[data-back-to-hosting]')?.addEventListener('click', () => {
-		location.hash = 'hosting';
 	});
 	document.querySelector('[data-refresh-setup]')?.addEventListener('click', async (event) => {
 		const control = event.currentTarget;
@@ -425,6 +534,22 @@ export function bindAccountControls(config, identity, backend, context) {
 			focus: true,
 		});
 	});
+	document.querySelector('[data-service-detail]')?.addEventListener('click', async (event) => {
+		const control = event.target.closest('[data-resume-service]');
+		if (!control) return;
+		try {
+			control.disabled = true;
+			await context.wizard.openService(
+				required(control.dataset.resumeService),
+				control.dataset.setupKind || '',
+			);
+			location.hash = 'setup';
+		} catch (error) {
+			showError(error);
+		} finally {
+			control.disabled = false;
+		}
+	});
 
 	document.querySelector('[data-support-case-list]')?.addEventListener('click', async (event) => {
 		const row = event.target.closest('[data-support-case-id]');
@@ -526,21 +651,6 @@ export function bindAccountControls(config, identity, backend, context) {
 			event.preventDefault();
 			clearNotice();
 			const action = form.dataset.accountAction;
-			if (action === 'hosting-setup') {
-				const requestedTrial = form.querySelector('[name=setup_mode]:checked')?.value === 'trial';
-				try {
-					await refreshSetupAvailability(context);
-					if (requestedTrial && form.dataset.trialEligible !== 'true') {
-						showNotice(
-							'The free trial is no longer available. Review the monthly option before continuing.',
-						);
-						return;
-					}
-				} catch (error) {
-					showError(error);
-					return;
-				}
-			}
 			const formData = new FormData(form);
 			const data = Object.fromEntries(formData);
 			if (formData.has('attachments')) data.attachments = formData.getAll('attachments');
@@ -562,7 +672,7 @@ export function bindAccountControls(config, identity, backend, context) {
 				);
 				const preserveKeyUntilAttachmentsUpload =
 					['support-open', 'support-reply'].includes(action) && data.attachments?.length > 0;
-				if (!result?.retainKey && action !== 'hosting-setup' && !preserveKeyUntilAttachmentsUpload)
+				if (!result?.retainKey && !preserveKeyUntilAttachmentsUpload)
 					submissionKeys.clear(form, requestScope);
 				if (result?.stale || !actionScopeIsCurrent(context, submission)) return;
 				if (result?.supportTicket && data.attachments?.length) {
@@ -578,10 +688,6 @@ export function bindAccountControls(config, identity, backend, context) {
 				if (action === 'support-open') {
 					form.reset();
 					await loadSupport(backend, context);
-				} else if (action === 'account-create') {
-					await loadCustomerState(backend, context);
-					await loadSupport(backend, context);
-					if (context.setupPlanCode) location.hash = 'setup';
 				} else if (action === 'support-reply') {
 					form.reset();
 					if (context.supportCaseId) {
@@ -601,30 +707,6 @@ export function bindAccountControls(config, identity, backend, context) {
 				if (formToken === formSubmissionToken) setSubmitting(form, false);
 			}
 		});
-	}
-
-	const setupForm = document.querySelector('[data-setup-form]');
-	setupForm?.querySelectorAll('[name=intent]').forEach((control) => {
-		control.addEventListener('change', () => {
-			context.setupIntent = control.value;
-			renderOffers(context.state.offers || [], context);
-		});
-	});
-	setupForm
-		?.querySelectorAll('[name=plan_code], [name=site_type], [name=setup_mode]')
-		.forEach((control) => {
-			control.addEventListener('change', () => {
-				if (control.name === 'setup_mode') context.setupModeChosen = control.value === 'paid';
-				if (control.name === 'plan_code') context.setupPlanCode = control.value;
-				renderSetupReview(context);
-				if (control.name === 'plan_code')
-					context.analytics?.track('select_item', { items: [{ item_id: control.value }] });
-			});
-		});
-	if (context.setupIntent === 'migration') {
-		setValueIn(setupForm, '[name=intent]', 'migration');
-		syncMigrationSiteType(setupForm);
-		renderSetupReview(context);
 	}
 
 	const passkey = document.querySelector('[data-passkey-register]');
@@ -666,15 +748,6 @@ export async function accountAction(action, data, context, config, identity, bac
 		await identity.updateProfile(required(data.display_name));
 		return { message: 'Profile saved.' };
 	}
-	if (action === 'account-create') {
-		const created = await backend.createAccount(
-			required(data.display_name),
-			required(data.idempotency_key),
-		);
-		if (!actionScopeIsCurrent(context, submission)) return { stale: true, retainKey: true };
-		context.accountId = required(created.accountId);
-		return { message: 'Account name saved.' };
-	}
 	if (action === 'email-change') {
 		await identity.updateEmail(required(data.email), config.callbackUrl);
 		return { message: 'Follow the confirmation instructions sent to your email addresses.' };
@@ -684,73 +757,6 @@ export async function accountAction(action, data, context, config, identity, bac
 		return { message: 'Password changed.' };
 	}
 	const accountId = required(context.accountId);
-	if (action === 'hosting-setup') {
-		if (data.intent === 'migration' && data.site_type !== 'php') {
-			throw new Error('Existing-site imports use the PHP site type.');
-		}
-		const planCode = required(data.plan_code);
-		const offer = context.state.offers?.find((candidate) => candidate.planCode === planCode);
-		if (!offer) throw new Error('Choose an available plan.');
-		if (typeof context.state.trialEligibility?.canStartTrial !== 'boolean')
-			throw new Error('Hosting options are unavailable right now. Try again.');
-		if (!['trial', 'paid'].includes(data.setup_mode))
-			throw new Error('Choose how you want to continue.');
-		const isTrial = data.setup_mode === 'trial';
-		if (
-			isTrial &&
-			(context.state.trialEligibility?.canStartTrial !== true || offer.trialAvailable !== true)
-		)
-			throw new Error('A trial is not available for this plan.');
-		if ((!isTrial || data.intent === 'migration') && offer.paidAvailable !== true)
-			throw new Error('Paid hosting is not available for this plan.');
-		const setup = isTrial
-			? await backend.requestTrialAdmission({
-					accountId,
-					planCode,
-					siteType: required(data.site_type),
-					idempotencyKey: required(data.idempotency_key),
-				})
-			: await backend.requestPaidAdmission({
-					accountId,
-					planCode,
-					intent: required(data.intent),
-					siteType: required(data.site_type),
-					idempotencyKey: required(data.idempotency_key),
-				});
-		if (!actionScopeIsCurrent(context, submission)) return { stale: true, retainKey: true };
-		context.state.setups = [
-			setup,
-			...(context.state.setups || []).filter((row) => row.requestId !== setup.requestId),
-		];
-		renderSetups(context.state.setups, context);
-		startSetupPolling(context);
-		if (setup.status === 'checkout' && setup.checkoutUrl) {
-			await context.analytics?.track('begin_checkout', {
-				currency: 'CAD',
-				items: [{ item_id: planCode }],
-			});
-			if (isTrial) rememberTrialCheckoutReturn(accountId, setup.requestId);
-			location.assign(checkedHostedUrl(setup.checkoutUrl));
-			return { retainKey: true };
-		}
-		return {
-			message: setupMessage(setup),
-			retainKey: !terminalSetup(setup.status),
-			terminal: terminalSetup(setup.status),
-		};
-	}
-	if (action === 'migration-confirm') {
-		const migration = context.state.services.find(
-			(service) => service.serviceId === context.serviceId,
-		)?.migration;
-		await backend.confirmMigration(required(context.serviceId), {
-			accountId,
-			workspaceReadyOperationId: required(migration?.workspaceReadyOperationId),
-			idempotencyKey: required(data.idempotency_key),
-		});
-		if (!actionScopeIsCurrent(context, submission)) return { stale: true, retainKey: true };
-		return { message: 'Import completion recorded.' };
-	}
 	if (action === 'support-open') {
 		const ticket = await backend.openSupportCase({
 			accountId,
@@ -997,7 +1003,6 @@ function renderCustomerState(state, context) {
 		'';
 	const accounts = context.state.accounts || [];
 	const needsAccount = accounts.length === 0;
-	document.querySelector('[data-account-onboarding]')?.classList.toggle('u-hidden', !needsAccount);
 	document
 		.querySelector('[data-account-switcher]')
 		?.classList.toggle('u-hidden', accounts.length < 2);
@@ -1006,7 +1011,7 @@ function renderCustomerState(state, context) {
 		?.classList.toggle('u-hidden', !needsAccount);
 	document.querySelector('[data-support-actions]')?.classList.toggle('u-hidden', needsAccount);
 	document.querySelector('[data-setup-load-failure]')?.toggleAttribute('hidden', true);
-	document.querySelector('[data-setup-form]')?.toggleAttribute('hidden', false);
+	document.querySelector('[data-onboarding-wizard]')?.toggleAttribute('hidden', false);
 	populateSelect('[data-account-select]', accounts, {
 		value: (row) => row.accountId,
 		label: (row) => row.displayName || 'Customer account',
@@ -1015,15 +1020,14 @@ function renderCustomerState(state, context) {
 	});
 	renderServices(context.state.services || [], context);
 	renderSetups(context.state.setups || [], context);
-	renderOffers(context.state.offers || [], context);
+	void context.wizard?.update({
+		accountId: context.accountId,
+		offers: context.state.offers || [],
+		trialEligibility: context.state.trialEligibility,
+		setups: context.state.setups || [],
+	});
 	renderBilling(context.state.billing || [], context);
 	reconcileTrialCheckoutReturn(context);
-	restoreSetupDraft(context);
-	restoreFormDraft(
-		document.querySelector('[data-account-action="account-create"]'),
-		'account-create',
-		context,
-	);
 	restoreFormDraft(
 		document.querySelector('[data-account-action="support-open"]'),
 		'support-open',
@@ -1068,7 +1072,6 @@ export function renderInitialCustomerStateFailure(context) {
 	context.accountId = '';
 	context.accounts = [];
 	context.state = emptyState();
-	document.querySelector('[data-account-onboarding]')?.classList.add('u-hidden');
 	document.querySelector('[data-account-switcher]')?.classList.add('u-hidden');
 	document.querySelector('[data-support-account-required]')?.classList.add('u-hidden');
 	document.querySelector('[data-support-actions]')?.classList.add('u-hidden');
@@ -1087,6 +1090,8 @@ export function renderInitialCustomerStateFailure(context) {
 		serviceEmpty.textContent = 'Account information could not be loaded right now.';
 	}
 	document.querySelector('[data-open-setup]')?.toggleAttribute('hidden', true);
+	document.querySelector('[data-onboarding-wizard]')?.toggleAttribute('hidden', true);
+	document.querySelector('[data-setup-load-failure]')?.toggleAttribute('hidden', false);
 	document.querySelector('[data-hosting-read-retry]')?.toggleAttribute('hidden', false);
 	renderServiceDetail(undefined, context);
 	renderSetups([]);
@@ -1115,7 +1120,6 @@ export function renderInitialCustomerStateFailure(context) {
 	document.querySelector('[data-support-layout]')?.toggleAttribute('hidden', false);
 	renderSupportDetail({}, context);
 	document.querySelector('[data-setup-load-failure]')?.toggleAttribute('hidden', false);
-	document.querySelector('[data-setup-form]')?.toggleAttribute('hidden', true);
 }
 
 function renderServices(services, context) {
@@ -1160,7 +1164,7 @@ function renderServices(services, context) {
 	);
 }
 
-function renderServiceDetail(service, context) {
+function renderServiceDetail(service, _context) {
 	const target = document.querySelector('[data-service-detail]');
 	if (!target) return;
 	target.replaceChildren();
@@ -1176,83 +1180,31 @@ function renderServiceDetail(service, context) {
 	appendDetail(details, 'Status', readableStatus(service.status));
 	if (service.retentionDueAt)
 		appendDetail(details, 'Retention date', formatDate(service.retentionDueAt));
+	if (service.nativeAccess?.providerUsername)
+		appendDetail(details, 'SFTP username', service.nativeAccess.providerUsername);
+	if (service.nativeAccess?.sftpHostname)
+		appendDetail(
+			details,
+			'SFTP host',
+			`${service.nativeAccess.sftpHostname}:${service.nativeAccess.sftpPort || 22}`,
+		);
 	target.append(details);
-
-	const access = service.nativeAccess;
-	const migrationReady =
-		service.migration?.status === 'ready' && service.migration.workspaceReadyOperationId;
-	if (!migrationReady && access?.accessState === 'ready') {
-		const accessHeading = element('h3', {}, 'Hosting access');
-		const accessDetails = document.createElement('dl');
-		accessDetails.className = 'customer-detail-grid';
-		appendDetail(accessDetails, 'Username', access.providerUsername || '—');
-		appendDetail(
-			accessDetails,
-			'SFTP',
-			access.sftpHostname && access.sftpPort ? `${access.sftpHostname}:${access.sftpPort}` : '—',
-		);
-		target.append(accessHeading, accessDetails);
-		target.append(accessHelp());
-		if (access.panelOrigin) {
-			const actions = document.createElement('div');
-			actions.className = 'customer-actions';
-			actions.append(hostingAccessLink(access.panelOrigin, '/login/', 'Open hosting controls'));
-			actions.append(hostingAccessLink(access.panelOrigin, '/reset/', 'Set hosting password'));
-			target.append(actions);
-		}
-	} else if (!migrationReady) {
-		target.append(
-			element(
-				'p',
-				{ className: 'customer-form-help' },
-				'Hosting access will appear here when setup is complete.',
-			),
-		);
-	}
-
-	if (migrationReady) {
-		const migration = service.migration;
-		const migrationHeading = element('h3', {}, 'Import workspace');
-		const migrationDetails = document.createElement('dl');
-		migrationDetails.className = 'customer-detail-grid';
-		appendDetail(migrationDetails, 'Preview address', migration.previewHostname || '—');
-		appendDetail(migrationDetails, 'Username', migration.providerUsername || '—');
-		appendDetail(
-			migrationDetails,
-			'SFTP',
-			migration.sftpHostname && migration.sftpPort
-				? `${migration.sftpHostname}:${migration.sftpPort}`
-				: '—',
-		);
-		target.append(migrationHeading, migrationDetails);
-		target.append(accessHelp());
-		const form = document.createElement('form');
-		form.className = 'customer-form customer-section';
-		form.dataset.accountAction = 'migration-confirm';
-		const copy = element('p', {}, 'Finish the import in the workspace, then confirm it here.');
-		const actions = document.createElement('div');
-		actions.className = 'customer-actions';
-		if (migration.panelOrigin) {
-			actions.append(hostingAccessLink(migration.panelOrigin, '/login/', 'Open import workspace'));
-			actions.append(hostingAccessLink(migration.panelOrigin, '/reset/', 'Set hosting password'));
-		}
-		const confirm = document.createElement('button');
-		confirm.className = 'button button-secondary';
-		confirm.type = 'submit';
-		confirm.textContent = 'Confirm import is complete';
-		actions.append(confirm);
-		form.append(copy, actions);
-		bindDynamicAction(form, context);
-		target.append(form);
-	}
-}
-
-function accessHelp() {
-	return element(
-		'p',
-		{ className: 'customer-form-help' },
-		'Hosting controls and SFTP use this hosting username. Before first access, set a hosting password. It is separate from your customer account sign-in.',
+	const resume = element(
+		'button',
+		{ className: 'button button-secondary' },
+		'Continue website setup',
 	);
+	resume.type = 'button';
+	resume.dataset.resumeService = service.serviceId;
+	resume.dataset.setupKind =
+		service.intent === 'migration'
+			? service.siteType === 'wordpress'
+				? 'wordpress-move'
+				: 'php-import'
+			: service.siteType === 'wordpress'
+				? 'wordpress-new'
+				: 'php-static';
+	target.append(resume);
 }
 
 export function renderSetups(setups) {
@@ -1298,158 +1250,6 @@ export function renderSetups(setups) {
 	}
 }
 
-export function renderOffers(offers, context) {
-	const linkedPlanUnavailable =
-		Boolean(context.setupPlanCode) &&
-		!offers.some((offer) => offer.planCode === context.setupPlanCode);
-	populateSelect('[data-plan-select]', offers, {
-		value: (row) => row.planCode,
-		label: offerLabel,
-		selected: offers.some((offer) => offer.planCode === context.setupPlanCode)
-			? context.setupPlanCode
-			: offers[0]?.planCode || '',
-		empty: 'No plan available',
-	});
-	if (linkedPlanUnavailable && offers.length) {
-		const select = document.querySelector('[data-plan-select]');
-		select?.prepend(new Option('Selected plan unavailable — choose a plan', '', true, true));
-		if (select) select.value = '';
-	}
-	for (const offer of offers) {
-		if (!context.analyticsViewedPlans?.has(offer.planCode)) {
-			context.analytics?.track('view_item', { items: [{ item_id: offer.planCode }] });
-			context.analyticsViewedPlans?.add(offer.planCode);
-		}
-	}
-	const trial = document.querySelector('[data-trial-choice]');
-	const trialInput = trial?.querySelector('input');
-	const paid = document.querySelector('[data-paid-choice]');
-	const paidInput = paid?.querySelector('input');
-	const form = document.querySelector('[data-setup-form]');
-	const selectedOffer = offers.find((offer) => offer.planCode === form?.elements.plan_code?.value);
-	const limits = document.querySelector('[data-plan-limits]');
-	if (limits) {
-		const summary = offerLimits(selectedOffer);
-		limits.textContent = summary;
-		limits.hidden = !summary;
-	}
-	const eligibilityKnown =
-		context.state.trialEligibility !== null &&
-		typeof context.state.trialEligibility?.canStartTrial === 'boolean';
-	const trialAvailable =
-		eligibilityKnown &&
-		context.state.trialEligibility.canStartTrial === true &&
-		selectedOffer?.trialAvailable === true;
-	const paidAvailable = eligibilityKnown && selectedOffer?.paidAvailable === true;
-	const previousTrialAvailable = form?.dataset.trialEligible;
-	const chosenMode = form?.querySelector('[name=setup_mode]:checked')?.value;
-	if (form) {
-		form.dataset.trialEligible = String(trialAvailable);
-		form.dataset.paidAvailable = String(paidAvailable);
-		form.dataset.setupAvailable = String(trialAvailable || paidAvailable);
-		const submit = form.querySelector('button[type="submit"]');
-		if (submit) submit.disabled = !trialAvailable && !paidAvailable;
-	}
-	if (trial) trial.hidden = !trialAvailable;
-	if (trialInput) trialInput.disabled = !trialAvailable;
-	if (paid) paid.hidden = !paidAvailable;
-	if (paidInput) paidInput.disabled = !paidAvailable;
-	if (trialAvailable && trialInput && (!context.setupModeChosen || !chosenMode || !paidAvailable))
-		trialInput.checked = true;
-	if (paidAvailable && !trialAvailable && paidInput) paidInput.checked = true;
-	const availability = document.querySelector('[data-setup-availability]');
-	if (availability) {
-		availability.textContent = linkedPlanUnavailable
-			? 'The linked plan is unavailable. Choose another plan to continue.'
-			: context.state.trialEligibility?.reason === 'trial_capacity_full'
-				? 'Free trial places are currently full. You can choose monthly hosting.'
-				: previousTrialAvailable === 'true' && !trialAvailable
-					? 'The free trial is no longer available. Review the monthly option before continuing.'
-					: '';
-	}
-	syncMigrationSiteType(form);
-	renderSetupReview(context);
-}
-
-function restoreSetupDraft(context) {
-	const form = document.querySelector('[data-setup-form]');
-	if (!form || !context.accountId) return;
-	form.dataset.requestKey = requestKeyScope('hosting-setup', context);
-	const draft = submissionKeys.read(form);
-	if (!draft || draft.userId !== context.userId || draft.accountId !== context.accountId) return;
-	context.setupPlanCode ||= draft.planCode || '';
-	context.setupIntent ||= draft.intent || 'new_site';
-	setValueIn(form, '[name=plan_code]', context.setupPlanCode);
-	setCheckedValue(form, 'intent', context.setupIntent);
-	setValueIn(form, '[name=site_type]', draft.siteType || 'wordpress');
-	setCheckedValue(form, 'setup_mode', draft.setupMode || '');
-	context.setupModeChosen = draft.setupMode === 'paid';
-	renderOffers(context.state.offers || [], context);
-}
-
-function renderSetupReview(context) {
-	const form = document.querySelector('[data-setup-form]');
-	const review = document.querySelector('[data-setup-review]');
-	if (!form || !review) return;
-	const planCode = form.elements.plan_code?.value || '';
-	const offer = context.state.offers?.find((candidate) => candidate.planCode === planCode);
-	const intent = form.querySelector('[name=intent]:checked')?.value || 'new_site';
-	const siteType = form.elements.site_type?.value || '';
-	const setupMode = form.querySelector('[name=setup_mode]:checked')?.value || '';
-	if (
-		form.dataset.setupAvailable !== 'true' ||
-		(intent === 'migration' && form.dataset.paidAvailable !== 'true')
-	) {
-		review.replaceChildren(
-			document.createTextNode(
-				planCode
-					? 'This plan is not available right now. Choose another plan.'
-					: 'Choose a plan to continue.',
-			),
-		);
-		return;
-	}
-	if (!['trial', 'paid'].includes(setupMode)) {
-		review.replaceChildren(document.createTextNode('Choose how you want to continue.'));
-		return;
-	}
-	const plan = offerLabel(offer || { planCode });
-	const site =
-		intent === 'migration'
-			? 'Import an existing PHP site'
-			: `Start a new ${siteTypeLabel(siteType)}`;
-	const price = currency(offer?.monthlyPriceCadCents);
-	const payment =
-		setupMode === 'trial'
-			? `A card is required before setup. The seven-day trial starts when hosting is ready. Then ${price}/month plus applicable taxes unless cancelled before the trial ends.`
-			: `${price}/month plus applicable taxes. Continue to secure checkout.`;
-	const rows = [
-		['Plan', [plan, offerLimits(offer)].filter(Boolean).join(' — ')],
-		['Site', site],
-		['Payment', payment],
-	];
-	review.replaceChildren(
-		...rows.map(([label, value]) => {
-			const row = document.createElement('div');
-			row.append(element('dt', {}, label), element('dd', {}, value));
-			return row;
-		}),
-	);
-}
-
-function siteTypeLabel(siteType) {
-	switch (siteType) {
-		case 'wordpress':
-			return 'WordPress site';
-		case 'php':
-			return 'PHP site';
-		case 'static':
-			return 'static site';
-		default:
-			return 'website';
-	}
-}
-
 function focusServiceDetail() {
 	const heading = document.querySelector('[data-service-detail] h3');
 	if (!heading) return;
@@ -1457,40 +1257,10 @@ function focusServiceDetail() {
 	heading.focus();
 }
 
-function offerLimits(offer) {
-	if (!offer) return '';
-	const items = [];
-	if (Number.isFinite(Number(offer.websiteLimit))) {
-		const count = Number(offer.websiteLimit);
-		items.push(`${count} ${count === 1 ? 'website' : 'websites'}`);
-	}
-	if (Number.isFinite(Number(offer.storageBytes)) && Number(offer.storageBytes) > 0)
-		items.push(`${formatBytes(offer.storageBytes)} storage`);
-	if (Number.isFinite(Number(offer.transferBytes)) && Number(offer.transferBytes) > 0)
-		items.push(`${formatBytes(offer.transferBytes)} transfer`);
-	return items.length ? `Includes ${items.join(', ')}` : '';
-}
-
-function prepareSetupDraft(form, data, context) {
-	form.dataset.requestKey = requestKeyScope('hosting-setup', context);
-	submissionKeys.save(form, {
-		userId: context.userId,
-		accountId: context.accountId,
-		planCode: clean(data.plan_code),
-		intent: clean(data.intent),
-		siteType: clean(data.site_type),
-		setupMode: clean(data.setup_mode),
-	});
-}
-
 function prepareFormRequest(form, data, context) {
 	const action = form.dataset.accountAction || '';
-	if (action === 'hosting-setup') {
-		prepareSetupDraft(form, data, context);
-		return;
-	}
 	form.dataset.requestKey = requestKeyScope(action, context);
-	if (['account-create', 'support-open', 'support-reply'].includes(action)) {
+	if (['support-open', 'support-reply'].includes(action)) {
 		submissionKeys.save(form, {
 			userId: context.userId,
 			accountId: context.accountId,
@@ -1501,7 +1271,7 @@ function prepareFormRequest(form, data, context) {
 }
 
 function usesDurableFormDraft(action) {
-	return ['hosting-setup', 'account-create', 'support-open', 'support-reply'].includes(action);
+	return ['support-open', 'support-reply'].includes(action);
 }
 
 function actionScope(action, context) {
@@ -1518,7 +1288,6 @@ function actionScope(action, context) {
 function actionScopeIsCurrent(context, submission) {
 	if (!submission) return true;
 	if (submission.userId !== context.userId) return false;
-	if (submission.action === 'account-create') return true;
 	if (
 		submission.accountId !== context.accountId ||
 		submission.accountContextToken !== context.accountContextToken
@@ -1526,7 +1295,6 @@ function actionScopeIsCurrent(context, submission) {
 		return false;
 	if (['support-reply', 'support-close'].includes(submission.action))
 		return submission.supportCaseId === context.supportCaseId;
-	if (submission.action === 'migration-confirm') return submission.serviceId === context.serviceId;
 	return true;
 }
 
@@ -1546,12 +1314,9 @@ function requestKeyScope(action, context) {
 	const identity = scopePart(context.userId || 'customer');
 	const account = scopePart(context.accountId || 'new-account');
 	const supportCase = scopePart(context.supportCaseId || 'no-case');
-	if (action === 'account-create') return `account-create:${identity}`;
 	if (action === 'support-open') return `support-open:${identity}:${account}`;
 	if (action === 'support-reply' || action === 'support-close')
 		return `${action}:${identity}:${account}:${supportCase}`;
-	if (action === 'migration-confirm')
-		return `${action}:${identity}:${account}:${scopePart(context.serviceId || 'no-service')}`;
 	return `${action}:${identity}:${account}`;
 }
 
@@ -1798,9 +1563,18 @@ function startSetupPolling(context) {
 		context.pollAccountId = context.accountId;
 		context.pollDeadline = Date.now() + 120000;
 	}
-	if (Date.now() >= context.pollDeadline || document.hidden || currentView() !== 'hosting') return;
+	if (
+		Date.now() >= context.pollDeadline ||
+		document.hidden ||
+		!['hosting', 'setup'].includes(currentView())
+	)
+		return;
 	context.pollTimer = setInterval(async () => {
-		if (Date.now() >= context.pollDeadline || document.hidden || currentView() !== 'hosting') {
+		if (
+			Date.now() >= context.pollDeadline ||
+			document.hidden ||
+			!['hosting', 'setup'].includes(currentView())
+		) {
 			clearInterval(context.pollTimer);
 			return;
 		}
@@ -1839,86 +1613,16 @@ async function refreshSetupAvailability(context) {
 		if (accountId !== context.accountId) return;
 		context.state.offers = state.offers || [];
 		context.state.trialEligibility = state.trialEligibility;
-		renderOffers(context.state.offers, context);
+		void context.wizard?.update({
+			offers: context.state.offers,
+			trialEligibility: context.state.trialEligibility,
+		});
 	})();
 	try {
 		await context.setupAvailabilityPromise;
 	} finally {
 		context.setupAvailabilityPromise = undefined;
 	}
-}
-
-function bindDynamicAction(form, context) {
-	let formSubmissionToken = 0;
-	form.addEventListener('submit', async (event) => {
-		event.preventDefault();
-		const backend = context.backend;
-		if (!backend) return;
-		let submission;
-		let formToken;
-		try {
-			setSubmitting(form, true);
-			const data = Object.fromEntries(new FormData(form));
-			form.dataset.requestKey = requestKeyScope('migration-confirm', context);
-			const requestScope = form.dataset.requestKey;
-			submission = actionScope('migration-confirm', context);
-			formToken = ++formSubmissionToken;
-			data.idempotency_key = submissionKeys.current(form);
-			const result = await accountAction(
-				'migration-confirm',
-				data,
-				context,
-				context.config,
-				context.identityProvider,
-				backend,
-				submission,
-			);
-			submissionKeys.clear(form, requestScope);
-			if (result?.stale || !actionScopeIsCurrent(context, submission)) return;
-			showNotice(result.message, 'success');
-			await refreshCustomerState(backend, context);
-		} catch (error) {
-			if (formToken === formSubmissionToken && actionScopeIsCurrent(context, submission))
-				showError(error);
-		} finally {
-			if (formToken === formSubmissionToken) setSubmitting(form, false);
-		}
-	});
-}
-
-export function syncMigrationSiteType(form) {
-	if (!form) return;
-	const migration = form.querySelector('[name=intent]:checked')?.value === 'migration';
-	const siteType = form.querySelector('[name=site_type]');
-	const siteTypeLabel = form.querySelector('[data-site-type-label]');
-	const migrationSiteType = form.querySelector('[data-migration-site-type]');
-	const trialChoice = form.querySelector('[data-trial-choice]');
-	const trial = trialChoice?.querySelector('input');
-	const paidChoice = form.querySelector('[data-paid-choice]');
-	const paid = paidChoice?.querySelector('input');
-	const paidAvailable = form.dataset.paidAvailable === 'true';
-	const submit = form.querySelector('button[type="submit"]');
-	if (migration) {
-		setValueIn(form, '[name=site_type]', 'php');
-		if (siteType) siteType.hidden = true;
-		if (siteTypeLabel) siteTypeLabel.hidden = true;
-		if (migrationSiteType) migrationSiteType.hidden = false;
-		if (trialChoice) trialChoice.hidden = true;
-		if (trial) trial.disabled = true;
-		if (paidChoice) paidChoice.hidden = true;
-		if (paid) paid.checked = true;
-		if (submit) submit.disabled = !paidAvailable;
-		return;
-	}
-	if (siteType) siteType.hidden = false;
-	if (siteTypeLabel) siteTypeLabel.hidden = false;
-	if (migrationSiteType) migrationSiteType.hidden = true;
-	const canStartTrial = form.dataset.trialEligible === 'true';
-	if (trialChoice) trialChoice.hidden = !canStartTrial;
-	if (trial) trial.disabled = !canStartTrial;
-	if (paidChoice) paidChoice.hidden = !paidAvailable;
-	if (paid) paid.disabled = !paidAvailable;
-	if (submit) submit.disabled = !canStartTrial && !paidAvailable;
 }
 
 async function loadPasskeys(identity, config) {
@@ -2049,27 +1753,6 @@ function appendDetail(target, term, description) {
 	target.append(element('dt', {}, term), element('dd', {}, description));
 }
 
-function hostingAccessLink(originValue, path, label) {
-	const origin = new URL(originValue);
-	if (
-		origin.protocol !== 'https:' ||
-		origin.username ||
-		origin.password ||
-		origin.pathname !== '/' ||
-		origin.search ||
-		origin.hash
-	) {
-		throw new Error('Hosting access is unavailable.');
-	}
-	const link = document.createElement('a');
-	link.className = 'button button-secondary';
-	link.href = new URL(path, origin).toString();
-	link.target = '_blank';
-	link.rel = 'noopener';
-	link.textContent = label;
-	return link;
-}
-
 function checkedHostedUrl(value) {
 	const url = new URL(value);
 	if (
@@ -2116,12 +1799,6 @@ function setupMessage(setup) {
 	return readableStatus(setup.status);
 }
 
-function offerLabel(offer) {
-	const name = offer.displayName || titleCase(offer.planCode || 'Hosting');
-	const price = currency(offer.monthlyPriceCadCents);
-	return price ? `${name} · ${price}/month` : name;
-}
-
 function readableStatus(value) {
 	const text = String(value || 'pending')
 		.replaceAll(/[_-]+/g, ' ')
@@ -2132,15 +1809,6 @@ function readableStatus(value) {
 function currency(value) {
 	const cents = Number(value);
 	return Number.isFinite(cents) ? `$${(cents / 100).toFixed(2)} CAD` : '';
-}
-
-function formatBytes(value) {
-	const bytes = Number(value);
-	if (!Number.isFinite(bytes) || bytes <= 0) return '';
-	const units = ['B', 'KB', 'MB', 'GB', 'TB'];
-	const index = Math.min(Math.floor(Math.log(bytes) / Math.log(1024)), units.length - 1);
-	const amount = bytes / 1024 ** index;
-	return `${Number(amount.toFixed(amount >= 10 || index === 0 ? 0 : 1))} ${units[index]}`;
 }
 
 function titleCase(value) {
@@ -2161,17 +1829,6 @@ function setText(selector, value) {
 
 function setValue(selector, value) {
 	for (const element of document.querySelectorAll(selector)) element.value = value;
-}
-
-function setValueIn(container, selector, value) {
-	const element = container?.querySelector(selector);
-	if (element) element.value = value;
-}
-
-function setCheckedValue(container, name, value) {
-	for (const control of container?.querySelectorAll(`[name="${name}"]`) || []) {
-		control.checked = control.value === value;
-	}
 }
 
 function setSubmitting(form, submitting) {

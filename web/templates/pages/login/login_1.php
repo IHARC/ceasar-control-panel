@@ -7,6 +7,7 @@
 		<h1 class="login-title">
 			<?= tohtml( _("Welcome")) ?> <?= tohtml($_SESSION["login"]["username"]) ?>!
 		</h1>
+		<?php if (!empty($error)) { ?><p class="error" role="alert"><?= tohtml($error) ?></p><?php } ?>
 		<div class="u-mb20">
 			<label for="password" class="form-label u-side-by-side">
 				<?= tohtml( _("Password")) ?>
@@ -19,6 +20,7 @@
 			<input type="password" class="form-control" name="password" id="password" autocomplete="current-password" required autofocus>
 		</div>
 		<div class="u-side-by-side">
+			<?php native_turnstile_widget('native_login'); ?>
 			<button type="submit" class="button">
 				<i class="fas fa-right-to-bracket"></i><?= tohtml( _("Login")) ?>
 			</button>

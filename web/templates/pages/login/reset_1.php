@@ -12,13 +12,14 @@
 		<?php } ?>
 		<div class="u-mb10">
 			<label for="username" class="form-label"><?= tohtml( _("Username")) ?></label>
-			<input type="text" class="form-control" name="user" id="username" autocomplete="username" required autofocus>
+			<input type="text" class="form-control" name="user" id="username" autocomplete="username" value="<?= tohtml((string)($_POST['user'] ?? '')) ?>" required autofocus>
 		</div>
 		<div class="u-mb20">
 			<label for="email" class="form-label"><?= tohtml( _("Email")) ?></label>
-			<input type="email" class="form-control" name="email" id="email" autocomplete="email" required>
+			<input type="email" class="form-control" name="email" id="email" autocomplete="email" value="<?= tohtml((string)($_POST['email'] ?? '')) ?>" required>
 		</div>
 		<div class="u-side-by-side">
+			<?php native_turnstile_widget('native_recovery'); ?>
 			<button type="submit" class="button">
 				<?= tohtml( _("Submit")) ?>
 			</button>

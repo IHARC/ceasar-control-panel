@@ -41,7 +41,7 @@ profile_customer_enabled='no'
 profile_managed_services='no'
 
 # Define software versions
-CEASAR_INSTALL_VER='1.0.35'
+CEASAR_INSTALL_VER='1.0.36'
 
 # Build the full Ceasar version
 # Split base version from an optional channel suffix (~alpha / ~beta).
@@ -61,7 +61,7 @@ case "$os" in
 		exit 1
 		;;
 esac
-# Final package version, for example 1.0.35-1+ubuntu24.04.
+# Final package version, for example 1.0.36-1+ubuntu24.04.
 CEASAR_INSTALL_BUILD="${CEASAR_BASE_VER}-1+${os_id}${CEASAR_CHANNEL}"
 
 # Supported PHP versions
@@ -161,13 +161,13 @@ validate_platform() {
 	local platform_id
 	platform_id="$(awk -F= '$1 == "ID" { gsub(/\"/, "", $2); print $2 }' "$OS_RELEASE_FILE")"
 	if [ "$platform_id" != 'ubuntu' ] || [ "$release" != '24.04' ]; then
-		check_result 1 "Ceasar 1.0.35 supports only Ubuntu 24.04 LTS."
+		check_result 1 "Ceasar 1.0.36 supports only Ubuntu 24.04 LTS."
 	fi
 	if [ "$architecture" != 'x86_64' ] && [ "$architecture" != 'amd64' ]; then
-		check_result 1 "Ceasar 1.0.35 supports only amd64 systems."
+		check_result 1 "Ceasar 1.0.36 supports only amd64 systems."
 	fi
 	if [ -n "$codename" ] && [ "$codename" != 'noble' ]; then
-		check_result 1 "Ceasar 1.0.35 requires the Ubuntu noble package repositories."
+		check_result 1 "Ceasar 1.0.36 requires the Ubuntu noble package repositories."
 	fi
 	codename='noble'
 }
@@ -1656,6 +1656,7 @@ chmod 770 $CEASAR/data/sessions
 
 # Persistent support and branding state must survive later package upgrades.
 $CEASAR/bin/v-setup-support-runtime
+$CEASAR/bin/v-setup-onboarding-runtime
 
 # Generating Ceasar configuration
 rm -f $CEASAR/conf/ceasar.conf > /dev/null 2>&1
@@ -2641,6 +2642,7 @@ fi
 echo "[ * ] Configuring PHP dependencies..."
 $CEASAR/bin/v-add-sys-dependencies quiet
 $CEASAR/bin/v-setup-support-runtime
+$CEASAR/bin/v-setup-onboarding-runtime
 
 echo "[ * ] Backup tools are managed by APT."
 

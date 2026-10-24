@@ -4,7 +4,7 @@ import { customerSetupSelection, customerSetupUrl } from '../../web/js/src/custo
 describe('customer setup navigation', () => {
 	it('preserves a selected plan and import intent across account and login routes', () => {
 		const selection = customerSetupSelection('?planCode=plus&intent=migration');
-		expect(selection).toEqual({ planCode: 'plus', intent: 'migration' });
+		expect(selection).toEqual({ planCode: 'plus', intent: 'migration', setupKind: '' });
 		expect(customerSetupUrl('https://app.example/customer/login', selection, '')).toBe(
 			'https://app.example/customer/login?planCode=plus&intent=migration',
 		);
@@ -17,6 +17,7 @@ describe('customer setup navigation', () => {
 		expect(customerSetupSelection('?planCode=starter&intent=other')).toEqual({
 			planCode: 'starter',
 			intent: 'new_site',
+			setupKind: '',
 		});
 	});
 
@@ -30,6 +31,22 @@ describe('customer setup navigation', () => {
 		expect(customerSetupSelection('?planCode=%2Fadmin&intent=migration')).toEqual({
 			planCode: '',
 			intent: 'migration',
+			setupKind: '',
 		});
+	});
+
+	it('carries a WordPress migration choice across confirmation', () => {
+		const selection = customerSetupSelection('?planCode=plus&intent=migration&siteType=wordpress');
+		expect(selection.setupKind).toBe('wordpress-move');
+		expect(customerSetupUrl('https://app.example/customer/callback', selection, '')).toBe(
+			'https://app.example/customer/callback?planCode=plus&setupKind=wordpress-move&intent=migration',
+		);
+	});
+
+	it('keeps a direct migration choice consistent when intent is omitted', () => {
+		expect(customerSetupSelection('?setupKind=wordpress-move').intent).toBe('migration');
+		expect(customerSetupSelection('?setupKind=php-import&intent=new_site').intent).toBe(
+			'migration',
+		);
 	});
 });

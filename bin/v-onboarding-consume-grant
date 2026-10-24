@@ -1,0 +1,23 @@
+#!/usr/local/ceasar/php/bin/php
+<?php
+declare(strict_types=1);
+require_once __DIR__ . "/../libexec/onboarding.php";
+try {
+	onboarding_require_root();
+	if (PHP_SAPI !== "cli" || count($argv) !== 4) {
+		throw new InvalidArgumentException("Invalid access request.");
+	}
+	$row = onboarding_consume_grant($argv[1], $argv[2], $argv[3]);
+	echo json_encode(
+		[
+			"owner" => $row["owner"],
+			"hostname" => $row["hostname"],
+			"destination" => $row["destination"],
+		],
+		JSON_THROW_ON_ERROR,
+	) . PHP_EOL;
+} catch (Throwable $error) {
+	fwrite(STDERR, "Invalid access grant.\n");
+	exit(1);
+}
+

@@ -6,7 +6,7 @@ afterEach(() => {
 	globalThis.document = originalDocument;
 });
 
-it('refreshes a selected service into its import workspace handoff without duplicate hosting access', async () => {
+it('refreshes a selected service and directs website setup into the wizard', async () => {
 	const dom = new JSDOM(`
 		<p data-service-empty></p><div data-service-list></div><div class="u-hidden" data-service-detail></div>
 	`);
@@ -58,10 +58,14 @@ it('refreshes a selected service into its import workspace handoff without dupli
 		true,
 	);
 
-	expect(document.querySelector('[data-service-detail]').textContent).toContain('Import workspace');
-	expect(document.querySelector('[data-service-detail]').textContent).toContain('migration-user');
-	expect(document.querySelector('[data-service-detail]').textContent).not.toContain(
-		'Hosting access',
+	expect(document.querySelector('[data-service-detail]').textContent).toContain(
+		'Continue website setup',
 	);
-	expect(document.querySelector('[data-service-detail]').textContent).not.toContain('native-user');
+	expect(document.querySelector('[data-resume-service]').dataset.resumeService).toBe(
+		'service-import',
+	);
+	expect(document.querySelector('[data-service-detail]').textContent).toContain('native-user');
+	expect(document.querySelector('[data-service-detail]').textContent).not.toContain(
+		'Set hosting password',
+	);
 });

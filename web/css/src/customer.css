@@ -404,6 +404,139 @@ button.customer-row:focus-visible .customer-row-title {
 	margin-top: 20px;
 }
 
+.customer-wizard-layout {
+	display: grid;
+	gap: clamp(24px, 4vw, 56px);
+	grid-template-columns: minmax(0, 1fr) minmax(230px, 300px);
+	max-width: 1100px;
+}
+
+.customer-wizard-main,
+.customer-wizard-summary {
+	min-width: 0;
+}
+
+.customer-wizard-header progress {
+	accent-color: var(--customer-accent);
+	display: block;
+	height: 8px;
+	margin: 8px 0 22px;
+	width: 100%;
+}
+
+.customer-wizard-progress {
+	color: var(--iharc-muted);
+	font-weight: 700;
+	margin: 0;
+}
+
+.customer-wizard-fieldset {
+	border: 0;
+	margin: 0;
+	min-width: 0;
+	padding: 0;
+}
+
+.customer-wizard-fieldset legend,
+.customer-wizard-review h2,
+.customer-wizard-summary h2 {
+	font-size: 1.15rem;
+	font-weight: 700;
+	margin: 0 0 12px;
+}
+
+.customer-wizard-summary {
+	align-self: start;
+	background: var(--customer-accent-tint);
+	border: 1px solid var(--iharc-line);
+	border-radius: 4px;
+	padding: 20px;
+}
+
+.customer-wizard-summary dd,
+.customer-wizard-dns code {
+	overflow-wrap: anywhere;
+}
+
+.customer-wizard-actions {
+	display: flex;
+	flex-wrap: wrap;
+	gap: 10px;
+	margin: 24px 0;
+}
+
+.customer-wizard-error {
+	background: #fff1f0;
+	border-left: 4px solid #b42318;
+	color: #7a271a;
+	padding: 12px 16px;
+}
+
+.customer-wizard-stages {
+	padding-left: 24px;
+}
+
+.customer-wizard-stages li {
+	margin-bottom: 12px;
+}
+
+.customer-wizard-dns-row {
+	align-items: center;
+	border-bottom: 1px solid var(--iharc-line);
+	display: flex;
+	flex-wrap: wrap;
+	gap: 10px;
+	padding: 12px 0;
+}
+
+.customer-wizard-dns-row code {
+	flex: 1 1 190px;
+}
+
+.customer-captcha {
+	margin: 12px 0;
+	max-width: 100%;
+}
+
+.customer-login-website {
+	border: 0;
+	margin: 0 0 24px;
+	min-width: 0;
+	padding: 0;
+}
+
+.customer-login-website legend {
+	font-weight: 700;
+}
+
+.customer-captcha iframe {
+	max-width: 100%;
+}
+
+.page-customer :is(button, a, input, select, textarea):focus-visible {
+	outline: 3px solid var(--customer-accent);
+	outline-offset: 3px;
+}
+
+@media (max-width: 760px) {
+	.customer-wizard-layout {
+		grid-template-columns: minmax(0, 1fr);
+	}
+	.customer-wizard-summary {
+		grid-row: 2;
+	}
+	.customer-wizard-actions {
+		position: sticky;
+		bottom: 0;
+		z-index: 2;
+		background: var(--iharc-bg, #fff);
+		padding: 10px 0;
+	}
+	.customer-wizard-actions .button {
+		flex: 1 1 100%;
+	}
+}
+
 .customer-form {
 	max-width: 620px;
 }

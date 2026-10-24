@@ -42,6 +42,16 @@ jobs:
       - name: Verify IHARC authority, kernel, transfer, and enforcement behavior
         run: python3 -m unittest discover -s tests/iharc -p "test_*.py" -v
 
+      - name: Verify native onboarding contracts
+        run: |
+          for test in native-operations native-session customer-csp; do
+            docker run --rm --network none \
+              -v "$PWD:/src:ro" \
+              -v "$PWD/tests/onboarding/bin:/usr/local/ceasar/bin:ro" \
+              -v "$PWD/tests/onboarding/onboarding.json:/usr/local/ceasar/conf/onboarding.json:ro" \
+              -w /src php:8.3-cli php "tests/onboarding/$test.php"
+          done
+
   docs:
     name: Docs site
     runs-on: ubuntu-latest
@@ -59,3 +69,6 @@ jobs:
 
       - name: Run docs site tests
         run: npm run docs:test
+
+      - name: Run customer onboarding tests
+        run: npm run test:customer

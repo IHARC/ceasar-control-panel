@@ -1,0 +1,14 @@
+[Unit]
+Description=Ceasar website onboarding worker
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+User=root
+Group=root
+ExecStart=/usr/local/ceasar/bin/v-onboarding-work
+TimeoutStartSec=900
+PrivateTmp=true
+ProtectHome=false
+ReadWritePaths=/var/lib/ceasar/onboarding /home /usr/local/ceasar/data
