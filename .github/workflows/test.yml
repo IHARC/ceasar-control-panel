@@ -44,7 +44,7 @@ jobs:
 
       - name: Verify native onboarding contracts
         run: |
-          for test in native-operations native-session customer-csp; do
+          for test in native-operations native-session customer-csp native-captcha; do
             docker run --rm --network none \
               -v "$PWD:/src:ro" \
               -v "$PWD/tests/onboarding/bin:/usr/local/ceasar/bin:ro" \
