@@ -3,7 +3,7 @@
 declare(strict_types=1);
 require_once __DIR__ . "/onboarding.php";
 
-function onboarding_wordpress_install_args(array $row): array {
+function onboarding_wordpress_install_args(array $row, array $site): array {
 	return [
 		"install",
 		$row["owner"],
@@ -15,7 +15,7 @@ function onboarding_wordpress_install_args(array $row): array {
 		"site_name=" . $row["site_title"],
 		"install_directory=/",
 		"language=en_US",
-		"php_version=8.3",
+		"php_version=" . onboarding_php_version($site),
 		"database_create=true",
 	];
 }
@@ -145,6 +145,28 @@ function onboarding_work_one(): bool {
 				throw new RuntimeException("Static backend is not yet visible.");
 			}
 		}
+		if (($site["SSL"] ?? "no") !== "yes") {
+			onboarding_mark(
+				$db,
+				$row["id"],
+				"running",
+				"certificate",
+				"Securing your website address.",
+				"wait",
+			);
+			$addresses = onboarding_public_addresses($site);
+			$certificate = onboarding_native("v-add-letsencrypt-domain", [$user, $host, ""], 150);
+			$site = onboarding_site($user, $host);
+			if (!$certificate["ok"] || $site === null || ($site["SSL"] ?? "no") !== "yes") {
+				throw new RuntimeException(
+					"Point " .
+						$host .
+						" to " .
+						implode(", ", $addresses) .
+						" in DNS, wait for propagation, then retry certificate setup. Contact support if DNS is already correct.",
+				);
+			}
+		}
 		if ($row["site_type"] === "wordpress") {
 			onboarding_mark(
 				$db,
@@ -173,7 +195,7 @@ function onboarding_work_one(): bool {
 				);
 				$installed = onboarding_native(
 					"v-quick-install-app",
-					onboarding_wordpress_install_args($row),
+					onboarding_wordpress_install_args($row, $site),
 					300,
 				);
 				if (!$installed["ok"]) {
@@ -276,11 +298,16 @@ function onboarding_work_one(): bool {
 		$partial =
 			in_array($current["stage"], ["installing_wordpress", "wordpress_partial"], true) ||
 			str_contains($message, "partial install");
+		$stage = $partial
+			? "wordpress_partial"
+			: ($current["stage"] === "certificate"
+				? "certificate"
+				: "preparation");
 		onboarding_mark(
 			$db,
 			$row["id"],
 			"failed",
-			$partial ? "wordpress_partial" : "preparation",
+			$stage,
 			$message,
 			$partial ? "support" : "retry",
 		);

@@ -603,18 +603,24 @@ function onboarding_dispatch(string $user, string $action, array $input): array 
 	throw new InvalidArgumentException("Unsupported onboarding action.");
 }
 
+function onboarding_php_version(array $site): string {
+	foreach ([$site["BACKEND"] ?? null, $site["PHP"] ?? null] as $candidate) {
+		if (!is_string($candidate)) {
+			continue;
+		}
+		$normalized = strtolower(str_replace("_", ".", $candidate));
+		if (preg_match('/^(?:php-?)?(7\.4|8\.[0-5])$/D', $normalized, $matches) === 1) {
+			return $matches[1];
+		}
+	}
+	return "8.3";
+}
+
 function onboarding_wp(string $user, string $host, array $site, array $args): array {
 	if (!is_file("/home/" . $user . "/.wp-cli/wp")) {
 		onboarding_native("v-add-user-wp-cli", [$user], 60);
 	}
-	$php = $site["BACKEND"] ?? ($site["PHP"] ?? "php8.3");
-	if (is_string($php)) {
-		$php = strtolower(str_replace("_", ".", $php));
-	}
-	if (!is_string($php) || preg_match('/^php(?:-)?(7\.4|8\.[0-5])$/D', $php) !== 1) {
-		$php = "php8.3";
-	}
-	$php = str_replace("php-", "php", $php);
+	$php = "php" . onboarding_php_version($site);
 	// The domain is resolved from Ceasar's own web record, never a browser path.
 	$docroot = realpath(
 		(string) ($site["DOCUMENT_ROOT"] ?? "/home/" . $user . "/web/" . $host . "/public_html"),

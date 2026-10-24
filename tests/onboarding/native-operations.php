@@ -242,16 +242,24 @@ try {
 		"Primary hostname certificate alias selection is incorrect.",
 	);
 	require __DIR__ . "/../../libexec/onboarding-worker.php";
-	$installArgs = onboarding_wordpress_install_args([
-		"owner" => "alice",
-		"hostname" => "preview.example.test",
-		"contact_email" => "owner@example.test",
-		"site_title" => "Fixture",
-	]);
+	$installArgs = onboarding_wordpress_install_args(
+		[
+			"owner" => "alice",
+			"hostname" => "preview.example.test",
+			"contact_email" => "owner@example.test",
+			"site_title" => "Fixture",
+		],
+		["BACKEND" => "PHP-8_5"],
+	);
 	check(
 		in_array("generate_password=true", $installArgs, true) &&
+			in_array("php_version=8.5", $installArgs, true) &&
 			count(array_filter($installArgs, fn($arg) => str_starts_with($arg, "password="))) === 0,
-		"Worker placed an administrator password in installer arguments.",
+		"Installer did not preserve the existing PHP version or exposed a password.",
+	);
+	check(
+		onboarding_php_version(["BACKEND" => "default", "PHP" => "php-8.4"]) === "8.4",
+		"Native PHP fallback field was ignored.",
 	);
 	check(
 		onboarding_dispatch("alice", "status", ["operationId" => $first["operationId"]])[
@@ -259,6 +267,7 @@ try {
 		] === "ready",
 		"Worker did not prepare static site.",
 	);
+	check(!is_file("/tmp/ceasar-fixture-cert-invocations"), "Existing provider TLS was reissued.");
 	$partial = onboarding_dispatch("alice", "prepare", [
 		...$request,
 		"idempotencyKey" => "native-test-0002",
@@ -295,6 +304,45 @@ try {
 	$database
 		->prepare("UPDATE operations SET status='failed',stage='wordpress_partial' WHERE id=?")
 		->execute([$partial["operationId"]]);
+	file_put_contents("/tmp/ceasar-fixture-no-tls", "1");
+	$needsDns = onboarding_dispatch("alice", "prepare", [
+		...$request,
+		"idempotencyKey" => "native-test-0003",
+	]);
+	onboarding_work_one();
+	$certificateFailure = onboarding_dispatch("alice", "status", [
+		"operationId" => $needsDns["operationId"],
+	]);
+	check(
+		$certificateFailure["status"] === "failed" &&
+			$certificateFailure["stage"] === "certificate" &&
+			$certificateFailure["nextAction"] === "retry" &&
+			str_contains($certificateFailure["message"], "Point preview.example.test to 1.1.1.1"),
+		"Missing DNS did not give a recoverable certificate action.",
+	);
+	check(
+		substr_count(
+			(string) file_get_contents("/tmp/ceasar-fixture-cert-invocations"),
+			"alice|preview.example.test",
+		) === 1,
+		"Certificate command was not called exactly once.",
+	);
+	file_put_contents("/tmp/ceasar-fixture-dns-ready", "1");
+	onboarding_dispatch("alice", "retry", ["operationId" => $needsDns["operationId"]]);
+	onboarding_work_one();
+	check(
+		onboarding_dispatch("alice", "status", ["operationId" => $needsDns["operationId"]])[
+			"status"
+		] === "ready" && onboarding_site("alice", "preview.example.test")["SSL"] === "yes",
+		"Retry did not complete TLS and same-site readiness.",
+	);
+	check(
+		substr_count(
+			(string) file_get_contents("/tmp/ceasar-fixture-cert-invocations"),
+			"alice|preview.example.test",
+		) === 2,
+		"Certificate retry did not remain idempotent on the same website.",
+	);
 	$old = [
 		"previous_url" => "https://preview.example.test",
 		"previous_siteurl" => "https://preview.example.test/wp",
@@ -339,6 +387,19 @@ try {
 	}
 	if (is_file("/tmp/ceasar-fixture-no-php")) {
 		unlink("/tmp/ceasar-fixture-no-php");
+	}
+	foreach (
+		[
+			"/tmp/ceasar-fixture-no-tls",
+			"/tmp/ceasar-fixture-tls-ready",
+			"/tmp/ceasar-fixture-dns-ready",
+			"/tmp/ceasar-fixture-cert-invocations",
+		]
+		as $marker
+	) {
+		if (is_file($marker)) {
+			unlink($marker);
+		}
 	}
 	$path = getenv("CEASAR_ONBOARDING_DB");
 	foreach ([$path, $path . "-shm", $path . "-wal"] as $file) {

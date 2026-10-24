@@ -64,8 +64,8 @@ if (root) {
 				previewUrl: `https://${wizard.state.draft.hostname}/`,
 			};
 		},
-		hostingAccess: (_account, serviceId) =>
-			request('create-grant', { hostname: serviceHost(serviceId), destination: '/list/web/' }),
+		// This page already has the owner's native Ceasar session.
+		hostingAccess: async () => ({ url: new URL('/list/web/', location.origin).href }),
 		wordpressAccess: (_account, serviceId, userId) =>
 			request('wordpress-access', {
 				hostname: serviceHost(serviceId),
