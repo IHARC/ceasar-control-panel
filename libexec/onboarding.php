@@ -360,15 +360,44 @@ function onboarding_dispatch(string $user, string $action, array $input): array 
 		) {
 			throw new InvalidArgumentException("Invalid draft.");
 		}
-		foreach ($draft as $value) {
+		foreach ($draft as $field => $value) {
+			if ($value === null && in_array($field, ["requestId", "serviceId"], true)) {
+				continue;
+			}
 			if (!is_string($value) || strlen($value) > 512) {
 				throw new InvalidArgumentException("Invalid draft field.");
 			}
 		}
-		$body = json_encode($draft, JSON_THROW_ON_ERROR);
-		$db->prepare(
-			"INSERT INTO drafts(owner,body,updated_at) VALUES (?,?,?) ON CONFLICT(owner) DO UPDATE SET body=excluded.body,updated_at=excluded.updated_at",
-		)->execute([$user, $body, time()]);
+		$db->exec("BEGIN IMMEDIATE");
+		try {
+			$query = $db->prepare("SELECT body FROM drafts WHERE owner=?");
+			$query->execute([$user]);
+			$existingBody = $query->fetchColumn();
+			$existing =
+				$existingBody === false
+					? []
+					: json_decode((string) $existingBody, true, 16, JSON_THROW_ON_ERROR);
+			$bound = (string) ($existing["requestId"] ?? "");
+			$reset =
+				($draft["step"] ?? null) === "website" &&
+				($draft["requestId"] ?? "") === "" &&
+				($draft["serviceId"] ?? "") === "";
+			if (
+				$bound !== "" &&
+				!$reset &&
+				(($draft["requestId"] ?? "") === "" || ($draft["serviceId"] ?? "") === "")
+			) {
+				throw new RuntimeException("Reload website setup before changing a prepared site.");
+			}
+			$body = json_encode($draft, JSON_THROW_ON_ERROR);
+			$db->prepare(
+				"INSERT INTO drafts(owner,body,updated_at) VALUES (?,?,?) ON CONFLICT(owner) DO UPDATE SET body=excluded.body,updated_at=excluded.updated_at",
+			)->execute([$user, $body, time()]);
+			$db->exec("COMMIT");
+		} catch (Throwable $error) {
+			$db->exec("ROLLBACK");
+			throw $error;
+		}
 		return ["draft" => $draft];
 	}
 	if ($action === "prepare") {
@@ -392,19 +421,63 @@ function onboarding_dispatch(string $user, string $action, array $input): array 
 		}
 		$id = bin2hex(random_bytes(16));
 		$now = time();
-		$query = $db->prepare("INSERT OR IGNORE INTO operations
+		$db->exec("BEGIN IMMEDIATE");
+		try {
+			$query = $db->prepare("INSERT OR IGNORE INTO operations
           (id,owner,idempotency_key,hostname,site_type,intent,site_title,contact_email,status,stage,message,next_action,created_at,updated_at)
           VALUES (?,?,?,?,?,?,?,?, 'queued','admission','Preparing your website.','wait',?,?)");
-		$query->execute([$id, $user, $key, $host, $type, $intent, $title, $email, $now, $now]);
-		$lookup = $db->prepare("SELECT * FROM operations WHERE owner=? AND idempotency_key=?");
-		$lookup->execute([$user, $key]);
-		$row = $lookup->fetch(PDO::FETCH_ASSOC);
-		if (
-			$row["hostname"] !== $host ||
-			$row["site_type"] !== $type ||
-			$row["intent"] !== $intent
-		) {
-			throw new RuntimeException("Idempotency key already used for another setup.");
+			$query->execute([$id, $user, $key, $host, $type, $intent, $title, $email, $now, $now]);
+			$lookup = $db->prepare("SELECT * FROM operations WHERE owner=? AND idempotency_key=?");
+			$lookup->execute([$user, $key]);
+			$row = $lookup->fetch(PDO::FETCH_ASSOC);
+			if (
+				!$row ||
+				$row["hostname"] !== $host ||
+				$row["site_type"] !== $type ||
+				$row["intent"] !== $intent
+			) {
+				throw new RuntimeException("Idempotency key already used for another setup.");
+			}
+			$draftQuery = $db->prepare("SELECT body FROM drafts WHERE owner=?");
+			$draftQuery->execute([$user]);
+			$draftBody = $draftQuery->fetchColumn();
+			$current =
+				$draftBody === false
+					? []
+					: json_decode((string) $draftBody, true, 16, JSON_THROW_ON_ERROR);
+			$currentRequest = (string) ($current["requestId"] ?? "");
+			if ($currentRequest === "" || $currentRequest === $row["id"]) {
+				$same = $currentRequest === $row["id"];
+				$kind =
+					$type === "wordpress"
+						? ($intent === "migration"
+							? "wordpress-move"
+							: "wordpress-new")
+						: ($intent === "migration"
+							? "php-import"
+							: "php-static");
+				$draft = $same ? $current : [];
+				$draft["step"] =
+					$same &&
+					in_array($current["step"] ?? null, ["website-setup", "domain", "ready"], true)
+						? $current["step"]
+						: "preparation";
+				$draft["setupKind"] = $kind;
+				$draft["siteType"] = $type;
+				$draft["intent"] = $intent;
+				$draft["hostname"] = $host;
+				$draft["serviceId"] = $host;
+				$draft["requestId"] = $row["id"];
+				$draft["websiteTitle"] = $row["site_title"];
+				$draft["administratorEmail"] = $row["contact_email"];
+				$db->prepare(
+					"INSERT INTO drafts(owner,body,updated_at) VALUES (?,?,?) ON CONFLICT(owner) DO UPDATE SET body=excluded.body,updated_at=excluded.updated_at",
+				)->execute([$user, json_encode($draft, JSON_THROW_ON_ERROR), $now]);
+			}
+			$db->exec("COMMIT");
+		} catch (Throwable $error) {
+			$db->exec("ROLLBACK");
+			throw $error;
 		}
 		return onboarding_progress($row);
 	}

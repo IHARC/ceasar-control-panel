@@ -3,7 +3,7 @@ import { customerSetupSelection, customerSetupUrl } from './navigation.js';
 import { createRequestKeys } from './request-keys.js';
 import { configureAnalytics } from './analytics.js';
 import { createAuthCaptcha } from './captcha.js';
-import { createOnboardingWizard, websiteSelection } from './wizard.js';
+import { createOnboardingWizard } from './wizard.js';
 
 const configNode = document.querySelector('#customer-config');
 const submissionKeys = createRequestKeys();
@@ -284,6 +284,11 @@ async function bindAccount(config, identity, backend, analytics) {
 			return created.accountId;
 		},
 		onRefreshOffers: async () => backend.accountState(context.accountId),
+		onNewSetup: () => {
+			const target = document.querySelector('[data-onboarding-wizard]');
+			const scope = requestKeyScope('hosting-setup', context);
+			submissionKeys.clear(target, scope);
+		},
 		onCommit: async (draft) => {
 			const target = document.querySelector('[data-onboarding-wizard]');
 			target.dataset.requestKey = requestKeyScope('hosting-setup', context);
@@ -308,10 +313,13 @@ async function bindAccount(config, identity, backend, analytics) {
 				rememberTrialCheckoutReturn(context.accountId, result.requestId);
 			return result;
 		},
-		onUpdate: () =>
+		onUpdate: () => {
+			if (context.accountId && (setupSelection.planCode || setupSelection.setupKind))
+				consumeSetupSelection();
 			void (context.accounts.length
 				? refreshCustomerState(backend, context)
-				: loadCustomerState(backend, context)),
+				: loadCustomerState(backend, context));
+		},
 	});
 	context.wizard.state.draft.planCode = setupSelection.planCode;
 	context.wizard.state.draft.setupKind =
@@ -343,17 +351,15 @@ async function bindAccount(config, identity, backend, analytics) {
 				}
 			}
 		}
-		if (context.accountId && setupSelection.setupKind) {
-			await context.wizard.load();
-			if (!context.wizard.state.draft.setupKind) {
-				Object.assign(context.wizard.state.draft, {
-					setupKind: setupSelection.setupKind,
-					...websiteSelection(setupSelection.setupKind),
-					step: 'hosting',
-				});
-				await backend.saveOnboarding(context.accountId, context.wizard.state.draft);
-				context.wizard.render();
-			}
+		if (context.accountId && (setupSelection.setupKind || setupSelection.planCode)) {
+			await context.wizard.update({
+				accountId: context.accountId,
+				offers: context.state.offers || [],
+				trialEligibility: context.state.trialEligibility,
+				setups: context.state.setups || [],
+			});
+			await context.wizard.startNew(setupSelection);
+			consumeSetupSelection();
 		}
 		if ((setupSelection.planCode || setupSelection.setupKind) && !context.initialStateUnavailable)
 			location.hash = 'setup';
@@ -380,6 +386,12 @@ async function openSupportTicketFromUrl(backend, context) {
 	} catch (error) {
 		if (token === context.supportDetailRequestToken) showError(error);
 	}
+}
+
+function consumeSetupSelection() {
+	const url = new URL(location.href);
+	for (const name of ['planCode', 'setupKind', 'siteType', 'intent']) url.searchParams.delete(name);
+	history.replaceState(history.state, '', url);
 }
 
 function bindNavigation(context) {
@@ -412,10 +424,21 @@ function bindNavigation(context) {
 }
 
 export function bindAccountControls(config, identity, backend, context) {
-	document.querySelector('[data-open-setup]')?.addEventListener('click', () => {
-		clearNotice();
-		location.hash = 'setup';
-		startSetupAvailabilityPolling(context);
+	document.addEventListener('click', async (event) => {
+		const control = event.target.closest('[data-open-setup], [data-start-new-setup]');
+		if (!control) return;
+		event.preventDefault();
+		try {
+			control.disabled = true;
+			clearNotice();
+			await context.wizard.startNew();
+			location.hash = 'setup';
+			startSetupAvailabilityPolling(context);
+		} catch (error) {
+			showError(error);
+		} finally {
+			control.disabled = false;
+		}
 	});
 	document.querySelector('[data-refresh-setup]')?.addEventListener('click', async (event) => {
 		const control = event.currentTarget;
@@ -539,10 +562,16 @@ export function bindAccountControls(config, identity, backend, context) {
 		if (!control) return;
 		try {
 			control.disabled = true;
-			await context.wizard.openService(
-				required(control.dataset.resumeService),
-				control.dataset.setupKind || '',
-			);
+			const serviceId = required(control.dataset.resumeService);
+			const service = context.state.services?.find((item) => item.serviceId === serviceId);
+			const setup = context.state.setups?.find((item) => item.serviceId === serviceId);
+			await context.wizard.openService(serviceId, {
+				requestId: setup?.requestId || null,
+				planCode: setup?.planCode || service?.planCode || '',
+				setupMode: setup?.kind || '',
+				siteType: service?.siteType || setup?.siteType || '',
+				intent: service?.intent || setup?.intent || '',
+			});
 			location.hash = 'setup';
 		} catch (error) {
 			showError(error);
@@ -1196,14 +1225,6 @@ function renderServiceDetail(service, _context) {
 	);
 	resume.type = 'button';
 	resume.dataset.resumeService = service.serviceId;
-	resume.dataset.setupKind =
-		service.intent === 'migration'
-			? service.siteType === 'wordpress'
-				? 'wordpress-move'
-				: 'php-import'
-			: service.siteType === 'wordpress'
-				? 'wordpress-new'
-				: 'php-static';
 	target.append(resume);
 }
 
@@ -1346,6 +1367,7 @@ export function renderBilling(billing, context) {
 				pending ? 'View setup status' : 'Add hosting',
 			);
 			link.href = pending ? '#hosting' : '#setup';
+			if (!pending) link.dataset.startNewSetup = '';
 			target.append(link);
 		}
 		portal.classList.add('u-hidden');

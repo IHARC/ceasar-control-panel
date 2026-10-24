@@ -76,9 +76,47 @@ try {
 	];
 	$first = onboarding_dispatch("alice", "prepare", $request);
 	check($first["status"] === "queued", "A site should queue.");
+	$recovered = onboarding_dispatch("alice", "read-draft", [])["draft"];
+	check(
+		$recovered["requestId"] === $first["operationId"] &&
+			$recovered["serviceId"] === "preview.example.test" &&
+			$recovered["step"] === "preparation" &&
+			$recovered["setupKind"] === "php-static" &&
+			$recovered["websiteTitle"] === "Fixture" &&
+			$recovered["administratorEmail"] === "owner@example.test",
+		"A lost prepare response did not leave a resumable server draft.",
+	);
+	$advanced = [...$recovered, "step" => "domain", "domain" => "example.test"];
+	onboarding_dispatch("alice", "save-draft", ["draft" => $advanced]);
 	check(
 		onboarding_dispatch("alice", "prepare", $request)["operationId"] === $first["operationId"],
 		"A retry must return the same operation.",
+	);
+	check(
+		onboarding_dispatch("alice", "read-draft", [])["draft"] === $advanced,
+		"Prepare replay replaced advanced draft progress.",
+	);
+	try {
+		onboarding_dispatch("alice", "save-draft", [
+			"draft" => ["step" => "hosting", "requestId" => null, "serviceId" => null],
+		]);
+		throw new RuntimeException("Stale draft cleared a bound operation.");
+	} catch (RuntimeException $error) {
+		check(
+			str_contains($error->getMessage(), "Reload website setup"),
+			"Unexpected stale draft error.",
+		);
+	}
+	check(
+		onboarding_dispatch("alice", "read-draft", [])["draft"] === $advanced,
+		"Rejected stale draft changed server progress.",
+	);
+	onboarding_dispatch("alice", "save-draft", [
+		"draft" => ["step" => "website", "requestId" => null, "serviceId" => null],
+	]);
+	check(
+		onboarding_dispatch("alice", "read-draft", [])["draft"]["requestId"] === null,
+		"Explicit new-site reset did not clear the bound request.",
 	);
 	try {
 		onboarding_dispatch("alice", "prepare", [...$request, "hostname" => "other.example.test"]);

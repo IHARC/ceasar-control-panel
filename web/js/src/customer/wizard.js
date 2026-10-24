@@ -40,6 +40,13 @@ export function websiteSelection(setupKind) {
 	}
 }
 
+export function websiteKind(siteType, intent) {
+	if (siteType === 'wordpress') return intent === 'migration' ? 'wordpress-move' : 'wordpress-new';
+	if (siteType === 'php') return intent === 'migration' ? 'php-import' : 'php-static';
+	if (siteType === 'static' && intent !== 'migration') return 'php-static';
+	return '';
+}
+
 export function trialAllowed(setupKind, capabilities) {
 	return capabilities?.setupMethods?.[setupKind]?.trial === true;
 }
@@ -138,6 +145,7 @@ export function createOnboardingWizard({
 	onCommit,
 	onCreateAccount,
 	onRefreshOffers,
+	onNewSetup,
 	onUpdate,
 	onError,
 }) {
@@ -156,6 +164,7 @@ export function createOnboardingWizard({
 		notice: '',
 	};
 	let loadId = 0;
+	let editRevision = 0;
 	let save = Promise.resolve();
 	let draftSaveTimer;
 	function editingText() {
@@ -190,6 +199,7 @@ export function createOnboardingWizard({
 
 	async function load() {
 		const id = ++loadId;
+		const revision = editRevision;
 		if (!state.accountId || !provider.readOnboarding) {
 			render();
 			return;
@@ -198,7 +208,7 @@ export function createOnboardingWizard({
 			const result = await provider.readOnboarding(state.accountId);
 			if (id !== loadId) return;
 			state.capabilities = result?.capabilities || {};
-			if (result?.draft && steps.includes(result.draft.step)) {
+			if (revision === editRevision && result?.draft && steps.includes(result.draft.step)) {
 				state.draft = { ...state.draft, ...result.draft };
 			}
 			if (
@@ -290,13 +300,75 @@ export function createOnboardingWizard({
 		if (!editingText()) render();
 	}
 
-	async function openService(serviceId, setupKind = '') {
-		state.draft.serviceId = serviceId;
-		if (setupKind) state.draft.setupKind = setupKind;
-		state.draft.step = 'preparation';
+	async function openService(serviceId, metadata = {}) {
+		if (!serviceId) throw new Error('Choose a hosting service.');
+		const sameService = serviceId === state.draft.serviceId;
+		const progress = await provider.serviceOnboarding?.(state.accountId, serviceId);
+		const siteType =
+			progress?.siteType || metadata.siteType || (sameService ? state.draft.siteType : '');
+		const intent = progress?.intent || metadata.intent || (sameService ? state.draft.intent : '');
+		const setupKind =
+			websiteKind(siteType, intent) ||
+			metadata.setupKind ||
+			(sameService ? state.draft.setupKind : '');
+		if (!setupKind)
+			throw new Error('Website type is unavailable. Contact support to resume setup.');
+		if (!sameService || (metadata.requestId && metadata.requestId !== state.draft.requestId))
+			await startNew();
+		Object.assign(state.draft, {
+			serviceId,
+			requestId: metadata.requestId || state.draft.requestId || null,
+			planCode: metadata.planCode || state.draft.planCode,
+			setupMode: metadata.setupMode || state.draft.setupMode,
+			setupKind,
+			...websiteSelection(setupKind),
+			...(siteType === 'static' ? { siteType: 'static' } : {}),
+			step:
+				isReady(progress?.status) || progress?.status === 'needs_action'
+					? 'website-setup'
+					: 'preparation',
+		});
+		state.progress = progress || null;
 		await persist();
-		await refreshProgress();
 		render(true);
+	}
+
+	async function startNew(selection = {}) {
+		clearTimeout(draftSaveTimer);
+		await save.catch(() => {});
+		++loadId;
+		const previous = state.draft;
+		state.draft = {
+			...initialDraft(),
+			requestId: mode === 'native' ? '' : null,
+			serviceId: mode === 'native' ? '' : null,
+		};
+		state.progress = null;
+		state.domain = null;
+		state.checkoutPending = false;
+		state.migrationConfirming = false;
+		state.error = '';
+		state.notice = '';
+		let resetSaved = false;
+		try {
+			await persist();
+			resetSaved = true;
+			if (selection.setupKind) {
+				Object.assign(state.draft, {
+					setupKind: selection.setupKind,
+					...websiteSelection(selection.setupKind),
+					step: mode === 'native' ? 'hosting' : state.accountId ? 'hosting' : 'account',
+				});
+			}
+			if (selection.planCode) state.draft.planCode = selection.planCode;
+			if (selection.setupKind || selection.planCode) await persist();
+			onNewSetup?.();
+			render(true);
+		} catch (error) {
+			if (!resetSaved) state.draft = previous;
+			render();
+			throw error;
+		}
 	}
 
 	function normalizeHostingSelection() {
@@ -917,12 +989,21 @@ export function createOnboardingWizard({
 			rows.prepend(preview);
 		}
 		main.append(rows);
+		main.append(actions(button('Set up another website', 'start-new', true)));
 	}
 
 	async function handleAction(action, target) {
 		if (state.busy) return;
 		state.error = '';
 		const draft = state.draft;
+		if (action === 'start-new') {
+			try {
+				await startNew();
+			} catch (error) {
+				displayError(error);
+			}
+			return;
+		}
 		if (action === 'website-next') {
 			if (draft.step === 'website') {
 				const choice = root.querySelector('[name=setupKind]:checked')?.value;
@@ -1181,6 +1262,19 @@ export function createOnboardingWizard({
 	root.addEventListener('change', (event) => {
 		const target = event.target;
 		if (!target.name) return;
+		if (target.name === 'setupKind') {
+			Object.assign(state.draft, {
+				setupKind: target.value,
+				...websiteSelection(target.value),
+				setupMode: '',
+			});
+			editRevision += 1;
+			state.error = '';
+			const summary = root.querySelector('.customer-wizard-summary dd');
+			if (summary) summary.textContent = choices.find(([key]) => key === target.value)?.[1] || '';
+			void persist().catch(displayError);
+			return;
+		}
 		if (target.name === 'planCode') {
 			state.draft.planCode = target.value;
 			state.draft.setupMode = '';
@@ -1222,7 +1316,7 @@ export function createOnboardingWizard({
 		clearTimeout(draftSaveTimer);
 		draftSaveTimer = setTimeout(() => void persist().catch(displayError), 350);
 	});
-	return { state, load, update, render, openService, refreshProgress };
+	return { state, load, update, render, openService, refreshProgress, startNew };
 }
 
 function trialLabel(capabilities) {

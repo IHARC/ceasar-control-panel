@@ -5,6 +5,7 @@ import {
 	trialAllowed,
 	websiteSelection,
 } from '../../web/js/src/customer/wizard.js';
+import { createRequestKeys } from '../../web/js/src/customer/request-keys.js';
 
 const original = { document: globalThis.document, location: globalThis.location };
 afterEach(() => Object.assign(globalThis, original));
@@ -24,6 +25,7 @@ function mount(overrides = {}) {
 		...overrides.provider,
 	};
 	const onCommit = vi.fn().mockResolvedValue({ requestId: 'request-1', status: 'preparing' });
+	const { provider: _provider, ...options } = overrides;
 	const wizard = createOnboardingWizard({
 		root: document.querySelector('[data-onboarding-wizard]'),
 		provider,
@@ -47,7 +49,7 @@ function mount(overrides = {}) {
 			},
 		},
 		onCommit,
-		...overrides,
+		...options,
 	});
 	wizard.render();
 	return { wizard, provider, onCommit, dom };
@@ -88,6 +90,46 @@ describe('customer onboarding wizard', () => {
 		);
 		click('account-next');
 		expect(document.body.textContent).toContain('Review before continuing');
+	});
+
+	it('keeps a clicked website choice through a background refresh before Continue', async () => {
+		const { wizard, provider } = mount();
+		document.querySelector('[value="wordpress-move"]').click();
+		expect(wizard.state.draft.setupKind).toBe('wordpress-move');
+		await wizard.update({ offers: wizard.state.offers });
+		expect(document.querySelector('[value="wordpress-move"]').checked).toBe(true);
+		click('website-next');
+		expect(wizard.state.draft.step).toBe('account');
+		await vi.waitFor(() =>
+			expect(provider.saveOnboarding).toHaveBeenCalledWith(
+				'account-1',
+				expect.objectContaining({ setupKind: 'wordpress-move', step: 'account' }),
+			),
+		);
+	});
+
+	it('does not replace a just-clicked choice with an older draft read', async () => {
+		let finishRead;
+		const { wizard } = mount({
+			provider: {
+				readOnboarding: vi.fn(
+					() =>
+						new Promise((resolve) => {
+							finishRead = resolve;
+						}),
+				),
+			},
+		});
+		const loading = wizard.load();
+		document.querySelector('[value="wordpress-move"]').click();
+		finishRead({
+			draft: { step: 'ready', setupKind: 'php-static', serviceId: 'old-service' },
+			capabilities: { setupMethods: { 'wordpress-move': { trial: true, paid: true } } },
+		});
+		await loading;
+		expect(wizard.state.draft.step).toBe('website');
+		expect(wizard.state.draft.setupKind).toBe('wordpress-move');
+		expect(wizard.state.capabilities.setupMethods['wordpress-move'].trial).toBe(true);
 	});
 
 	it('allows a trial for WordPress migration and paid only for PHP import', () => {
@@ -201,6 +243,20 @@ describe('customer onboarding wizard', () => {
 		expect(document.querySelector('[data-wizard-action="website-next"]')).not.toBeNull();
 	});
 
+	it('lets a native user start another website from Ready', async () => {
+		const { wizard, provider } = mount({ mode: 'native' });
+		wizard.state.draft.step = 'ready';
+		wizard.state.draft.requestId = 'operation-1';
+		wizard.state.draft.serviceId = 'first.example.test';
+		wizard.render();
+		click('start-new');
+		await vi.waitFor(() => expect(wizard.state.draft.step).toBe('website'));
+		expect(provider.saveOnboarding).toHaveBeenCalledWith(
+			'account-1',
+			expect.objectContaining({ step: 'website', requestId: '', serviceId: '' }),
+		);
+	});
+
 	it('preserves domain and ready steps when completed hosting status refreshes', async () => {
 		const { wizard } = mount();
 		wizard.state.draft.requestId = 'request-1';
@@ -212,6 +268,113 @@ describe('customer onboarding wizard', () => {
 			});
 			expect(wizard.state.draft.step).toBe(step);
 		}
+	});
+
+	it('starts a second paid website with a fresh admission key while leaving the first setup resumable', async () => {
+		const values = new Map();
+		let sequence = 0;
+		const keys = createRequestKeys(() => `submission-${++sequence}`, {
+			getItem: (key) => values.get(key),
+			setItem: (key, value) => values.set(key, value),
+			removeItem: (key) => values.delete(key),
+		});
+		let root;
+		const onCommit = vi.fn(async () => ({
+			requestId: 'request-2',
+			status: 'checkout',
+			idempotencyKey: keys.current(root),
+		}));
+		const { wizard, provider } = mount({
+			onCommit,
+			offers: [
+				{ planCode: 'starter', displayName: 'Starter', paidAvailable: true },
+				{ planCode: 'plus', displayName: 'Plus', paidAvailable: true },
+			],
+			onRefreshOffers: vi.fn().mockResolvedValue({
+				offers: [
+					{ planCode: 'starter', displayName: 'Starter', paidAvailable: true },
+					{ planCode: 'plus', displayName: 'Plus', paidAvailable: true },
+				],
+			}),
+			onNewSetup: () => keys.clear(document.querySelector('[data-onboarding-wizard]')),
+		});
+		root = document.querySelector('[data-onboarding-wizard]');
+		root.dataset.requestKey = 'hosting-setup:account-1';
+		const firstKey = keys.current(root);
+		wizard.state.draft = {
+			...wizard.state.draft,
+			step: 'ready',
+			setupKind: 'wordpress-new',
+			requestId: 'request-1',
+			serviceId: 'service-1',
+		};
+		wizard.render();
+		await wizard.startNew({ setupKind: 'php-import', planCode: 'plus' });
+		expect(provider.saveOnboarding).toHaveBeenCalledWith(
+			'account-1',
+			expect.objectContaining({ step: 'website', requestId: null, serviceId: null }),
+		);
+		expect(wizard.state.draft.planCode).toBe('plus');
+		expect(wizard.state.draft.step).toBe('hosting');
+		expect(document.querySelector('[name="planCode"]').value).toBe('plus');
+		await wizard.update({
+			setups: [{ requestId: 'request-1', serviceId: 'service-1', status: 'checkout' }],
+		});
+		expect(wizard.state.draft.serviceId).toBeNull();
+		click('hosting-commit');
+		await vi.waitFor(() => expect(onCommit).toHaveBeenCalledOnce());
+		expect(keys.current(root)).not.toBe(firstKey);
+		await expect(onCommit.mock.results[0].value).resolves.toEqual(
+			expect.objectContaining({ idempotencyKey: 'submission-2' }),
+		);
+		expect(wizard.state.draft.requestId).toBe('request-2');
+	});
+
+	it('resumes an older WordPress service with its own request and website controls', async () => {
+		const { wizard, provider } = mount({
+			provider: {
+				serviceOnboarding: vi.fn().mockResolvedValue({
+					status: 'needs_action',
+					stage: 'transfer',
+					siteType: 'wordpress',
+					intent: 'migration',
+				}),
+			},
+		});
+		wizard.state.draft = {
+			...wizard.state.draft,
+			step: 'ready',
+			setupKind: 'php-static',
+			requestId: 'request-new',
+			serviceId: 'service-new',
+			planCode: 'starter',
+		};
+		await wizard.openService('service-old', {
+			requestId: 'request-old',
+			planCode: 'plus',
+			setupMode: 'trial',
+		});
+		const saves = provider.saveOnboarding.mock.calls.map((call) => call[1]);
+		expect(saves.at(-2)).toEqual(
+			expect.objectContaining({
+				step: 'website',
+				requestId: null,
+				serviceId: null,
+			}),
+		);
+		expect(saves.at(-1)).toEqual(
+			expect.objectContaining({
+				step: 'website-setup',
+				requestId: 'request-old',
+				serviceId: 'service-old',
+				planCode: 'plus',
+				setupKind: 'wordpress-move',
+				siteType: 'wordpress',
+				intent: 'migration',
+			}),
+		);
+		expect(document.body.textContent).toContain('WPvivid');
+		expect(document.body.textContent).not.toContain('upload files through the file manager');
 	});
 
 	it('submits a short-lived hosting grant by POST', async () => {

@@ -12,6 +12,12 @@ try {
 }
 if (parameters.has('previewReset')) state = {};
 if (parameters.has('previewNew')) state.mode = 'new';
+if (parameters.has('previewReset') || parameters.has('previewNew')) {
+	const url = new URL(location.href);
+	url.searchParams.delete('previewReset');
+	url.searchParams.delete('previewNew');
+	history.replaceState(history.state, '', url);
+}
 state ||= {};
 state.account ||=
 	state.mode === 'new' ? null : { accountId: 'account-1', displayName: 'Example Studio' };
@@ -124,19 +130,32 @@ function offer() {
 		paidAvailable: true,
 	};
 }
+function offers() {
+	return [
+		offer(),
+		{
+			...offer(),
+			planCode: 'plus',
+			displayName: 'Plus',
+			monthlyPriceCadCents: 2495,
+			storageBytes: 10737418240,
+		},
+	];
+}
 function account() {
 	return state.account;
 }
 function service(serviceId) {
 	return state.services.find((item) => item.serviceId === serviceId);
 }
-function progress() {
-	const selected = state.services.at(-1);
+function progress(serviceId) {
+	const selected =
+		state.services.find((service) => service.serviceId === serviceId) || state.services[0];
 	if (!selected)
 		return { status: 'queued', stage: 'allocation', message: 'Waiting for a hosting request.' };
-	state.progressReads += 1;
+	selected.progressReads = (selected.progressReads || 0) + 1;
 	const migration = selected.intent === 'migration';
-	const ready = state.progressReads >= 2;
+	const ready = selected.progressReads >= 2;
 	if (ready) {
 		selected.status = migration && !state.migrationVerified ? 'import_ready' : 'active';
 		state.setups = state.setups.map((row) =>
@@ -210,7 +229,7 @@ Object.assign(backend, {
 			trialEligibility: selectedOffer.trialAvailable
 				? { status: 'eligible', canStartTrial: true, reason: 'trial_available' }
 				: { status: 'unavailable', canStartTrial: false, reason: 'trial_capacity_full' },
-			offers: [selectedOffer],
+			offers: offers(),
 		};
 	},
 	async createAccount(displayName) {
@@ -232,8 +251,8 @@ Object.assign(backend, {
 	async requestPaidAdmission(input) {
 		return admission(input, 'paid');
 	},
-	async serviceOnboarding() {
-		return progress();
+	async serviceOnboarding(_accountId, serviceId) {
+		return progress(serviceId);
 	},
 	async serviceState(serviceId) {
 		return { service: service(serviceId) };
@@ -266,6 +285,8 @@ Object.assign(backend, {
 	},
 });
 function admission(input, mode) {
+	const existing = state.setups.find((setup) => setup.idempotencyKey === input.idempotencyKey);
+	if (existing) return existing;
 	if (mode === 'trial' && !offer().trialAvailable)
 		throw new Error('Trial capacity is full. Review monthly hosting.');
 	if (mode === 'trial' && input.intent === 'migration' && input.siteType === 'php')
@@ -273,6 +294,7 @@ function admission(input, mode) {
 	const requestId = `fixture-${state.setups.length + 1}`;
 	const serviceId = `service-${state.services.length + 1}`;
 	const item = {
+		idempotencyKey: input.idempotencyKey,
 		requestId,
 		serviceId,
 		planCode: input.planCode,
