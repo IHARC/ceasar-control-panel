@@ -1,0 +1,23 @@
+#!/bin/bash
+set -euo pipefail
+install -d -o root -g root -m 0700 /var/lib/ceasar/onboarding
+if getent group ceasarweb > /dev/null && [[ -d /usr/local/ceasar/conf && ! -e /usr/local/ceasar/conf/onboarding.json ]]; then
+	panel_hostname=$(hostname -f 2> /dev/null || true)
+	if [[ "$panel_hostname" =~ ^[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$ ]]; then
+		panel_origin="https://$panel_hostname"
+		printf '{"panel_origin":"%s","grant_origins":["%s"]}\n' "$panel_origin" "$panel_origin" \
+			> /usr/local/ceasar/conf/onboarding.json
+	else
+		printf '{"panel_origin":"","grant_origins":[]}\n' > /usr/local/ceasar/conf/onboarding.json
+	fi
+	chown root:ceasarweb /usr/local/ceasar/conf/onboarding.json
+	chmod 0640 /usr/local/ceasar/conf/onboarding.json
+fi
+if getent group ceasarweb > /dev/null && [[ -d /usr/local/ceasar/conf && ! -e /usr/local/ceasar/conf/turnstile.json ]]; then
+	install -o root -g ceasarweb -m 0640 /dev/null /usr/local/ceasar/conf/turnstile.json
+	printf '{"enabled":false}\n' > /usr/local/ceasar/conf/turnstile.json
+	chown root:ceasarweb /usr/local/ceasar/conf/turnstile.json
+	chmod 0640 /usr/local/ceasar/conf/turnstile.json
+fi
+systemctl daemon-reload > /dev/null 2>&1 || true
+systemctl enable --now ceasar-onboarding.timer > /dev/null 2>&1 || true

@@ -53,6 +53,30 @@ if ($path === "/customer-preview" || $path === "/customer-preview/") {
 	require __DIR__ . "/customer-preview.php";
 	return;
 }
+if ($path === "/customer-preview-callback" || $path === "/customer-preview-callback/") {
+	$GLOBALS["customer_preview_page"] = "callback";
+	require __DIR__ . "/customer-preview.php";
+	return;
+}
+if ($path === "/native-onboarding-preview" || $path === "/native-onboarding-preview/") {
+	require __DIR__ . "/native-onboarding-preview.php";
+	return;
+}
+if ($path === "/onboarding/api/" && $_SERVER["REQUEST_METHOD"] === "POST") {
+	require __DIR__ . "/native-onboarding-api.php";
+	return;
+}
+if ($path === "/onboarding/access/" && $_SERVER["REQUEST_METHOD"] === "POST") {
+	$grant = $_POST["grant"] ?? "";
+	if ($grant !== "fixture-single-use-grant") {
+		http_response_code(403);
+		echo "Invalid fixture grant";
+		return;
+	}
+	header("Content-Type: text/html; charset=utf-8");
+	echo '<!doctype html><html><head><meta name="viewport" content="width=device-width,initial-scale=1"><title>Fixture hosting access</title></head><body><main><h1>Fixture hosting controls</h1><p>The single-use grant was submitted by POST.</p><a href="/customer-preview#setup">Back to setup</a></main></body></html>';
+	return;
+}
 if ($path === "/customer-preview.js") {
 	header("Content-Type: application/javascript; charset=utf-8");
 	readfile(__DIR__ . "/customer-preview.js");

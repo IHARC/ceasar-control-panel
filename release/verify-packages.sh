@@ -30,6 +30,15 @@ for required in \
 	'./usr/local/ceasar/libexec/iharc/' \
 	'./usr/local/ceasar/libexec/support-worker.php' \
 	'./usr/local/ceasar/bin/v-setup-support-runtime' \
+	'./usr/local/ceasar/bin/v-setup-onboarding-runtime' \
+	'./usr/local/ceasar/bin/v-onboarding-request' \
+	'./usr/local/ceasar/bin/v-onboarding-consume-grant' \
+	'./usr/local/ceasar/bin/v-onboarding-work' \
+	'./usr/local/ceasar/libexec/onboarding.php' \
+	'./usr/local/ceasar/libexec/onboarding-worker.php' \
+	'./usr/local/ceasar/libexec/quick-install-options.php' \
+	'./etc/systemd/system/ceasar-onboarding.service' \
+	'./etc/systemd/system/ceasar-onboarding.timer' \
 	'./usr/local/ceasar/bin/v-support-backup' \
 	'./etc/systemd/system/ceasar-support.service' \
 	'./etc/systemd/system/ceasar-support.timer' \

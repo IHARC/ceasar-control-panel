@@ -5,6 +5,9 @@ define("NO_AUTH_REQUIRED", true);
 // Main include
 
 include $_SERVER["DOCUMENT_ROOT"] . "/inc/main.php";
+require_once $_SERVER["DOCUMENT_ROOT"] . "/inc/turnstile.php";
+require_once $_SERVER["DOCUMENT_ROOT"] . "/inc/native-session.php";
+native_turnstile_headers();
 
 $TAB = "LOGIN";
 
@@ -117,6 +120,12 @@ if (isset($_SESSION["user"])) {
 }
 
 function authenticate_user($user, $password, $twofa = "") {
+	if (
+		$twofa === "" &&
+		!native_turnstile_verify((string) ($_POST["cf-turnstile-response"] ?? ""), "native_login")
+	) {
+		return _("Complete the security check and try again.");
+	}
 	unset($_SESSION["login"]);
 	if (verify_csrf($_POST, true)) {
 		$v_user = quoteshellarg($user);
@@ -322,9 +331,7 @@ function authenticate_user($user, $password, $twofa = "") {
 					}
 				}
 
-				// Define session user
-				$_SESSION["user"] = key($data);
-				$v_user = $_SESSION["user"];
+				$v_user = key($data);
 				//log successfull login attempt
 				$v_session_id = quoteshellarg($_POST["token"]);
 				exec(
@@ -341,31 +348,7 @@ function authenticate_user($user, $password, $twofa = "") {
 					$return_var,
 				);
 
-				$_SESSION["LAST_ACTIVITY"] = time();
-
-				// Define user role / context
-				$_SESSION["userContext"] = $data[$user]["ROLE"];
-
-				// Set active user theme on login
-				$_SESSION["userTheme"] = $data[$user]["THEME"];
-				if ($_SESSION["POLICY_USER_CHANGE_THEME"] !== "yes") {
-					unset($_SESSION["userTheme"]);
-				}
-
-				$_SESSION["userSortOrder"] = !empty($data[$user]["PREF_UI_SORT"])
-					? $data[$user]["PREF_UI_SORT"]
-					: "name";
-
-				// Define language
-				$output = "";
-				exec(CEASAR_CMD . "v-list-sys-languages json", $output, $return_var);
-				$languages = json_decode(implode("", $output), true);
-				$_SESSION["language"] = in_array($data[$v_user]["LANGUAGE"], $languages)
-					? $data[$user]["LANGUAGE"]
-					: "en";
-
-				// Regenerate session id to prevent session fixation
-				session_regenerate_id(true);
+				native_begin_user_session($v_user, $data[$user], true);
 
 				// Redirect request to control panel interface
 				if (!empty($_SESSION["request_uri"])) {

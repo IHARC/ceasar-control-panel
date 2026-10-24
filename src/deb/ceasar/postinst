@@ -11,9 +11,21 @@ fi
 if getent group ceasarweb > /dev/null && [ -x "/usr/local/ceasar/bin/v-setup-support-runtime" ]; then
 	/usr/local/ceasar/bin/v-setup-support-runtime
 fi
+if [ -x "/usr/local/ceasar/bin/v-setup-onboarding-runtime" ]; then
+	/usr/local/ceasar/bin/v-setup-onboarding-runtime
+fi
 
 if [ ! -e "/usr/local/ceasar/data/users/" ]; then
 	exit 0
+fi
+
+# Existing installations keep their local API permission file across upgrades.
+# Add only the typed onboarding command to the IHARC root-trusted profile.
+iharc_api=/usr/local/ceasar/data/api/iharc-control
+if [ -f "$iharc_api" ] && [ ! -L "$iharc_api" ] \
+	&& grep -qx "ROLE='admin'" "$iharc_api" \
+	&& ! grep -q 'v-onboarding-request' "$iharc_api"; then
+	sed -i "/^COMMANDS='/ s/'$/,v-onboarding-request'/" "$iharc_api"
 fi
 
 # Existing installations predate the customer module's service-user access to

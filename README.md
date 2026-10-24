@@ -45,6 +45,11 @@ provider, database, or authentication service.
 
 ## Optional customer and managed-hosting integrations
 
+The native [website onboarding wizard](docs/reference/onboarding.md) supports
+WordPress installation, supported migration, file hosting, domain setup and
+resumable progress. It works for ordinary authenticated Ceasar users; optional
+customer enrollment providers supply their own account and billing authority.
+
 The optional customer module uses Supabase Auth in the browser and a configured
 same-origin business API. It is disabled by default. Start with
 `install/common/customer/customer.example.json`; `worker_api_base` selects the

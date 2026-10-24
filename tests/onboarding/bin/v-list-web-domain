@@ -1,0 +1,6 @@
+#!/bin/sh
+if [ "$1" = alice ] && [ "$2" = preview.example.test ]; then
+	printf '{"preview.example.test":{"IP":"203.0.113.7","IP6":"","ALIAS":"","BACKEND":"php-8.3","SSL":"yes"}}\n'
+else
+	exit 3
+fi

@@ -1,0 +1,6 @@
+{
+	"panel_origin": "https://panel.example.test:8083",
+	"grant_origins": ["https://panel.example.test:8083", "https://customer.example.test"],
+	"access_origins": ["https://*.nodes.example.test:8083"],
+	"public_address": "1.1.1.1"
+}

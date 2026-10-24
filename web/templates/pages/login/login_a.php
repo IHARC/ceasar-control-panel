@@ -25,6 +25,7 @@
 			</label>
 			<input type="password" class="form-control" name="password" id="password" autocomplete="current-password" required>
 		</div>
+		<?php native_turnstile_widget('native_login'); ?>
 		<button type="submit" class="button">
 			<i class="fas fa-right-to-bracket"></i><?= tohtml( _("Next")) ?>
 		</button>

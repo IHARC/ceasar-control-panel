@@ -25,7 +25,7 @@ afterEach(() => {
 describe('customer support provider and account UI', () => {
 	it('uses the provider-mapped case id when opening a list item', async () => {
 		const dom = new JSDOM(
-			`<body data-customer-page="account"><script id="customer-config" type="application/json">{"brandName":"Ceasar","loginUrl":"/login","callbackUrl":"/callback","accountUrl":"/account","workerApiBase":"/api/customer/v1","passkeysEnabled":false,"passwordMinLength":12}</script><span data-customer-email></span><button data-customer-sign-out></button><div data-customer-notice hidden></div><section data-customer-view="hosting"><h1 tabindex="-1">Hosting</h1></section><section data-customer-view="support"><h1 tabindex="-1">Support</h1></section><div data-service-list></div><p data-service-empty></p><button data-open-setup></button><div data-support-case-list></div><button data-support-next hidden></button><button data-support-retry hidden></button><div data-support-case-detail></div><button data-support-earlier hidden></button><div data-support-message-list></div><form data-support-reply-form><textarea></textarea><button></button></form><button data-support-reopen hidden></button><section data-support-actions></section><section data-support-account-required></section></body>`,
+			`<body data-customer-page="account"><script id="customer-config" type="application/json">{"brandName":"Ceasar","loginUrl":"/login","callbackUrl":"/callback","accountUrl":"/account","workerApiBase":"/api/customer/v1","passkeysEnabled":false,"passwordMinLength":12}</script><span data-customer-email></span><button data-customer-sign-out></button><div data-customer-notice hidden></div><section data-customer-view="hosting"><h1 tabindex="-1">Hosting</h1></section><section data-customer-view="setup"><div data-onboarding-wizard></div></section><section data-customer-view="support"><h1 tabindex="-1">Support</h1></section><div data-service-list></div><p data-service-empty></p><button data-open-setup></button><div data-support-case-list></div><button data-support-next hidden></button><button data-support-retry hidden></button><div data-support-case-detail></div><button data-support-earlier hidden></button><div data-support-message-list></div><form data-support-reply-form><textarea></textarea><button></button></form><button data-support-reopen hidden></button><section data-support-actions></section><section data-support-account-required></section></body>`,
 			{ url: 'https://customer.example.test/#support' },
 		);
 		for (const key of [
@@ -55,6 +55,8 @@ describe('customer support provider and account UI', () => {
 				});
 			if (url === '/api/customer/v1/accounts/account-1/state')
 				return json({ services: [], setups: [], offers: [], billing: [] });
+			if (url === '/api/customer/v1/accounts/account-1/onboarding')
+				return json({ draft: null, capabilities: {} });
 			if (url === '/api/support/v1/tickets/?page=1&perPage=25')
 				return json({
 					tickets: [{ id: 'ticket-42', subject: 'Mapped ticket', status: 'open' }],
