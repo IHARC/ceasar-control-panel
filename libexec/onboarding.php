@@ -194,15 +194,11 @@ function onboarding_owner(string $user): array {
 function onboarding_site(string $user, string $host): ?array {
 	$result = onboarding_native("v-list-web-domains", [$user, "json"]);
 	if (!$result["ok"]) {
-		throw new RuntimeException(
-			"Website inventory unavailable; retry without creating another site.",
-		);
+		throw new RuntimeException("We couldn't load your website. Try again or contact support.");
 	}
 	$data = json_decode($result["output"], true);
 	if (!is_array($data) || (array_is_list($data) && $data !== [])) {
-		throw new RuntimeException(
-			"Website inventory is invalid; retry without creating another site.",
-		);
+		throw new RuntimeException("We couldn't load your website. Try again or contact support.");
 	}
 	$site = $data[$host] ?? null;
 	if ($site !== null && (!is_array($site) || ($site["SUSPENDED"] ?? "no") === "yes")) {
@@ -583,7 +579,9 @@ function onboarding_dispatch(string $user, string $action, array $input): array 
 		}
 		$row = onboarding_row($db, $user, $id);
 		if ($row["intent"] !== "migration" || $row["status"] !== "needs_action") {
-			throw new RuntimeException("Migration is not awaiting verification.");
+			throw new RuntimeException(
+				"Your website is not ready to confirm yet. Refresh its status and try again.",
+			);
 		}
 		$site = onboarding_site($user, $row["hostname"]);
 		if ($site === null) {
@@ -626,7 +624,7 @@ function onboarding_wp(string $user, string $host, array $site, array $args): ar
 		(string) ($site["DOCUMENT_ROOT"] ?? "/home/" . $user . "/web/" . $host . "/public_html"),
 	);
 	if (!is_string($docroot) || !str_starts_with($docroot, "/home/" . $user . "/")) {
-		throw new RuntimeException("Website document root is unavailable.");
+		throw new RuntimeException("Your website files are unavailable. Contact support.");
 	}
 	$wp = "/home/" . $user . "/.wp-cli/wp";
 	return onboarding_tenant_run(
@@ -664,7 +662,7 @@ function onboarding_wp_has_content(string $user, string $host, array $site): boo
 		(string) ($site["DOCUMENT_ROOT"] ?? "/home/" . $user . "/web/" . $host . "/public_html"),
 	);
 	if (!is_string($docroot) || !str_starts_with($docroot, "/home/" . $user . "/")) {
-		throw new RuntimeException("Website document root is unavailable.");
+		throw new RuntimeException("Your website files are unavailable. Contact support.");
 	}
 	$entries = scandir($docroot);
 	if (!is_array($entries)) {
@@ -889,7 +887,9 @@ function onboarding_domain(
 	$record["status"] = "connected";
 	$wpInstalled = onboarding_wp_installed($user, $host, $site);
 	if (onboarding_wp_has_config($user, $host, $site) && !$wpInstalled) {
-		throw new RuntimeException("WordPress readiness cannot be verified before domain cutover.");
+		throw new RuntimeException(
+			"WordPress is not ready for this domain yet. Try again shortly.",
+		);
 	}
 	if ($wpInstalled) {
 		$home = onboarding_wp($user, $host, $site, ["option", "get", "home"]);
@@ -925,7 +925,7 @@ function onboarding_domain(
 			$saved = onboarding_wp($user, $host, $site, ["db", "export", $temporary]);
 			if (!$saved["ok"] || !is_file($temporary) || !rename($temporary, $backup)) {
 				throw new RuntimeException(
-					"WordPress database backup failed; domain cutover was not started.",
+					"We couldn't save your WordPress backup. Contact support before connecting this domain.",
 				);
 			}
 		}
@@ -946,7 +946,7 @@ function onboarding_domain(
 			]);
 			if (!$rewrite["ok"]) {
 				throw new RuntimeException(
-					"WordPress URL update was interrupted; retry domain connection.",
+					"We couldn't finish updating your WordPress address. Try connecting the domain again.",
 				);
 			}
 		}
@@ -954,7 +954,7 @@ function onboarding_domain(
 			$updated = onboarding_wp($user, $host, $site, ["option", "update", $option, $newUrl]);
 			if (!$updated["ok"]) {
 				throw new RuntimeException(
-					"WordPress canonical URL is incomplete; retry domain connection.",
+					"Your WordPress address is still being updated. Try connecting the domain again.",
 				);
 			}
 		}
@@ -989,7 +989,7 @@ function onboarding_backup_required(?array $prior, string $path): bool {
 	if (is_array($prior) && is_string($prior["backup_path"]) && $prior["backup_path"] !== "") {
 		if ($prior["backup_path"] !== $path || !is_file($path)) {
 			throw new RuntimeException(
-				"Original cutover backup is unavailable; manual recovery is required.",
+				"Your saved WordPress backup is unavailable. Contact support to finish connecting your domain.",
 			);
 		}
 		return false;

@@ -1049,7 +1049,7 @@ export function createOnboardingWizard({
 				const result = await onCommit({ ...draft, accountId: state.accountId });
 				draft.requestId = result?.requestId || draft.requestId;
 				draft.serviceId = result?.serviceId || draft.serviceId;
-				state.notice = result?.message || 'Your hosting request is in progress.';
+				state.notice = '';
 				if (result?.checkoutUrl) {
 					draft.step = 'preparation';
 					await persist();

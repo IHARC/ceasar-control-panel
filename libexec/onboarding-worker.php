@@ -115,12 +115,14 @@ function onboarding_work_one(): bool {
 			$created = onboarding_native("v-add-web-domain", [$user, $host], 120);
 			if (!$created["ok"]) {
 				throw new RuntimeException(
-					"Hosting space could not be created. Check account allowance or contact support.",
+					"We couldn't add your website. Contact support to finish setup.",
 				);
 			}
 			$site = onboarding_site($user, $host);
 			if ($site === null) {
-				throw new RuntimeException("Hosting space is not yet visible.");
+				throw new RuntimeException(
+					"Your website is still being prepared. Try again shortly.",
+				);
 			}
 		}
 		if ($row["site_type"] === "static" && ($site["BACKEND"] ?? "") !== "no-php") {
@@ -129,7 +131,7 @@ function onboarding_work_one(): bool {
 				$row["id"],
 				"running",
 				"static_backend",
-				"Configuring static file hosting.",
+				"Setting up your static website.",
 				"wait",
 			);
 			$backend = onboarding_native(
@@ -138,11 +140,15 @@ function onboarding_work_one(): bool {
 				120,
 			);
 			if (!$backend["ok"]) {
-				throw new RuntimeException("Static hosting backend could not be configured.");
+				throw new RuntimeException(
+					"We couldn't finish setting up your static website. Retry or contact support.",
+				);
 			}
 			$site = onboarding_site($user, $host);
 			if ($site === null || ($site["BACKEND"] ?? "") !== "no-php") {
-				throw new RuntimeException("Static backend is not yet visible.");
+				throw new RuntimeException(
+					"Your static website is still being prepared. Try again shortly.",
+				);
 			}
 		}
 		if (($site["SSL"] ?? "no") !== "yes") {
@@ -163,7 +169,7 @@ function onboarding_work_one(): bool {
 						$host .
 						" to " .
 						implode(", ", $addresses) .
-						" in DNS, wait for propagation, then retry certificate setup. Contact support if DNS is already correct.",
+						" in DNS, then try again. If your DNS already points there, contact support.",
 				);
 			}
 		}
@@ -182,7 +188,7 @@ function onboarding_work_one(): bool {
 					onboarding_wp_has_content($user, $host, $site)
 				) {
 					throw new RuntimeException(
-						"WordPress files or a partial install need inspection before retry. Existing content was left intact.",
+						"We couldn't finish installing WordPress. Contact support to complete setup.",
 					);
 				}
 				onboarding_mark(
@@ -205,9 +211,7 @@ function onboarding_work_one(): bool {
 				}
 				$site = onboarding_site($user, $host) ?? $site;
 				if (!onboarding_wp_installed($user, $host, $site)) {
-					throw new RuntimeException(
-						"WordPress is not responding yet. Retry readiness check.",
-					);
+					throw new RuntimeException("WordPress isn't ready yet. Try again shortly.");
 				}
 			}
 			if ($row["intent"] === "new_site") {
@@ -241,7 +245,7 @@ function onboarding_work_one(): bool {
 					$row["id"],
 					"running",
 					"migration_tools",
-					"Preparing supported migration tools.",
+					"Adding WPvivid to your website.",
 					"wait",
 				);
 				$plugin = onboarding_wp($user, $host, $site, [
@@ -253,7 +257,7 @@ function onboarding_work_one(): bool {
 				]);
 				if (!$plugin["ok"]) {
 					throw new RuntimeException(
-						"Migration tools could not be installed. Retry or contact support.",
+						"We couldn't add WPvivid. Retry or contact support.",
 					);
 				}
 				onboarding_mark(
@@ -261,7 +265,7 @@ function onboarding_work_one(): bool {
 					$row["id"],
 					"needs_action",
 					"transfer",
-					"Install WPvivid on the source and transfer or upload a backup, then confirm the import.",
+					"Install WPvivid on your existing website, then transfer it or upload a backup. Select Restore complete when done.",
 					"confirm_migration",
 				);
 				return true;
@@ -278,14 +282,7 @@ function onboarding_work_one(): bool {
 			);
 			return true;
 		}
-		onboarding_mark(
-			$db,
-			$row["id"],
-			"ready",
-			"ready",
-			"Your hosting space is ready.",
-			"domain",
-		);
+		onboarding_mark($db, $row["id"], "ready", "ready", "Your hosting is ready.", "domain");
 		return true;
 	} catch (Throwable $error) {
 		// Native command output can contain credentials. Persist only curated
@@ -293,11 +290,11 @@ function onboarding_work_one(): bool {
 		$message =
 			$error instanceof RuntimeException
 				? $error->getMessage()
-				: "Preparation needs attention.";
+				: "We couldn't finish setting up your website. Retry or contact support.";
 		$current = onboarding_row($db, $row["owner"], $row["id"]);
 		$partial =
 			in_array($current["stage"], ["installing_wordpress", "wordpress_partial"], true) ||
-			str_contains($message, "partial install");
+			str_contains($message, "couldn't finish installing WordPress");
 		$stage = $partial
 			? "wordpress_partial"
 			: ($current["stage"] === "certificate"
