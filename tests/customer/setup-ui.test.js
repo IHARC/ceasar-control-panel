@@ -93,7 +93,7 @@ describe('customer onboarding wizard', () => {
 			),
 		);
 		click('account-next');
-		expect(document.body.textContent).toContain('Review before continuing');
+		expect(document.body.textContent).toContain('Billing');
 	});
 
 	it('keeps a clicked website choice through a background refresh before Continue', async () => {
@@ -293,7 +293,7 @@ describe('customer onboarding wizard', () => {
 		document.querySelector('[value="trial"]').checked = true;
 		click('hosting-commit');
 		await vi.waitFor(() =>
-			expect(document.querySelector('[role="alert"]')?.textContent).toContain('trial filled'),
+			expect(document.querySelector('[role="alert"]')?.textContent).toContain('Trials filled'),
 		);
 		expect(wizard.state.draft.planCode).toBe('starter');
 		expect(onCommit).not.toHaveBeenCalled();

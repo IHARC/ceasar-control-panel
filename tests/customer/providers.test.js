@@ -224,7 +224,7 @@ describe('CustomerBusinessBackend', () => {
 			'/api/customer?admin=true',
 		]) {
 			expect(() => new CustomerBusinessBackend(identity, value)).toThrow(
-				'Customer backend path is invalid',
+				'Your account could not be loaded. Please contact support.',
 			);
 		}
 	});

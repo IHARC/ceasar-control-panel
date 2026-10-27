@@ -21,13 +21,13 @@ export function domainConnectionView(result = {}) {
 		certificateStatus: result.certificateStatus || (result.certificateReady ? 'ready' : 'pending'),
 		checks: [
 			...(typeof result.dnsReady === 'boolean'
-				? [`Domain DNS: ${result.dnsReady ? 'correct' : 'waiting for records'}`]
+				? [`Website address: ${result.dnsReady ? 'ready' : 'add DNS records'}`]
 				: []),
 			...(typeof result.ownershipReady === 'boolean'
-				? [`Ownership record: ${result.ownershipReady ? 'verified' : 'waiting for TXT record'}`]
+				? [`Domain ownership: ${result.ownershipReady ? 'verified' : 'add the TXT record'}`]
 				: []),
 			...(typeof result.wwwReady === 'boolean'
-				? [`www DNS: ${result.wwwReady ? 'correct' : 'waiting for records'}`]
+				? [`www address: ${result.wwwReady ? 'ready' : 'add DNS records'}`]
 				: []),
 		],
 	};

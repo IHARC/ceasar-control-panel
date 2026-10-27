@@ -37,11 +37,11 @@ if (root) {
 				result.status === 'connected'
 					? 'Your domain is connected to this website.'
 					: !result.ownershipReady
-						? 'Add the TXT verification record to prove control of this domain. Keep your mail records.'
+						? 'Add the TXT record shown below. Keep your existing mail records.'
 						: result.dnsReady
-							? 'DNS is correct. The certificate is being prepared.'
+							? 'Your domain records are ready. We are setting up HTTPS.'
 							: result.conflictingAddresses?.length
-								? 'Remove conflicting web address records before connecting. Keep mail records.'
+								? 'Remove other web address records for this domain, then check again. Keep your existing mail records.'
 								: 'Add the web address record at your DNS provider, then check again.',
 			records:
 				result.records ||
@@ -58,7 +58,7 @@ if (root) {
 		saveOnboarding: (_account, draft) => request('save-draft', { draft }),
 		serviceOnboarding: async () => {
 			const operationId = wizard.state.draft.requestId;
-			if (!operationId) return { status: 'queued', message: 'Preparation is queued.' };
+			if (!operationId) return { status: 'queued', message: 'Your website is being prepared.' };
 			return {
 				...(await request('status', { operationId })),
 				previewUrl: `https://${wizard.state.draft.hostname}/`,
