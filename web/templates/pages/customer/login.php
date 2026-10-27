@@ -12,7 +12,7 @@
 				<label class="customer-choice"><input type="radio" name="login_setup_kind" value="wordpress-new"><span><strong>New WordPress</strong><span>Install standard WordPress.</span></span></label>
 				<label class="customer-choice"><input type="radio" name="login_setup_kind" value="wordpress-move"><span><strong>Move WordPress</strong><span>Bring your existing website.</span></span></label>
 				<label class="customer-choice"><input type="radio" name="login_setup_kind" value="php-import"><span><strong>Import PHP</strong><span>Move files and a database.</span></span></label>
-				<label class="customer-choice"><input type="radio" name="login_setup_kind" value="php-static"><span><strong>PHP or static files</strong><span>Start with an empty workspace.</span></span></label>
+				<label class="customer-choice"><input type="radio" name="login_setup_kind" value="php-static"><span><strong>PHP or static files</strong><span>Start with your own files.</span></span></label>
 			</div>
 		</fieldset>
 		<form id="sign-in" data-customer-auth-form="sign-in">

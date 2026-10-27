@@ -1,5 +1,13 @@
 # Ceasar decisions
 
+## Customer-facing language and layout
+
+- Date: 2026-10-27.
+- Source: Jordan, task `01a17da1-dd1d-7531-b6ce-85c93df6cc22`, requested correction of the IHARC public site and hosting itself: "There should never be any bullshit risk framing, internal sounding copy, over use of badging/cards, etc".
+- Scope: Reusable Ceasar customer-facing account, hosting, onboarding, authentication and support UI. IHARC commercial policy and branding remain installation-specific.
+- Decision: Use direct customer language and restrained layouts. Remove internal operational commentary, risk framing, repetitive caveats, decorative badges and excessive cards. Explain an actual blocked action with a useful next step. Preserve accurate prices, entitlements, meaningful statuses and actionable errors; do not change business rules, security behavior or contractual commitments as copy cleanup.
+- Clarification: Jordan, same task, 2026-10-27: "We do not under any circumstances need risk framing even remotely close to that ever." Present setup choices and included tools plainly; remove defensive warnings and risk-framed explanations throughout customer screens.
+
 ## Public onboarding wizard
 
 - Date: 2026-10-24.

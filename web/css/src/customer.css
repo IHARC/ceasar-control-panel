@@ -447,10 +447,8 @@ button.customer-row:focus-visible .customer-row-title {
 
 .customer-wizard-summary {
 	align-self: start;
-	background: var(--customer-accent-tint);
-	border: 1px solid var(--iharc-line);
-	border-radius: 4px;
-	padding: 20px;
+	border-left: 1px solid var(--iharc-line);
+	padding-left: 20px;
 }
 
 .customer-wizard-summary dd,
@@ -660,15 +658,14 @@ button.customer-row:focus-visible .customer-row-title {
 
 .customer-choice {
 	align-items: start;
-	border: 1px solid var(--iharc-line);
+	border-bottom: 1px solid var(--iharc-line);
 	display: flex;
 	gap: 10px;
-	padding: 12px;
+	padding: 12px 0;
 }
 
 .customer-choice:has(input:checked) {
 	border-color: var(--customer-accent);
-	background: var(--customer-accent-tint);
 }
 
 .customer-choice input {

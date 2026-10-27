@@ -11,13 +11,9 @@ const choices = [
 	[
 		'wordpress-move',
 		'Move a WordPress website',
-		'Prepare a destination, then transfer your existing content, users, plugins, and themes.',
+		'Bring your content, users, plugins, and themes to your new hosting.',
 	],
-	[
-		'php-import',
-		'Import a PHP website',
-		'Move your existing PHP files and database into a prepared workspace.',
-	],
+	['php-import', 'Import a PHP website', 'Bring your PHP files and database to your new hosting.'],
 	[
 		'php-static',
 		'Set up PHP or static files',
@@ -71,13 +67,6 @@ function initialDraft() {
 
 function isReady(status) {
 	return ['ready', 'active', 'import_ready'].includes(status);
-}
-
-function formatBytes(bytes) {
-	if (!Number.isFinite(bytes) || bytes <= 0) return '';
-	const units = ['B', 'KB', 'MB', 'GB', 'TB'];
-	const exponent = Math.min(Math.floor(Math.log(bytes) / Math.log(1024)), units.length - 1);
-	return `${new Intl.NumberFormat(undefined, { maximumFractionDigits: 1 }).format(bytes / 1024 ** exponent)} ${units[exponent]}`;
 }
 
 function safeUrl(value) {
@@ -280,8 +269,7 @@ export function createOnboardingWizard({
 				}
 			}
 			if (request.failureReason === 'trial_capacity_full') {
-				state.error =
-					'The free trial filled during card setup. Review the available monthly option before continuing.';
+				state.error = 'Trials filled during card setup. Choose an available plan to continue.';
 				state.draft.step = 'hosting';
 				state.draft.setupMode = '';
 				void persist().catch(displayError);
@@ -535,19 +523,13 @@ export function createOnboardingWizard({
 
 	function renderHosting(main) {
 		if (mode === 'native') {
-			main.append(
-				make(
-					'p',
-					'customer-view-intro',
-					'Review your website details before preparing the hosting workspace.',
-				),
-			);
+			main.append(make('p', 'customer-view-intro', 'Add the details for your new website.'));
 			main.append(field('Website hostname', 'hostname', state.draft.hostname));
 			main.append(
 				make(
 					'p',
 					'customer-form-help',
-					"Point this hostname to your hosting server in DNS before preparation. For a move, use a preview subdomain and keep the original website's DNS unchanged. You can add another domain later.",
+					'Point this hostname to your hosting server in DNS. If you are moving a website, start with a preview subdomain. You can connect your main domain later.',
 				),
 			);
 			if (state.draft.setupKind === 'php-static') {
@@ -585,13 +567,7 @@ export function createOnboardingWizard({
 			);
 			return;
 		}
-		main.append(
-			make(
-				'p',
-				'customer-view-intro',
-				'Choose a hosting plan and review its terms before secure card setup.',
-			),
-		);
+		main.append(make('p', 'customer-view-intro', 'Choose your plan and get your website started.'));
 		const plan = make('div', 'customer-form-field');
 		const label = make('label', 'customer-form-label', 'Plan');
 		label.htmlFor = 'wizard-plan';
@@ -648,7 +624,9 @@ export function createOnboardingWizard({
 				make(
 					'p',
 					'customer-form-help',
-					'Trial places are currently full. Monthly hosting may still be available.',
+					paid
+						? 'Trials are full right now. You can choose monthly hosting.'
+						: 'Trials are full right now. Check another plan.',
 				),
 			);
 		group.append(list);
@@ -661,13 +639,6 @@ export function createOnboardingWizard({
 					'administratorEmail',
 					state.draft.administratorEmail,
 					'email',
-				),
-			);
-			main.append(
-				make(
-					'p',
-					'customer-form-help',
-					'These details are used when standard WordPress is installed.',
 				),
 			);
 		}
@@ -691,16 +662,11 @@ export function createOnboardingWizard({
 			main.append(type);
 		}
 		const review = make('section', 'customer-wizard-review');
-		review.append(make('h2', '', 'Review before continuing'));
+		review.append(make('h2', '', 'Billing'));
 		const details = make('dl', 'customer-setup-review');
 		details.append(
-			detail('Website', choices.find(([key]) => key === state.draft.setupKind)?.[1]),
 			detail(
-				'Plan',
-				`${offer?.displayName || offer?.planCode || 'Choose a plan'}${limits ? ` — ${limits}` : ''}`,
-			),
-			detail(
-				'Billing',
+				'After card setup',
 				state.draft.setupMode === 'trial'
 					? `${trialLabel(state.capabilities)}, then ${money(offer)}/month plus applicable taxes unless cancelled before it ends.`
 					: `${money(offer)}/month plus applicable taxes.`,
@@ -738,22 +704,6 @@ export function createOnboardingWizard({
 			),
 		);
 		const progress = state.progress;
-		const stages =
-			mode === 'native'
-				? ['Hosting workspace', 'Website preparation', 'Ready for your next step']
-				: ['Card setup', 'Hosting allocation', 'Website preparation', 'Ready for your next step'];
-		const list = make('ol', 'customer-wizard-stages');
-		for (const stage of stages) list.append(make('li', '', stage));
-		main.append(list);
-		if (progress?.stage) {
-			const stage = make(
-				'h2',
-				'customer-wizard-current-stage',
-				`Current stage: ${String(progress.stage).replaceAll(/[_-]+/g, ' ')}`,
-			);
-			stage.setAttribute('aria-live', 'polite');
-			main.append(stage);
-		}
 		main.append(
 			make(
 				'p',
@@ -823,15 +773,15 @@ export function createOnboardingWizard({
 				make(
 					'p',
 					'customer-view-intro',
-					'Install WPvivid Backup & Migration on your source and destination. Transfer and restore through WPvivid, then check the imported website before changing DNS.',
+					'Move your WordPress website with WPvivid Backup & Migration. Follow these steps to bring it across.',
 				),
 			);
 			const list = make('ol', 'customer-wizard-stages');
 			for (const line of [
-				'Open the destination WordPress dashboard.',
-				'Install WPvivid on both websites and follow its supported transfer steps.',
-				'If direct transfer fails, upload a WPvivid backup at the destination.',
-				'Check pages, users, plugins, themes, storage and links before confirming.',
+				'Open WordPress on your new hosting.',
+				'Install WPvivid on both websites and transfer your website.',
+				'You can also upload a WPvivid backup to your new hosting.',
+				'Check your pages, users, plugins, themes, and links.',
 			])
 				list.append(make('li', '', line));
 			main.append(list);
@@ -840,25 +790,6 @@ export function createOnboardingWizard({
 			guide.target = '_blank';
 			guide.rel = 'noopener';
 			main.append(guide);
-			const offer = state.offers.find((item) => item.planCode === state.draft.planCode);
-			main.append(
-				make(
-					'p',
-					'customer-form-help',
-					offer?.storageBytes
-						? `This plan includes ${formatBytes(offer.storageBytes)} storage. Check that your source files and backup fit before transfer.`
-						: 'Check available destination storage before transfer.',
-				),
-			);
-			main.append(
-				make(
-					'p',
-					'customer-form-help',
-					state.capabilities.phpVersion
-						? `The destination uses PHP ${state.capabilities.phpVersion}. Check your source plugins and themes for compatibility; contact support if they need a different version.`
-						: 'Check your source PHP version, plugins, and themes against the destination before transfer. Contact support if compatibility is unclear.',
-				),
-			);
 			if (progress?.stage === 'verified') {
 				main.append(
 					field(
@@ -868,26 +799,20 @@ export function createOnboardingWizard({
 					),
 				);
 				main.append(
-					make(
-						'p',
-						'customer-form-help',
-						'Select an existing administrator from the imported website. No additional administrator is created.',
-					),
+					make('p', 'customer-form-help', 'Choose an administrator from your imported website.'),
 				);
 			} else
 				main.append(
 					make(
 						'p',
 						'customer-form-help',
-						'Complete the transfer and restore in WPvivid, then confirm below. Ceasar checks that WordPress is usable. Access then uses an administrator from the imported website.',
+						'When the transfer is complete, select Restore complete to check your website.',
 					),
 				);
 			main.append(
 				actions(
 					button(
-						progress?.stage === 'verified'
-							? 'Open imported WordPress'
-							: 'Open destination WordPress',
+						progress?.stage === 'verified' ? 'Open imported WordPress' : 'Open new WordPress',
 						'wordpress-access',
 					),
 					...(progress?.stage === 'verified' || state.migrationConfirming
@@ -904,7 +829,7 @@ export function createOnboardingWizard({
 					'p',
 					'customer-view-intro',
 					kind === 'php-import'
-						? 'Upload your PHP files and database to the prepared workspace, then test the preview before switching DNS.'
+						? 'Upload your PHP files and database, then preview your website before connecting your domain.'
 						: 'Use the file manager or SFTP to upload PHP or static files. Database tools are available when your plan includes a database.',
 				),
 			);
@@ -927,7 +852,7 @@ export function createOnboardingWizard({
 			make(
 				'p',
 				'customer-view-intro',
-				'Connect a domain you own, or keep using the preview address for now. Change DNS only after your website is ready. Keep existing mail records.',
+				'Connect your domain, or keep using your preview address. When you update DNS, keep your existing mail records.',
 			),
 		);
 		main.append(field('Your domain', 'domain', state.draft.domain));
@@ -953,10 +878,6 @@ export function createOnboardingWizard({
 		if (state.domain?.message) main.append(make('p', 'customer-form-help', state.domain.message));
 		for (const check of state.domain?.checks || [])
 			main.append(make('p', 'customer-form-help', check));
-		if (state.domain?.certificateStatus)
-			main.append(
-				make('p', 'customer-form-help', `Certificate: ${state.domain.certificateStatus}`),
-			);
 		main.append(
 			actions(
 				button('Back', 'back', true),
@@ -1104,9 +1025,7 @@ export function createOnboardingWizard({
 						state.trialEligibility?.canStartTrial !== true ||
 						offer.trialAvailable !== true)
 				)
-					throw new Error(
-						'The free trial is no longer available. Review the monthly option before continuing.',
-					);
+					throw new Error('Trials are full right now. Choose an available plan to continue.');
 				if (
 					draft.setupMode === 'paid' &&
 					(state.capabilities.setupMethods?.[draft.setupKind]?.paid !== true ||
@@ -1123,7 +1042,7 @@ export function createOnboardingWizard({
 					draft.setupMode === 'trial' &&
 					(state.trialEligibility?.canStartTrial !== true || fresh?.trialAvailable !== true)
 				)
-					throw new Error('The free trial filled. Review the monthly option before continuing.');
+					throw new Error('Trials filled during card setup. Choose an available plan to continue.');
 				if (draft.setupMode === 'paid' && fresh?.paidAvailable !== true)
 					throw new Error('Monthly hosting is unavailable for this plan.');
 				await persist();
@@ -1135,7 +1054,7 @@ export function createOnboardingWizard({
 					draft.step = 'preparation';
 					await persist();
 					const url = safeUrl(result.checkoutUrl);
-					if (!url) throw new Error('The billing provider returned an invalid link.');
+					if (!url) throw new Error('Billing is unavailable right now. Try again shortly.');
 					location.assign(url);
 				} else navigate('preparation');
 			} else if (action === 'retry-preparation') {
@@ -1157,7 +1076,7 @@ export function createOnboardingWizard({
 					throw new Error('Card setup is not available yet. Refresh progress.');
 				const checkout = await provider.setupCheckout(state.accountId, draft.requestId);
 				const url = safeUrl(checkout.checkoutUrl);
-				if (!url) throw new Error('The billing provider returned an invalid link.');
+				if (!url) throw new Error('Billing is unavailable right now. Try again shortly.');
 				location.assign(url);
 			} else if (action === 'hosting-access' || action === 'wordpress-access') {
 				const userId =
@@ -1185,7 +1104,7 @@ export function createOnboardingWizard({
 			} else if (action === 'migration-confirm') {
 				const operationId = state.progress?.operationId;
 				if (draft.setupKind === 'php-import' && !operationId)
-					throw new Error('Wait until the import workspace is ready.');
+					throw new Error('Your website is still being prepared. Try again shortly.');
 				state.migrationConfirmKey ||= crypto.randomUUID();
 				const result = await provider.confirmMigration(draft.serviceId, {
 					accountId: state.accountId,
@@ -1195,8 +1114,7 @@ export function createOnboardingWizard({
 				state.progress = result?.stage ? result : state.progress;
 				state.migrationConfirming = true;
 				await refreshProgress();
-				state.notice =
-					'Migration verification requested. Check the preview before switching your domain.';
+				state.notice = 'Your website check has started. Preview it before connecting your domain.';
 				render();
 			} else if (action === 'domain-check' || action === 'domain-connect') {
 				const domain = root.querySelector('[name=domain]')?.value.trim().toLowerCase() || '';
@@ -1239,7 +1157,7 @@ export function createOnboardingWizard({
 				url.pathname !== '/onboarding/access/' ||
 				(url.protocol !== 'https:' && !(url.origin === location.origin && url.protocol === 'http:'))
 			)
-				throw new Error('The access destination is invalid.');
+				throw new Error('Website access is unavailable right now. Try again shortly.');
 			const form = make('form');
 			form.method = 'POST';
 			form.action = url.toString();
@@ -1342,8 +1260,8 @@ function offerLimits(offer) {
 	const parts = [];
 	if (offer.websiteLimit)
 		parts.push(`${offer.websiteLimit} ${offer.websiteLimit === 1 ? 'website' : 'websites'}`);
-	if (offer.storageBytes) parts.push(`${Math.round(offer.storageBytes / 1073741824)} GB storage`);
+	if (offer.storageBytes) parts.push(`${Math.round(offer.storageBytes / 1073741824)} GiB storage`);
 	if (offer.transferBytes)
-		parts.push(`${Math.round(offer.transferBytes / 1073741824)} GB transfer`);
+		parts.push(`${Math.round(offer.transferBytes / 1073741824)} GiB data transfer`);
 	return parts.length ? `Includes ${parts.join(', ')}` : '';
 }

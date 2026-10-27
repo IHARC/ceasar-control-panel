@@ -1811,8 +1811,8 @@ function terminalSetup(status) {
 function setupMessage(setup) {
 	const action = setup.nextAction;
 	if (setup.failureReason === 'trial_capacity_full')
-		return 'Free trial places filled before your trial started. No subscription or charge was created. You can start a new setup.';
-	if (setup.status === 'import_ready') return 'Import workspace is ready.';
+		return 'Trials filled before your setup started. Choose another option or try again later. No charge was made.';
+	if (setup.status === 'import_ready') return 'Your website is ready for import.';
 	if (action === 'continue_checkout') return 'Checkout is ready to continue.';
 	if (action === 'view_service') return 'Hosting is ready.';
 	if (action === 'start_new_setup') return 'This setup ended. You can start a new one.';
@@ -1897,7 +1897,7 @@ function showError(error) {
 function humanError(error) {
 	const message = error instanceof Error ? error.message : '';
 	if (message === 'trial_capacity_full')
-		return 'Free trial places filled before setup could start. Review the monthly option or try again later.';
+		return 'Trials filled before your setup started. Choose another option or try again later.';
 	if (message === 'upstream_rejected')
 		return 'That request could not be completed. Review the details and try again.';
 	return message || 'The request could not be completed.';

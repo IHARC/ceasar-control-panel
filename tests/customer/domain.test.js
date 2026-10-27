@@ -12,9 +12,9 @@ it('turns the actual native DNS contract into actionable customer status', () =>
 	expect(pending.message).toContain('TXT verification');
 	expect(pending.certificateStatus).toBe('pending');
 	expect(pending.checks).toEqual([
-		'Domain DNS: correct',
-		'Ownership record: waiting for TXT record',
-		'www DNS: waiting for records',
+		'Website address: ready',
+		'Domain ownership: add the TXT record',
+		'www address: add DNS records',
 	]);
 	const conflicting = domainConnectionView({
 		conflictingAddresses: ['192.0.2.1'],

@@ -7,7 +7,7 @@
 
 <section class="customer-view" data-customer-view="hosting">
 	<h1 class="customer-view-heading" tabindex="-1">Hosting</h1>
-	<p class="customer-view-intro">Set up a website, follow its progress, and connect your domain when it is ready.</p>
+	<p class="customer-view-intro">Create a website or bring your existing one to your hosting.</p>
 
 	<section class="customer-section">
 		<h2>Your hosting</h2>
@@ -18,7 +18,7 @@
 	</section>
 
 	<section class="customer-section u-hidden" data-setup-status-section>
-		<h2>Setup status</h2>
+		<h2>Website setup</h2>
 		<div data-setup-status></div>
 		<div class="customer-actions"><button class="button button-secondary" type="button" data-refresh-setup>Refresh status</button></div>
 	</section>
@@ -58,7 +58,7 @@
 			<div class="customer-message-list" data-support-message-list></div>
 			<form class="customer-form" data-account-action="support-reply" data-support-reply-form hidden>
 				<div class="customer-form-field"><label class="customer-form-label" for="support-reply">Reply</label><textarea class="form-control" id="support-reply" name="message" maxlength="10000" required></textarea></div>
-				<div class="customer-form-field"><label class="customer-form-label" for="support-reply-attachments">Attachments</label><input id="support-reply-attachments" name="attachments" type="file" multiple><p class="customer-form-help">Files are checked before they are added to the conversation.</p></div>
+				<div class="customer-form-field"><label class="customer-form-label" for="support-reply-attachments">Attachments</label><input id="support-reply-attachments" name="attachments" type="file" multiple></div>
 				<div class="customer-actions"><button class="button" type="submit">Send reply</button><button class="button button-secondary" type="button" data-support-close>Close case</button><button class="button button-secondary" type="button" data-support-reopen hidden>Reopen case</button></div>
 			</form>
 		</section>
@@ -68,7 +68,7 @@
 		<form class="customer-form" data-account-action="support-open">
 			<div class="customer-form-field"><label class="customer-form-label" for="support-subject">Subject</label><input class="form-control" id="support-subject" name="subject" maxlength="240" required></div>
 			<div class="customer-form-field"><label class="customer-form-label" for="support-message">How can we help?</label><textarea class="form-control" id="support-message" name="message" maxlength="10000" required></textarea></div>
-			<div class="customer-form-field"><label class="customer-form-label" for="support-attachments">Attachments</label><input id="support-attachments" name="attachments" type="file" multiple><p class="customer-form-help">Files are checked before they are added to the case.</p></div>
+			<div class="customer-form-field"><label class="customer-form-label" for="support-attachments">Attachments</label><input id="support-attachments" name="attachments" type="file" multiple></div>
 			<button class="button" type="submit">Open case</button>
 		</form>
 	</section>

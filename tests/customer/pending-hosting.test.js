@@ -42,7 +42,7 @@ it('shows every durable setup state and fetches checkout only when the customer 
 		'setup-checkout',
 	);
 	expect(document.querySelector('[data-setup-status] [data-state="checkout"]')).toBeNull();
-	expect(document.body.textContent).toContain('Import workspace is ready.');
+	expect(document.body.textContent).toContain('Your website is ready for import.');
 	expect(document.querySelector('[data-view-service]').dataset.viewService).toBe('service-import');
 	expect(document.querySelector('[data-setup-status] [data-state="import_ready"]')).toBeNull();
 	renderSetups([], {});

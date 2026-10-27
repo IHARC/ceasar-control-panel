@@ -374,9 +374,14 @@ export class CustomerBusinessBackend {
 	}
 
 	#hostedUrl(value) {
-		const destination = new URL(value);
+		let destination;
+		try {
+			destination = new URL(value);
+		} catch {
+			throw new Error('Billing is unavailable right now. Try again shortly.');
+		}
 		if (destination.protocol !== 'https:') {
-			throw new Error('Billing provider returned an invalid hosted URL.');
+			throw new Error('Billing is unavailable right now. Try again shortly.');
 		}
 		return destination.toString();
 	}
@@ -402,14 +407,14 @@ export class CustomerBusinessBackend {
 			const response = await this.fetch(`${this.apiBase}${path}`, options);
 			const contentType = response.headers.get('content-type') || '';
 			if (!contentType.includes('application/json')) {
-				throw new Error('Customer backend returned an invalid response.');
+				throw new Error('Your account is unavailable right now. Refresh and try again.');
 			}
 			const body = await response.json();
 			if (!response.ok) {
 				throw new Error(customerErrorMessage(body?.error));
 			}
 			if (!Object.hasOwn(body, 'data')) {
-				throw new Error('Customer backend returned an invalid response.');
+				throw new Error('Your account is unavailable right now. Refresh and try again.');
 			}
 			return body.data;
 		});
@@ -438,11 +443,11 @@ export class CustomerBusinessBackend {
 			const response = await this.fetch(`${this.supportApiBase}${path}`, options);
 			const contentType = response.headers.get('content-type') || '';
 			if (!contentType.includes('application/json'))
-				throw new Error('Support service returned an invalid response.');
+				throw new Error('Support is unavailable right now. Try again shortly.');
 			const body = await response.json();
 			if (!response.ok) throw new Error(customerErrorMessage(body?.error));
 			if (!Object.hasOwn(body, 'data'))
-				throw new Error('Support service returned an invalid response.');
+				throw new Error('Support is unavailable right now. Try again shortly.');
 			return body.data;
 		});
 	}
@@ -491,12 +496,12 @@ function customerApiBase(value) {
 		value.length > 200 ||
 		!/^\/[A-Za-z0-9][A-Za-z0-9._~!$&'()*+,;=:@/-]*\/?$/.test(value)
 	) {
-		throw new Error('Customer backend path is invalid.');
+		throw new Error('Your account could not be loaded. Please contact support.');
 	}
 	const normalized = value.replace(/\/$/, '');
 	const segments = normalized.slice(1).split('/');
 	if (segments.some((segment) => !segment || segment === '.' || segment === '..')) {
-		throw new Error('Customer backend path is invalid.');
+		throw new Error('Your account could not be loaded. Please contact support.');
 	}
 	return normalized;
 }
